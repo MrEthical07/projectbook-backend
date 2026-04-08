@@ -1,0 +1,151 @@
+package auth
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	goauth "github.com/MrEthical07/goAuth"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
+)
+
+type noopUserProvider struct{}
+
+func (noopUserProvider) GetUserByIdentifier(string) (goauth.UserRecord, error) {
+	return goauth.UserRecord{}, goauth.ErrUserNotFound
+}
+
+func (noopUserProvider) GetUserByID(string) (goauth.UserRecord, error) {
+	return goauth.UserRecord{}, goauth.ErrUserNotFound
+}
+
+func (noopUserProvider) UpdatePasswordHash(string, string) error {
+	return goauth.ErrUserNotFound
+}
+
+func (noopUserProvider) CreateUser(context.Context, goauth.CreateUserInput) (goauth.UserRecord, error) {
+	return goauth.UserRecord{}, goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) UpdateAccountStatus(context.Context, string, goauth.AccountStatus) (goauth.UserRecord, error) {
+	return goauth.UserRecord{}, goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) GetTOTPSecret(context.Context, string) (*goauth.TOTPRecord, error) {
+	return nil, goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) EnableTOTP(context.Context, string, []byte) error {
+	return goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) DisableTOTP(context.Context, string) error {
+	return goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) MarkTOTPVerified(context.Context, string) error {
+	return goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) UpdateTOTPLastUsedCounter(context.Context, string, int64) error {
+	return goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) GetBackupCodes(context.Context, string) ([]goauth.BackupCodeRecord, error) {
+	return nil, goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) ReplaceBackupCodes(context.Context, string, []goauth.BackupCodeRecord) error {
+	return goauth.ErrUnauthorized
+}
+
+func (noopUserProvider) ConsumeBackupCode(context.Context, string, [32]byte) (bool, error) {
+	return false, goauth.ErrUnauthorized
+}
+
+func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
+	cfg := projectBookGoAuthConfig(ModeHybrid)
+
+	if cfg.JWT.AccessTTL != 5*time.Minute {
+		t.Fatalf("AccessTTL=%s want=%s", cfg.JWT.AccessTTL, 5*time.Minute)
+	}
+	if cfg.JWT.RefreshTTL != 7*24*time.Hour {
+		t.Fatalf("RefreshTTL=%s want=%s", cfg.JWT.RefreshTTL, 7*24*time.Hour)
+	}
+	if cfg.JWT.Issuer != "projectbook" {
+		t.Fatalf("Issuer=%q want=%q", cfg.JWT.Issuer, "projectbook")
+	}
+	if cfg.JWT.Audience != "projectbook-api" {
+		t.Fatalf("Audience=%q want=%q", cfg.JWT.Audience, "projectbook-api")
+	}
+	if cfg.JWT.KeyID != "v1" {
+		t.Fatalf("KeyID=%q want=%q", cfg.JWT.KeyID, "v1")
+	}
+
+	if cfg.Security.EnablePermissionVersionCheck {
+		t.Fatalf("EnablePermissionVersionCheck=true want=false")
+	}
+	if cfg.Security.EnableRoleVersionCheck {
+		t.Fatalf("EnableRoleVersionCheck=true want=false")
+	}
+	if !cfg.Security.EnforceRefreshRotation {
+		t.Fatalf("EnforceRefreshRotation=false want=true")
+	}
+	if !cfg.Security.EnforceRefreshReuseDetection {
+		t.Fatalf("EnforceRefreshReuseDetection=false want=true")
+	}
+	if !cfg.Security.EnableLoginFailureLimiter {
+		t.Fatalf("EnableLoginFailureLimiter=false want=true")
+	}
+	if cfg.Security.EnableIPBinding {
+		t.Fatalf("EnableIPBinding=true want=false")
+	}
+	if cfg.Security.EnableIPSignal {
+		t.Fatalf("EnableIPSignal=true want=false")
+	}
+	if cfg.Security.ProductionMode {
+		t.Fatalf("ProductionMode=true want=false")
+	}
+
+	if !cfg.Session.SlidingExpiration {
+		t.Fatalf("SlidingExpiration=false want=true")
+	}
+	if cfg.Session.AbsoluteSessionLifetime != 7*24*time.Hour {
+		t.Fatalf("AbsoluteSessionLifetime=%s want=%s", cfg.Session.AbsoluteSessionLifetime, 7*24*time.Hour)
+	}
+	if cfg.DeviceBinding.Enabled {
+		t.Fatalf("DeviceBinding.Enabled=true want=false")
+	}
+	if cfg.MultiTenant.Enabled {
+		t.Fatalf("MultiTenant.Enabled=true want=false")
+	}
+	if cfg.Permission.MaxBits != 64 {
+		t.Fatalf("Permission.MaxBits=%d want=64", cfg.Permission.MaxBits)
+	}
+	if cfg.Permission.RootBitReserved {
+		t.Fatalf("Permission.RootBitReserved=true want=false")
+	}
+}
+
+func TestNewGoAuthEngineBuildsWithControlledConfig(t *testing.T) {
+	mr := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() {
+		_ = redisClient.Close()
+		mr.Close()
+	})
+
+	engine, shutdown, err := NewGoAuthEngine(redisClient, ModeHybrid, noopUserProvider{})
+	if err != nil {
+		t.Fatalf("NewGoAuthEngine() error = %v", err)
+	}
+	if engine == nil {
+		t.Fatalf("engine=nil want non-nil")
+	}
+	if shutdown == nil {
+		t.Fatalf("shutdown=nil want non-nil")
+	}
+
+	shutdown()
+}

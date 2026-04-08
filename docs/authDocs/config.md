@@ -14,6 +14,11 @@ Three presets are provided:
 | `HighSecurityConfig()` | Strict       | 5 min     | 24 hours   | iat required, device binding on |
 | `HighThroughputConfig()` | Hybrid    | 15 min    | 14 days    | Relaxed refresh limits   |
 
+## ProjectBook Integration
+
+goAuth is used ONLY for authentication.
+Authorization is handled by custom RBAC (permissionMask system).
+
 ## JWT (`Config.JWT`)
 
 | Field          | Type          | Default      | Description |

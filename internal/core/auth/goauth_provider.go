@@ -14,6 +14,13 @@ type providerCloser interface {
 	Close()
 }
 
+const goAuthAuthOnlyPermission = "projectbook.auth_only"
+
+var goAuthAuthOnlyRoles = map[string][]string{
+	"user":  {goAuthAuthOnlyPermission},
+	"admin": {goAuthAuthOnlyPermission},
+}
+
 // NewGoAuthEngine builds a goAuth engine backed by Redis and SQLC user provider.
 //
 // Usage:
@@ -23,48 +30,26 @@ type providerCloser interface {
 // Notes:
 // - redisClient must be non-nil
 // - shutdown should be called during application shutdown
-// - AUTH_TEST_* variables are honored for deterministic local perf scenarios
+// - AUTH_TEST_SHARED_SECRET enables deterministic local signer behavior
 func NewGoAuthEngine(redisClient redis.UniversalClient, mode Mode, userProvider goauth.UserProvider) (*goauth.Engine, func(), error) {
 	if redisClient == nil {
 		return nil, nil, fmt.Errorf("goAuth provider requires redis client")
 	}
 
-	cfg := goauth.DefaultConfig()
-	cfg.ValidationMode = toGoAuthValidationMode(mode)
-	cfg.Result.IncludeRole = true
-	cfg.Result.IncludePermissions = true
-	cfg.Account.Enabled = true
-	cfg.Account.DefaultRole = "user"
+	cfg := projectBookGoAuthConfig(mode)
 
 	// Optional deterministic signer for local perf tests across multiple processes.
 	if sharedSecret := strings.TrimSpace(os.Getenv("AUTH_TEST_SHARED_SECRET")); sharedSecret != "" {
 		cfg.JWT.SigningMethod = "hs256"
 		cfg.JWT.PrivateKey = []byte(sharedSecret)
 		cfg.JWT.PublicKey = []byte(sharedSecret)
-		cfg.JWT.Issuer = "superapi-perf"
-		cfg.JWT.Audience = "superapi-perf"
-		cfg.JWT.KeyID = "superapi-perf-key"
-	}
-
-	if accessTTLRaw := strings.TrimSpace(os.Getenv("AUTH_TEST_ACCESS_TTL")); accessTTLRaw != "" {
-		if d, err := time.ParseDuration(accessTTLRaw); err == nil && d > 0 {
-			cfg.JWT.AccessTTL = d
-		}
-	}
-	if refreshTTLRaw := strings.TrimSpace(os.Getenv("AUTH_TEST_REFRESH_TTL")); refreshTTLRaw != "" {
-		if d, err := time.ParseDuration(refreshTTLRaw); err == nil && d > 0 {
-			cfg.JWT.RefreshTTL = d
-		}
 	}
 
 	engine, err := goauth.New().
 		WithConfig(cfg).
 		WithRedis(redisClient).
-		WithPermissions([]string{"system.whoami"}).
-		WithRoles(map[string][]string{
-			"user":  {"system.whoami"},
-			"admin": {"system.whoami"},
-		}).
+		WithPermissions([]string{goAuthAuthOnlyPermission}).
+		WithRoles(goAuthAuthOnlyRoles).
 		WithUserProvider(userProvider).
 		Build()
 	if err != nil {
@@ -78,6 +63,48 @@ func NewGoAuthEngine(redisClient redis.UniversalClient, mode Mode, userProvider 
 	}
 
 	return engine, shutdown, nil
+}
+
+func projectBookGoAuthConfig(mode Mode) goauth.Config {
+	cfg := goauth.DefaultConfig()
+	cfg.ValidationMode = toGoAuthValidationMode(mode)
+
+	// JWT identity for ProjectBook API.
+	cfg.JWT.AccessTTL = 5 * time.Minute
+	cfg.JWT.RefreshTTL = 7 * 24 * time.Hour
+	cfg.JWT.Issuer = "projectbook"
+	cfg.JWT.Audience = "projectbook-api"
+	cfg.JWT.KeyID = "v1"
+
+	// goAuth handles authentication only; RBAC authorization is external.
+	cfg.Result.IncludeRole = true
+	cfg.Result.IncludePermissions = false
+	cfg.Security.EnablePermissionVersionCheck = false
+	cfg.Security.EnableRoleVersionCheck = false
+	cfg.Security.EnforceRefreshRotation = true
+	cfg.Security.EnforceRefreshReuseDetection = true
+	cfg.Security.EnableLoginFailureLimiter = true
+	cfg.Security.EnableIPBinding = false
+	cfg.Security.EnableIPSignal = false
+	cfg.Security.ProductionMode = false
+
+	// Session behavior remains default but explicit for deterministic setup.
+	cfg.Session.SlidingExpiration = true
+	cfg.Session.AbsoluteSessionLifetime = 7 * 24 * time.Hour
+
+	// Disable unsupported features for controlled pre-production setup.
+	cfg.DeviceBinding.Enabled = false
+	cfg.MultiTenant.Enabled = false
+
+	// Match ProjectBook permission-mask model constraints.
+	cfg.Permission.MaxBits = 64
+	cfg.Permission.RootBitReserved = false
+
+	// User creation/role assignment is owned by application flows.
+	cfg.Account.Enabled = false
+	cfg.Account.DefaultRole = ""
+
+	return cfg
 }
 
 func toGoAuthValidationMode(mode Mode) goauth.ValidationMode {
