@@ -63,8 +63,9 @@ func validateAuthDependencies(metas []Metadata) error {
 		return nil
 	}
 
-	if hasPolicyType(metas, PolicyTypeRequirePerm) ||
-		hasPolicyType(metas, PolicyTypeRequireAnyPerm) ||
+	if hasPolicyType(metas, PolicyTypeRequirePermission) ||
+		hasPolicyType(metas, PolicyTypeRequireAnyPermission) ||
+		hasPolicyType(metas, PolicyTypeRequireAllPermissions) ||
 		hasPolicyType(metas, PolicyTypeTenantRequired) {
 		return fmt.Errorf("%s is required when RBAC or tenant policies are configured", PolicyTypeAuthRequired)
 	}
@@ -137,7 +138,7 @@ func policyOrderStage(policyType PolicyType) int {
 		return 1
 	case PolicyTypeTenantRequired, PolicyTypeTenantMatchFromPath:
 		return 2
-	case PolicyTypeRequirePerm, PolicyTypeRequireAnyPerm:
+	case PolicyTypeRequirePermission, PolicyTypeRequireAnyPermission, PolicyTypeRequireAllPermissions:
 		return 3
 	case PolicyTypeRateLimit:
 		return 4

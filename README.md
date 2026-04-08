@@ -2,21 +2,21 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/badge/release-v0.7.0-brightgreen)](CHANGELOG.md)
 
-# SuperAPI
+# ProjectBook Backend
 
-Production-grade Go API template for SaaS backends.
+Production-grade Go backend for ProjectBook.
 
-## IMPORTANT NOTICE
+## Repository Context
 
-This is a TEMPLATE repository.
+This repository is the backend API for **ProjectBook**.
 
-- Do NOT install via go get
-- Use "Use this template" to create a new project
-- Generated projects are independent and do NOT auto-update
+- Frontend repository: [https://github.com/MrEthical07/projectbook](https://github.com/MrEthical07/projectbook)
+- Backend repository: [https://github.com/MrEthical07/projectbook-backend](https://github.com/MrEthical07/projectbook-backend)
+- Local development note: if available in your workspace, the sibling `../web` folder contains the frontend code.
 
 ## What This Is
 
-SuperAPI is a modular Go API foundation focused on production use from day one.
+ProjectBook Backend uses a modular Go API foundation focused on production use from day one.
 
 It provides:
 - a module-oriented API architecture
@@ -56,26 +56,16 @@ Hard rules:
 
 ## Acknowledgments
 
-SuperAPI uses **goAuth** as its authentication engine.
+ProjectBook Backend uses **goAuth** as its authentication engine.
 
-`goAuth` is an open-source authentication framework that powers SuperAPI's route-level auth workflows and identity lifecycle integration.
+`goAuth` is an open-source authentication framework that powers route-level auth workflows and identity lifecycle integration in this backend.
 
 - goAuth repository: [https://github.com/MrEthical07/goAuth](https://github.com/MrEthical07/goAuth)
-
-## Showcase
-
-The following project uses SuperAPI as its backend foundation in production-oriented development:
-
-- **ProjectBook**: A design thinking-first workspace for building people-centric projects without context fragmentation.
-  - Frontend repository: [https://github.com/MrEthical07/projectbook](https://github.com/MrEthical07/projectbook)
-  - Backend repository (built on SuperAPI): [https://github.com/MrEthical07/projectbook-backend](https://github.com/MrEthical07/projectbook-backend)
 
 ## Quick Start
 
 ```bash
-1. Click "Use this template"
-2. Clone your new repo
-3. go run ./cmd/api
+go run ./cmd/api
 ```
 
 After startup:
@@ -167,10 +157,10 @@ Guides:
 
 ## Versioning And Updates
 
-- This template is distributed as a snapshot.
-- Generated repositories do not receive automatic upstream updates.
-- Upgrades are manual: compare changes, port intentionally, and validate with tests/build.
-- Current public template baseline: v0.7.0 (pre-1.0 by intent).
+- This repository was initially bootstrapped from the SuperAPI template baseline.
+- It is now maintained as the ProjectBook backend and does not auto-sync with upstream template changes.
+- Upgrades from upstream are manual: compare changes, port intentionally, and validate with tests/build.
+- Initial bootstrap baseline: SuperAPI v0.7.0.
 
 ## Release Hygiene
 

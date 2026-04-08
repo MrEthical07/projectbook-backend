@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/MrEthical07/superapi/internal/core/auth"
+	"github.com/MrEthical07/superapi/internal/core/rbac"
 )
 
 func TestAuthRequiredMissingTokenUnauthorized(t *testing.T) {
@@ -65,20 +66,21 @@ func TestAuthRequiredValidTokenInjectsContext(t *testing.T) {
 	}
 }
 
-func TestRequirePermForbiddenWhenMissing(t *testing.T) {
-	engine, token := newPolicyTestAuthEngine(t)
-
+func TestRequirePermissionForbiddenWhenMissing(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		AuthRequired(engine, auth.ModeHybrid),
-		RequirePerm("project.write"),
+		RequirePermission(rbac.PermProjectEdit),
 	)
 
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{
+		UserID:         "u1",
+		PermissionMask: rbac.PermProjectView,
+	}))
+
+	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusForbidden {
@@ -112,20 +114,21 @@ func TestAuthRequiredNoSecretLeakOnFailure(t *testing.T) {
 	}
 }
 
-func TestRequireAnyPermForbiddenWhenMissingAll(t *testing.T) {
-	engine, token := newPolicyTestAuthEngine(t)
-
+func TestRequireAnyPermissionForbiddenWhenMissingAll(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		AuthRequired(engine, auth.ModeHybrid),
-		RequireAnyPerm("project.write", "project.admin"),
+		RequireAnyPermission(rbac.PermProjectEdit, rbac.PermTaskDelete),
 	)
 
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{
+		UserID:         "u1",
+		PermissionMask: rbac.PermProjectView,
+	}))
+
+	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusForbidden {
@@ -133,24 +136,63 @@ func TestRequireAnyPermForbiddenWhenMissingAll(t *testing.T) {
 	}
 }
 
-func TestRequireAnyPermAllowsWhenAnyPresent(t *testing.T) {
-	engine, token := newPolicyTestAuthEngine(t)
-
+func TestRequireAnyPermissionAllowsWhenAnyPresent(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		AuthRequired(engine, auth.ModeHybrid),
-		RequireAnyPerm("project.write", "system.whoami"),
+		RequireAnyPermission(rbac.PermProjectEdit, rbac.PermProjectView),
 	)
 
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{
+		UserID:         "u1",
+		PermissionMask: rbac.PermProjectView,
+	}))
+
+	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d want=%d", rr.Code, http.StatusOK)
+	}
+}
+
+func TestRequireAllPermissionsRequiresEveryBit(t *testing.T) {
+	h := Chain(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+		RequireAllPermissions(rbac.PermProjectView, rbac.PermProjectEdit),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{
+		UserID:         "u1",
+		PermissionMask: rbac.PermProjectView,
+	}))
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want=%d", rr.Code, http.StatusForbidden)
+	}
+}
+
+func TestRequirePermissionTreatsMissingMaskAsZero(t *testing.T) {
+	h := Chain(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+		RequirePermission(rbac.PermProjectView),
+	)
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/secure", nil))
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want=%d", rr.Code, http.StatusForbidden)
 	}
 }
 

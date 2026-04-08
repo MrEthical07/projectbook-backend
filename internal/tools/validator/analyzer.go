@@ -270,10 +270,12 @@ func parsePolicyMetadata(expr ast.Expr) (corepolicy.Metadata, error) {
 	switch name {
 	case "AuthRequired":
 		meta.Type = corepolicy.PolicyTypeAuthRequired
-	case "RequirePerm":
-		meta.Type = corepolicy.PolicyTypeRequirePerm
-	case "RequireAnyPerm":
-		meta.Type = corepolicy.PolicyTypeRequireAnyPerm
+	case "RequirePermission":
+		meta.Type = corepolicy.PolicyTypeRequirePermission
+	case "RequireAllPermissions", "RequirePerm":
+		meta.Type = corepolicy.PolicyTypeRequireAllPermissions
+	case "RequireAnyPermission", "RequireAnyPerm":
+		meta.Type = corepolicy.PolicyTypeRequireAnyPermission
 	case "TenantRequired":
 		meta.Type = corepolicy.PolicyTypeTenantRequired
 	case "TenantMatchFromPath":

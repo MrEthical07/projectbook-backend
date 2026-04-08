@@ -1,6 +1,6 @@
 # Day-to-Day Workflows
 
-This guide documents common development workflows for contributors working on SuperAPI.
+This guide documents common development workflows for contributors working on ProjectBook Backend.
 
 Use it as a practical checklist during daily development.
 

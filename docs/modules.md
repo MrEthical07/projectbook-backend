@@ -1,6 +1,6 @@
 # Module Author Guide
 
-This guide explains how to create and maintain modules in SuperAPI.
+This guide explains how to create and maintain modules in ProjectBook Backend.
 
 If you are new to this repo, read this guide before writing a new feature module.
 

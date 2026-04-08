@@ -80,7 +80,7 @@ CREATE INDEX IF NOT EXISTS users_created_at_idx ON users (created_at);
    POSTGRES_ENABLED=true
    ```
 
-   In this template, startup auth configuration is currently controlled by `AUTH_ENABLED` and `AUTH_MODE`.
+   In this backend, startup auth configuration is currently controlled by `AUTH_ENABLED` and `AUTH_MODE`.
 
 4. Verify everything compiles:
    ```

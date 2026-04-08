@@ -12,6 +12,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	"github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/superapi/internal/core/rbac"
 )
 
 type allowLimiter struct{}
@@ -36,7 +37,7 @@ func TestMustValidateRoutePanicsOnMissingAuthDependency(t *testing.T) {
 		MustValidateRoute(
 			http.MethodGet,
 			"/api/v1/system/whoami",
-			RequirePerm("system.whoami"),
+			RequirePermission(rbac.PermProjectView),
 		)
 	})
 }
@@ -77,7 +78,7 @@ func TestMustValidateRoutePassesOnStrictValidConfiguration(t *testing.T) {
 			AuthRequired(nil, auth.ModeHybrid),
 			TenantRequired(),
 			TenantMatchFromPath("tenant_id"),
-			RequirePerm("project.read"),
+			RequirePermission(rbac.PermProjectView),
 			RateLimit(allowLimiter{}, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeTenant}),
 			CacheRead(mgr, cache.CacheReadConfig{
 				TTL: time.Minute,

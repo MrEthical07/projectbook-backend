@@ -21,7 +21,7 @@ type Policy func(http.Handler) http.Handler
 //
 //	r.Handle(http.MethodGet, "/profile", handler,
 //	    policy.AuthRequired(engine, mode),
-//	    policy.RequirePerm("profile.read"),
+//	    policy.RequirePermission(rbac.PermProjectView),
 //	)
 func Chain(h http.Handler, policies ...Policy) http.Handler {
 	for i := len(policies) - 1; i >= 0; i-- {

@@ -2,9 +2,9 @@ package policy
 
 import (
 	"bufio"
-	"context"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 
 	goauth "github.com/MrEthical07/goAuth"
@@ -40,90 +40,6 @@ func AuthRequired(engine *goauth.Engine, mode auth.Mode) Policy {
 	p := authRequiredWithEngine(engine, mode)
 	return annotatePolicy(p, Metadata{Type: PolicyTypeAuthRequired, Name: "AuthRequired"})
 }
-
-// RequirePerm enforces all-of permission checks for authenticated users.
-//
-// Behavior:
-// - Returns 401 if auth context is missing
-// - Returns 403 if any required permission is missing
-func RequirePerm(perms ...string) Policy {
-	required := make([]string, 0, len(perms))
-	for _, p := range perms {
-		trimmed := strings.TrimSpace(p)
-		if trimmed != "" {
-			required = append(required, trimmed)
-		}
-	}
-	if len(required) == 0 {
-		panicInvalidRouteConfigf("%s requires at least one permission", PolicyTypeRequirePerm)
-	}
-
-	p := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rid := requestid.FromContext(r.Context())
-			result, hasResult := goauthmiddleware.AuthResultFromContext(r.Context())
-			engine, hasEngine := goAuthEngineFromContext(r.Context())
-			if !hasResult || result == nil || !hasEngine || engine == nil {
-				response.Error(w, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required"), rid)
-				return
-			}
-
-			for _, permission := range required {
-				if !engine.HasPermission(result.Mask, permission) {
-					response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden"), rid)
-					return
-				}
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-
-	return annotatePolicy(p, Metadata{Type: PolicyTypeRequirePerm, Name: "RequirePerm"})
-}
-
-// RequireAnyPerm enforces any-of permission checks for authenticated users.
-//
-// Behavior:
-// - Returns 401 if auth context is missing
-// - Returns 403 if none of the permissions match
-func RequireAnyPerm(perms ...string) Policy {
-	required := make([]string, 0, len(perms))
-	for _, p := range perms {
-		trimmed := strings.TrimSpace(p)
-		if trimmed != "" {
-			required = append(required, trimmed)
-		}
-	}
-	if len(required) == 0 {
-		panicInvalidRouteConfigf("%s requires at least one permission", PolicyTypeRequireAnyPerm)
-	}
-
-	p := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rid := requestid.FromContext(r.Context())
-			result, hasResult := goauthmiddleware.AuthResultFromContext(r.Context())
-			engine, hasEngine := goAuthEngineFromContext(r.Context())
-			if !hasResult || result == nil || !hasEngine || engine == nil {
-				response.Error(w, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required"), rid)
-				return
-			}
-
-			for _, permission := range required {
-				if engine.HasPermission(result.Mask, permission) {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-
-			response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden"), rid)
-		})
-	}
-
-	return annotatePolicy(p, Metadata{Type: PolicyTypeRequireAnyPerm, Name: "RequireAnyPerm"})
-}
-
-type goAuthEngineContextKey struct{}
 
 type authGuardResponseWriter struct {
 	http.ResponseWriter
@@ -211,14 +127,14 @@ func authRequiredWithEngine(engine *goauth.Engine, mode auth.Mode) Policy {
 				}
 
 				principal := auth.AuthContext{
-					UserID:      result.UserID,
-					TenantID:    result.TenantID,
-					Role:        result.Role,
-					Permissions: append([]string(nil), result.Permissions...),
+					UserID:         result.UserID,
+					TenantID:       result.TenantID,
+					Role:           result.Role,
+					PermissionMask: maskValueToUint64(result.Mask),
+					Permissions:    append([]string(nil), result.Permissions...),
 				}
 
 				ctx := auth.WithContext(innerR.Context(), principal)
-				ctx = context.WithValue(ctx, goAuthEngineContextKey{}, engine)
 				next.ServeHTTP(innerW, innerR.WithContext(ctx))
 			}))
 
@@ -237,12 +153,24 @@ func authRequiredWithEngine(engine *goauth.Engine, mode auth.Mode) Policy {
 	}
 }
 
-func goAuthEngineFromContext(ctx context.Context) (*goauth.Engine, bool) {
-	engine, ok := ctx.Value(goAuthEngineContextKey{}).(*goauth.Engine)
-	if !ok || engine == nil {
-		return nil, false
+func maskValueToUint64(mask any) uint64 {
+	v := reflect.ValueOf(mask)
+	if !v.IsValid() {
+		return 0
 	}
-	return engine, true
+
+	switch v.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return v.Uint()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i := v.Int()
+		if i < 0 {
+			return 0
+		}
+		return uint64(i)
+	default:
+		return 0
+	}
 }
 
 // TenantRequired ensures authenticated requests carry tenant scope.

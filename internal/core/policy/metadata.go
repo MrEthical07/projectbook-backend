@@ -23,10 +23,16 @@ const (
 	PolicyTypeCacheControl PolicyType = "cache_control"
 	// PolicyTypeAuthRequired marks authentication enforcement policy.
 	PolicyTypeAuthRequired PolicyType = "auth_required"
-	// PolicyTypeRequirePerm marks all-of permission enforcement policy.
-	PolicyTypeRequirePerm PolicyType = "require_perm"
-	// PolicyTypeRequireAnyPerm marks any-of permission enforcement policy.
-	PolicyTypeRequireAnyPerm PolicyType = "require_any_perm"
+	// PolicyTypeRequirePermission marks single permission enforcement policy.
+	PolicyTypeRequirePermission PolicyType = "require_permission"
+	// PolicyTypeRequireAnyPermission marks any-of permission enforcement policy.
+	PolicyTypeRequireAnyPermission PolicyType = "require_any_permission"
+	// PolicyTypeRequireAllPermissions marks all-of permission enforcement policy.
+	PolicyTypeRequireAllPermissions PolicyType = "require_all_permissions"
+	// PolicyTypeRequirePerm is a deprecated alias for all-of permission policy type.
+	PolicyTypeRequirePerm PolicyType = PolicyTypeRequireAllPermissions
+	// PolicyTypeRequireAnyPerm is a deprecated alias for any-of permission policy type.
+	PolicyTypeRequireAnyPerm PolicyType = PolicyTypeRequireAnyPermission
 	// PolicyTypeTenantRequired marks tenant scope enforcement policy.
 	PolicyTypeTenantRequired PolicyType = "tenant_required"
 	// PolicyTypeTenantMatchFromPath marks path-tenant isolation policy.

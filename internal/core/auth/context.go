@@ -12,6 +12,8 @@ type AuthContext struct {
 	TenantID string `json:"tenant_id,omitempty"`
 	// Role is the resolved role name for RBAC checks.
 	Role string `json:"role,omitempty"`
+	// PermissionMask is the resolved authorization mask used by RBAC middleware.
+	PermissionMask uint64 `json:"permission_mask,omitempty"`
 	// Permissions is the resolved permission set for RBAC checks.
 	Permissions []string `json:"permissions,omitempty"`
 }

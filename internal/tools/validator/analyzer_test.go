@@ -15,10 +15,11 @@ import (
 	"net/http"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
 	"github.com/MrEthical07/superapi/internal/core/policy"
+		"github.com/MrEthical07/superapi/internal/core/rbac"
 )
 func register(r httpx.Router, h http.Handler) {
 	r.Handle(http.MethodGet, "/api/v1/projects/{id}", h,
-		policy.RequirePerm("project.read"),
+			policy.RequirePermission(rbac.PermProjectView),
 	)
 }
 `
@@ -58,13 +59,14 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/httpx"
 	"github.com/MrEthical07/superapi/internal/core/policy"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+		"github.com/MrEthical07/superapi/internal/core/rbac"
 )
 	func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter, cacheManager *cache.Manager) {
 	r.Handle(http.MethodGet, "/api/v1/tenants/{tenant_id}/projects", h,
 			policy.AuthRequired(engine, "strict"),
 		policy.TenantRequired(),
 		policy.TenantMatchFromPath("tenant_id"),
-		policy.RequirePerm("project.read"),
+			policy.RequirePermission(rbac.PermProjectView),
 		policy.RateLimit(limiter, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeTenant}),
 		policy.CacheRead(cacheManager, cache.CacheReadConfig{TTL: time.Minute, VaryBy: cache.CacheVaryBy{TenantID: true}}),
 	)

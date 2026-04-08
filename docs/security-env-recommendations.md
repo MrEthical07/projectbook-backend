@@ -1,6 +1,6 @@
-# Security Environment Variable Recommendations (SuperAPI Template)
+# Security Environment Variable Recommendations (ProjectBook Backend)
 
-This document gives production-focused recommendations for all runtime environment variables defined by this template.
+This document gives production-focused recommendations for all runtime environment variables defined by this backend.
 
 Evidence anchors:
 - Env inventory and defaults: `docs/environment-variables.md:9-186`
@@ -14,7 +14,7 @@ Use this as a starting profile for internet-facing production:
 
 ```bash
 APP_ENV=production
-APP_SERVICE_NAME=superapi-prod
+APP_SERVICE_NAME=projectbook-backend-prod
 
 HTTP_ADDR=:8080
 HTTP_READ_HEADER_TIMEOUT=5s
@@ -79,7 +79,7 @@ METRICS_AUTH_TOKEN=<strong-random-token>
 METRICS_EXCLUDE_PATHS=/healthz,/readyz
 
 TRACING_ENABLED=true
-TRACING_SERVICE_NAME=superapi-prod
+TRACING_SERVICE_NAME=projectbook-backend-prod
 TRACING_EXPORTER=otlpgrpc
 TRACING_OTLP_ENDPOINT=<otel-collector>:4317
 TRACING_SAMPLER=traceidratio
@@ -234,7 +234,7 @@ TRACING_INSECURE=false
 
 ## 3) Recommended new env vars to add (security gaps)
 
-These are not currently present but are strongly recommended for this template:
+These are not currently present but are strongly recommended for this backend:
 
 | Proposed variable | Why add it | Suggested wiring point |
 |---|---|---|

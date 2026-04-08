@@ -8,7 +8,7 @@ Policies are per-route middleware functions applied during route registration. T
 
 ## Strict guarantees (fail-fast)
 
-SuperAPI enforces policy invariants at registration time.
+ProjectBook Backend enforces policy invariants at registration time.
 
 - Every `r.Handle(...)` call is validated via `policy.MustValidateRoute(...)`.
 - Invalid policy order/dependencies panic immediately with `invalid route config: ...`.
@@ -727,4 +727,4 @@ When adding a new policy:
 4. Add focused tests under `internal/core/policy/*_test.go`.
 5. Document required env/config and exact failure behavior in this file.
 
-This keeps the template copy-paste friendly and production-safe by default.
+This keeps the backend policy model predictable and production-safe by default.

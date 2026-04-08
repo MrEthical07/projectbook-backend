@@ -97,10 +97,11 @@ func (m *Module) Register(r httpx.Router) error {
 }
 
 type whoamiResponse struct {
-	UserID      string   `json:"user_id"`
-	TenantID    string   `json:"tenant_id,omitempty"`
-	Role        string   `json:"role,omitempty"`
-	Permissions []string `json:"permissions,omitempty"`
+	UserID         string   `json:"user_id"`
+	TenantID       string   `json:"tenant_id,omitempty"`
+	Role           string   `json:"role,omitempty"`
+	PermissionMask uint64   `json:"permission_mask,omitempty"`
+	Permissions    []string `json:"permissions,omitempty"`
 }
 
 func (m *Module) whoami(ctx *httpx.Context, _ httpx.NoBody) (whoamiResponse, error) {
@@ -110,10 +111,11 @@ func (m *Module) whoami(ctx *httpx.Context, _ httpx.NoBody) (whoamiResponse, err
 	}
 
 	return whoamiResponse{
-		UserID:      principal.UserID,
-		TenantID:    principal.TenantID,
-		Role:        principal.Role,
-		Permissions: append([]string(nil), principal.Permissions...),
+		UserID:         principal.UserID,
+		TenantID:       principal.TenantID,
+		Role:           principal.Role,
+		PermissionMask: principal.PermissionMask,
+		Permissions:    append([]string(nil), principal.Permissions...),
 	}, nil
 }
 

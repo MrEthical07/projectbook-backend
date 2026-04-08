@@ -1,10 +1,10 @@
 # Auth and goAuth Integration
 
-This document explains how authentication works in SuperAPI with goAuth, including runtime wiring, route behavior, and data flow through the new store-first architecture.
+This document explains how authentication works in ProjectBook Backend with goAuth, including runtime wiring, route behavior, and data flow through the new store-first architecture.
 
 ## 1. Big Picture
 
-SuperAPI uses goAuth as the auth engine.
+ProjectBook Backend uses goAuth as the auth engine.
 
 The integration boundary did not change:
 

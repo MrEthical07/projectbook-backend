@@ -1,12 +1,14 @@
 # Overview
 
-SuperAPI is a production-grade Go API template designed for teams that want a strong architecture baseline from day one.
+ProjectBook Backend is a production-grade Go API designed for teams that want a strong architecture baseline from day one.
 
 This page is intentionally beginner-friendly. If you are new to this repository, read this first, then continue into the deeper docs linked at the end.
 
-## 1. What This Template Gives You
+Related frontend repository: https://github.com/MrEthical07/projectbook
 
-Out of the box, SuperAPI provides:
+## 1. What This Backend Gives You
+
+Out of the box, ProjectBook Backend provides:
 
 - A module-based API structure so features are isolated and easy to maintain.
 - A policy system for route behavior (auth, tenant, RBAC, rate-limit, cache, cache-control).
@@ -98,7 +100,7 @@ As of now:
 
 Many templates provide basic folders but leave architecture optional.
 
-SuperAPI enforces behavior through:
+ProjectBook Backend enforces behavior through:
 
 - Route validation for policy order and safety.
 - Startup config linting (invalid combinations fail fast).
@@ -168,4 +170,4 @@ Read these in order:
 
 If you remember only one thing, remember this:
 
-SuperAPI is not just "Go folders + helpers". It is an enforced architecture where route behavior, dependency wiring, and data-access boundaries are designed to stay maintainable as your API grows.
+ProjectBook Backend is not just "Go folders + helpers". It is an enforced architecture where route behavior, dependency wiring, and data-access boundaries are designed to stay maintainable as your API grows.

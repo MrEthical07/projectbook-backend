@@ -39,7 +39,7 @@ Explicit env vars override profile values.
 |---|---|---|
 | APP_PROFILE | empty | optional profile preset: minimal, dev, prod |
 | APP_ENV | dev | prod/production changes some defaults |
-| APP_SERVICE_NAME | api-template | service identity for logs/tracing |
+| APP_SERVICE_NAME | api-template | service identity for logs/tracing (set to `projectbook-backend` in deployed environments) |
 
 ## 4. HTTP Server Transport
 

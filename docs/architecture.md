@@ -1,6 +1,8 @@
 # Architecture
 
-This document explains how SuperAPI works internally, from process startup to request handling to data access.
+This document explains how ProjectBook Backend works internally, from process startup to request handling to data access.
+
+ProjectBook frontend reference: https://github.com/MrEthical07/projectbook
 
 It is written for both:
 
