@@ -42,6 +42,34 @@ func TestLintRejectsEnabledPostgresWithoutURL(t *testing.T) {
 	}
 }
 
+func TestLoadSupportsDatabaseURLAlias(t *testing.T) {
+	t.Setenv("APP_PROFILE", "dev")
+	t.Setenv("DATABASE_URL", "postgres://alias-user:alias-pass@localhost:5432/aliasdb?sslmode=disable")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := cfg.Postgres.URL, "postgres://alias-user:alias-pass@localhost:5432/aliasdb?sslmode=disable"; got != want {
+		t.Fatalf("Postgres.URL=%q want=%q", got, want)
+	}
+}
+
+func TestLoadSupportsRedisURLAlias(t *testing.T) {
+	t.Setenv("APP_PROFILE", "dev")
+	t.Setenv("REDIS_URL", "redis://:secret@localhost:6380/2")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := cfg.Redis.Addr, "redis://:secret@localhost:6380/2"; got != want {
+		t.Fatalf("Redis.Addr=%q want=%q", got, want)
+	}
+}
+
 func TestLintRejectsEnabledRedisWithoutAddr(t *testing.T) {
 	t.Setenv("REDIS_ENABLED", "true")
 

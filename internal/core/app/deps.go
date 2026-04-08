@@ -9,14 +9,16 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
+	corecache "github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/db"
 	"github.com/MrEthical07/superapi/internal/core/metrics"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 	"github.com/MrEthical07/superapi/internal/core/readiness"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/MrEthical07/superapi/internal/core/tracing"
+	infracache "github.com/MrEthical07/superapi/internal/infrastructure/cache"
+	infradb "github.com/MrEthical07/superapi/internal/infrastructure/db"
+	infstore "github.com/MrEthical07/superapi/internal/infrastructure/store"
 )
 
 // START HERE:
@@ -56,7 +58,7 @@ type Dependencies struct {
 	// Limiter is the optional route rate limiter.
 	Limiter ratelimit.Limiter
 	// CacheMgr is the optional response cache manager.
-	CacheMgr  *cache.Manager
+	CacheMgr  *corecache.Manager
 	authClose func()
 }
 
@@ -74,29 +76,29 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 	}
 
 	if cfg.Postgres.Enabled {
-		pool, err := db.NewPool(ctx, cfg.Postgres)
+		pool, err := infradb.NewPostgresPool(ctx, cfg.Postgres)
 		if err != nil {
 			return nil, fmt.Errorf("init postgres: %w", err)
 		}
 
-		relStore, err := storage.NewPostgresRelationalStore(pool)
+		infraStore, err := infstore.NewPostgresStore(pool)
 		if err != nil {
 			pool.Close()
 			return nil, fmt.Errorf("init relational store: %w", err)
 		}
 
 		deps.Postgres = pool
-		deps.RelationalStore = relStore
-		deps.Store = relStore
+		deps.RelationalStore = infraStore.Relational()
+		deps.Store = infraStore.Relational()
 		deps.Readiness.Add("postgres", true, cfg.Postgres.HealthCheckTimeout, func(checkCtx context.Context) error {
-			return db.CheckHealth(checkCtx, pool, cfg.Postgres.HealthCheckTimeout)
+			return infradb.CheckPostgresHealth(checkCtx, pool, cfg.Postgres.HealthCheckTimeout)
 		})
 	} else {
 		deps.Readiness.Add("postgres", false, cfg.Postgres.HealthCheckTimeout, nil)
 	}
 
 	if cfg.Redis.Enabled {
-		client, err := cache.NewRedisClient(ctx, cfg.Redis)
+		client, err := infracache.NewRedisClient(ctx, cfg.Redis)
 		if err != nil {
 			if deps.Postgres != nil {
 				deps.Postgres.Close()
@@ -105,7 +107,7 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 		}
 		deps.Redis = client
 		deps.Readiness.Add("redis", true, cfg.Redis.HealthCheckTimeout, func(checkCtx context.Context) error {
-			return cache.CheckHealth(checkCtx, client, cfg.Redis.HealthCheckTimeout)
+			return infracache.CheckRedisHealth(checkCtx, client, cfg.Redis.HealthCheckTimeout)
 		})
 	} else {
 		deps.Readiness.Add("redis", false, cfg.Redis.HealthCheckTimeout, nil)
@@ -196,7 +198,7 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 	}
 
 	if cfg.Cache.Enabled {
-		cacheMgr, err := cache.NewManager(deps.Redis, cache.ManagerConfig{
+		cacheMgr, err := corecache.NewManager(deps.Redis, corecache.ManagerConfig{
 			Env:                cfg.Env,
 			FailOpen:           cfg.Cache.FailOpen,
 			DefaultMaxBytes:    cfg.Cache.DefaultMaxBytes,

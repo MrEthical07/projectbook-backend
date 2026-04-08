@@ -46,6 +46,8 @@ High-impact paths:
 	- route policy chain, metadata, and route validation
 - internal/core/storage
 	- store contracts and store implementations
+- internal/infrastructure
+	- infrastructure adapters for Postgres, Redis, and store bootstrap helpers
 - internal/core/auth
 	- goAuth integration, store-backed user provider, auth repository
 - internal/modules
@@ -85,12 +87,12 @@ Order:
 
 1. Create readiness service.
 2. If Postgres enabled:
-	 - create pgx pool
-	 - create PostgresRelationalStore
+	 - create pgx pool via internal/infrastructure/db
+	 - create PostgresRelationalStore via internal/infrastructure/store
 	 - set Dependencies.Postgres, Dependencies.RelationalStore, Dependencies.Store
 	 - register readiness probe
 3. If Redis enabled:
-	 - create redis client
+	 - create redis client via internal/infrastructure/cache
 	 - register readiness probe
 4. Create metrics service.
 5. Parse auth mode.

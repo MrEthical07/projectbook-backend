@@ -147,7 +147,7 @@ Lint dependency rule:
 | Env var | Default | Notes |
 |---|---|---|
 | POSTGRES_ENABLED | false | enables Postgres dependency wiring |
-| POSTGRES_URL | empty | required when enabled |
+| POSTGRES_URL | empty | required when enabled; `DATABASE_URL` is accepted as fallback |
 | POSTGRES_MAX_CONNS | 10 | must be > 0 |
 | POSTGRES_MIN_CONNS | 0 | must be >= 0 and <= max |
 | POSTGRES_CONN_MAX_LIFETIME | 30m | must be >= 0 |
@@ -164,7 +164,8 @@ Runtime note:
 | Env var | Default | Notes |
 |---|---|---|
 | REDIS_ENABLED | false | enables Redis dependency wiring |
-| REDIS_ADDR | 127.0.0.1:6379 | required when enabled |
+| REDIS_ADDR | 127.0.0.1:6379 | required when enabled unless `REDIS_URL` is set |
+| REDIS_URL | empty | optional URL alias; parsed when `REDIS_ADDR` is empty |
 | REDIS_PASSWORD | empty | optional |
 | REDIS_DB | 0 | must be >= 0 |
 | REDIS_DIAL_TIMEOUT | 2s | must be > 0 |

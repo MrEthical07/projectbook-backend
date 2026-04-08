@@ -336,7 +336,7 @@ func Load() (*Config, error) {
 		},
 		Postgres: PostgresConfig{
 			Enabled:            getBool("POSTGRES_ENABLED", false),
-			URL:                getenv("POSTGRES_URL", ""),
+			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, ""),
 			MaxConns:           getInt32("POSTGRES_MAX_CONNS", 10),
 			MinConns:           getInt32("POSTGRES_MIN_CONNS", 0),
 			ConnMaxLifetime:    getDuration("POSTGRES_CONN_MAX_LIFETIME", 30*time.Minute),
@@ -346,7 +346,7 @@ func Load() (*Config, error) {
 		},
 		Redis: RedisConfig{
 			Enabled:            getBool("REDIS_ENABLED", false),
-			Addr:               getenv("REDIS_ADDR", "127.0.0.1:6379"),
+			Addr:               getenvAlias([]string{"REDIS_ADDR", "REDIS_URL"}, "127.0.0.1:6379"),
 			Password:           getenv("REDIS_PASSWORD", ""),
 			DB:                 getInt("REDIS_DB", 0),
 			DialTimeout:        getDuration("REDIS_DIAL_TIMEOUT", 2*time.Second),
@@ -793,6 +793,28 @@ func getenv(key, fallback string) string {
 		return fallback
 	}
 	return v
+}
+
+func getenvAlias(keys []string, fallback string) string {
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+	}
+
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if profileValue, ok := profileDefaultValue(key); ok && profileValue != "" {
+			return profileValue
+		}
+	}
+
+	return fallback
 }
 
 func getInt(key string, fallback int) int {
