@@ -58,7 +58,11 @@ func ResolvePermissions(resolver permissions.Resolver) Policy {
 			if role := strings.TrimSpace(resolved.Role); role != "" {
 				principal.Role = role
 			}
-			principal.ProjectID = projectID
+			if resolvedProjectID := strings.TrimSpace(resolved.ProjectID); resolvedProjectID != "" {
+				principal.ProjectID = resolvedProjectID
+			} else {
+				principal.ProjectID = projectID
+			}
 
 			next.ServeHTTP(w, r.WithContext(auth.WithContext(r.Context(), principal)))
 		})

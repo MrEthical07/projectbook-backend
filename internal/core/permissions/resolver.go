@@ -67,6 +67,7 @@ func IsDependencyFailure(err error) bool {
 }
 
 type userMaskCacheEntry struct {
+	ProjectID     string `json:"project_id,omitempty"`
 	Mask          uint64 `json:"mask"`
 	Role          string `json:"role,omitempty"`
 	IsCustom      bool   `json:"is_custom"`
@@ -141,7 +142,7 @@ func (r *HybridResolver) resolveFromCache(ctx context.Context, userID, projectID
 
 	return Resolution{
 		UserID:        userID,
-		ProjectID:     projectID,
+		ProjectID:     resolvedProjectID(projectID, entry.ProjectID),
 		Role:          entry.Role,
 		Mask:          entry.Mask,
 		IsCustom:      entry.IsCustom,
@@ -175,15 +176,35 @@ func (r *HybridResolver) backfillOnce(ctx context.Context, userID, projectID str
 			cacheMap = make(map[string]userMaskCacheEntry)
 		}
 
-		if existing, ok := cacheMap[projectID]; ok && existing.UpdatedAtUnix > resolved.UpdatedAtUnix {
-			return nil
-		}
-
-		cacheMap[projectID] = userMaskCacheEntry{
+		entry := userMaskCacheEntry{
+			ProjectID:     strings.TrimSpace(resolved.ProjectID),
 			Mask:          resolved.Mask,
 			Role:          resolved.Role,
 			IsCustom:      resolved.IsCustom,
 			UpdatedAtUnix: resolved.UpdatedAtUnix,
+		}
+
+		keys := []string{projectID}
+		canonicalKey := strings.TrimSpace(resolved.ProjectID)
+		if canonicalKey != "" && !strings.EqualFold(canonicalKey, projectID) {
+			keys = append(keys, canonicalKey)
+		}
+
+		changed := false
+		for _, key := range keys {
+			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
+			if existing, ok := cacheMap[trimmedKey]; ok && existing.UpdatedAtUnix > resolved.UpdatedAtUnix {
+				continue
+			}
+			cacheMap[trimmedKey] = entry
+			changed = true
+		}
+
+		if !changed {
+			return nil
 		}
 
 		updatedPayload, err := json.Marshal(cacheMap)
@@ -214,6 +235,14 @@ func decodeUserMaskCache(payload string) (map[string]userMaskCacheEntry, error) 
 		cacheMap = make(map[string]userMaskCacheEntry)
 	}
 	return cacheMap, nil
+}
+
+func resolvedProjectID(requested, resolved string) string {
+	resolved = strings.TrimSpace(resolved)
+	if resolved != "" {
+		return resolved
+	}
+	return strings.TrimSpace(requested)
 }
 
 // ResolverCacheKey returns the Redis key used for user permission cache maps.

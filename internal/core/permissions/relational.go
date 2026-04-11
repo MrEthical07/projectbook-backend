@@ -13,6 +13,7 @@ import (
 
 const queryResolveProjectMembership = `
 SELECT
+	p.id::text,
 	pm.role::text,
 	pm.is_custom,
 	pm.permission_mask,
@@ -20,11 +21,13 @@ SELECT
 	(rp.permission_mask IS NOT NULL) AS has_role_mask,
 	COALESCE(EXTRACT(EPOCH FROM pm.updated_at)::bigint, 0),
 	COALESCE(EXTRACT(EPOCH FROM rp.updated_at)::bigint, 0)
-FROM project_members pm
+FROM projects p
+JOIN project_members pm
+	ON pm.project_id = p.id
 LEFT JOIN role_permissions rp
 	ON rp.project_id = pm.project_id
 	AND rp.role = pm.role
-WHERE pm.project_id = $1::uuid
+WHERE (p.id::text = $1 OR p.slug = $1)
 	AND pm.user_id = $2::uuid
 	AND pm.status = 'Active'
 LIMIT 1
@@ -59,6 +62,7 @@ func (r *RelationalResolver) Resolve(ctx context.Context, userID, projectID stri
 	defer cancel()
 
 	var role string
+	var resolvedProjectID string
 	var isCustom bool
 	var memberMask int64
 	var roleMask int64
@@ -69,7 +73,7 @@ func (r *RelationalResolver) Resolve(ctx context.Context, userID, projectID stri
 	err := r.store.Execute(queryCtx, storage.RelationalQueryOne(
 		queryResolveProjectMembership,
 		func(row storage.RowScanner) error {
-			return row.Scan(&role, &isCustom, &memberMask, &roleMask, &hasRoleMask, &memberUpdated, &roleUpdated)
+			return row.Scan(&resolvedProjectID, &role, &isCustom, &memberMask, &roleMask, &hasRoleMask, &memberUpdated, &roleUpdated)
 		},
 		projectID,
 		userID,
@@ -93,6 +97,10 @@ func (r *RelationalResolver) Resolve(ctx context.Context, userID, projectID stri
 		}
 	}
 
+	if strings.TrimSpace(resolvedProjectID) == "" {
+		return Resolution{}, fmt.Errorf("%w: resolved project id is empty", ErrMaskInconsistent)
+	}
+
 	effectiveMask := uint64(memberMask)
 	updatedAtUnix := memberUpdated
 	if !isCustom {
@@ -107,7 +115,7 @@ func (r *RelationalResolver) Resolve(ctx context.Context, userID, projectID stri
 
 	return Resolution{
 		UserID:        userID,
-		ProjectID:     projectID,
+		ProjectID:     strings.TrimSpace(resolvedProjectID),
 		Role:          role,
 		Mask:          effectiveMask,
 		IsCustom:      isCustom,

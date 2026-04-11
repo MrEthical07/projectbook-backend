@@ -38,13 +38,13 @@ This tracker is generated from docs/ProjectBookDocs/API_plan.md and is the froze
 | EP-018 | Home | home | GET | /api/v1/home/account | `getUserAccountSettings()` | tested | home | `internal/modules/home` |
 | EP-019 | Home | home | PUT | /api/v1/home/account | `updateUserAccountSettings()` | tested | home | `internal/modules/home` |
 | EP-020 | Home | home | GET | /api/v1/home/docs | `getUserDocsSections()` | tested | home | `internal/modules/home` |
-| EP-021 | Project | project | GET | /api/v1/projects/{projectId}/dashboard | `getProjectDashboard()` | not_started | project | `internal/modules/project` |
-| EP-022 | Project | project | GET | /api/v1/projects/{projectId}/access | `getProjectAccess()` | not_started | project | `internal/modules/project` |
-| EP-023 | Project | project | GET | /api/v1/projects/{projectId}/sidebar | `getProjectSidebarData()` | not_started | project | `internal/modules/project` |
-| EP-024 | Project | project | GET | /api/v1/projects/{projectId}/settings | `getProjectSettings()` | not_started | project | `internal/modules/project` |
-| EP-025 | Project | project | PUT | /api/v1/projects/{projectId}/settings | `updateProjectSettings()` | not_started | project | `internal/modules/project` |
-| EP-026 | Project | project | POST | /api/v1/projects/{projectId}/archive | `archiveProject()` | not_started | project | `internal/modules/project` |
-| EP-027 | Project | project | DELETE | /api/v1/projects/{projectId} | `deleteProject()` | not_started | project | `internal/modules/project` |
+| EP-021 | Project | project | GET | /api/v1/projects/{projectId}/dashboard | `getProjectDashboard()` | tested | project | `internal/modules/project` |
+| EP-022 | Project | project | GET | /api/v1/projects/{projectId}/access | `getProjectAccess()` | tested | project | `internal/modules/project` |
+| EP-023 | Project | project | GET | /api/v1/projects/{projectId}/sidebar | `getProjectSidebarData()` | tested | project | `internal/modules/project` |
+| EP-024 | Project | project | GET | /api/v1/projects/{projectId}/settings | `getProjectSettings()` | tested | project | `internal/modules/project` |
+| EP-025 | Project | project | PUT | /api/v1/projects/{projectId}/settings | `updateProjectSettings()` | tested | project | `internal/modules/project` |
+| EP-026 | Project | project | POST | /api/v1/projects/{projectId}/archive | `archiveProject()` | tested | project | `internal/modules/project` |
+| EP-027 | Project | project | DELETE | /api/v1/projects/{projectId} | `deleteProject()` | tested | project | `internal/modules/project` |
 | EP-028 | Team Management | team | GET | /api/v1/projects/{projectId}/team/members | `getProjectTeamMembers()` | not_started | team | `internal/modules/team` |
 | EP-029 | Team Management | team | GET | /api/v1/projects/{projectId}/team/roles | `getProjectTeamRoles()` | not_started | team | `internal/modules/team` |
 | EP-030 | Team Management | team | POST | /api/v1/projects/{projectId}/team/invites | `createProjectInvite()` | not_started | team | `internal/modules/team` |

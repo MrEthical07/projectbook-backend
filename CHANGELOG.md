@@ -2,6 +2,30 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.5 (2026-04-11)
+
+### Added
+- New Project module at `internal/modules/project` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- Implemented EP-021 through EP-027 under `/api/v1/projects/{projectId}*`:
+	- dashboard, access, sidebar, settings (get/update), archive, delete.
+- Added migration pair for project sidebar/read hot paths:
+	- `db/migrations/000008_project_sidebar_indexes.up.sql`
+	- `db/migrations/000008_project_sidebar_indexes.down.sql`
+
+### Changed
+- Permission resolver relational fallback now accepts slug-or-UUID project scope inputs and resolves canonical project identity.
+- Resolve-permissions policy now stores canonical resolver project ID in auth context when available.
+- Module registry now includes `project.New()` in `internal/modules/modules.go`.
+
+### Documentation
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-021 through EP-027 as `tested`.
+
 ## v0.7.4 (2026-04-11)
 
 ### Added

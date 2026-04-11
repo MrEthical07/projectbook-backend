@@ -226,7 +226,7 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/dashboard",
         "sourceFunction":  "getProjectDashboard()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -237,7 +237,7 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/access",
         "sourceFunction":  "getProjectAccess()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -248,7 +248,7 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/sidebar",
         "sourceFunction":  "getProjectSidebarData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -259,7 +259,7 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/settings",
         "sourceFunction":  "getProjectSettings()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -270,7 +270,7 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/settings",
         "sourceFunction":  "updateProjectSettings()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -281,7 +281,7 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/archive",
         "sourceFunction":  "archiveProject()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
@@ -292,7 +292,7 @@
         "method":  "DELETE",
         "path":  "/api/v1/projects/{projectId}",
         "sourceFunction":  "deleteProject()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
     },
