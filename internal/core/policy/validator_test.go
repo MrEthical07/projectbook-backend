@@ -11,6 +11,7 @@ import (
 
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	"github.com/MrEthical07/superapi/internal/core/cache"
+	"github.com/MrEthical07/superapi/internal/core/permissions"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 	"github.com/MrEthical07/superapi/internal/core/rbac"
 )
@@ -19,6 +20,12 @@ type allowLimiter struct{}
 
 func (allowLimiter) Allow(context.Context, ratelimit.Request) (ratelimit.Decision, error) {
 	return ratelimit.Decision{Allowed: true, Outcome: ratelimit.OutcomeAllowed}, nil
+}
+
+type allowPermissionResolver struct{}
+
+func (allowPermissionResolver) Resolve(context.Context, string, string) (permissions.Resolution, error) {
+	return permissions.Resolution{Mask: rbac.PermProjectView}, nil
 }
 
 func TestMustValidateRoutePanicsOnPolicyOrderViolation(t *testing.T) {
@@ -42,11 +49,24 @@ func TestMustValidateRoutePanicsOnMissingAuthDependency(t *testing.T) {
 	})
 }
 
+func TestMustValidateRoutePanicsOnMissingResolverDependency(t *testing.T) {
+	assertRouteConfigPanic(t, string(PolicyTypeResolvePermissions), func() {
+		MustValidateRoute(
+			http.MethodGet,
+			"/api/v1/projects/{project_id}/tasks/{id}",
+			AuthRequired(nil, auth.ModeHybrid),
+			ProjectRequired(),
+			ProjectMatchFromPath("project_id"),
+			RequirePermission(rbac.PermProjectView),
+		)
+	})
+}
+
 func TestMustValidateRoutePanicsOnUnsafeAuthenticatedCache(t *testing.T) {
 	mr := miniredis.RunT(t)
 	mgr := newCacheManagerForPolicyTests(t, mr.Addr(), true)
 
-	assertRouteConfigPanic(t, "VaryBy.UserID or VaryBy.TenantID", func() {
+	assertRouteConfigPanic(t, "VaryBy.UserID or VaryBy.ProjectID", func() {
 		MustValidateRoute(
 			http.MethodGet,
 			"/api/v1/system/whoami",
@@ -56,13 +76,25 @@ func TestMustValidateRoutePanicsOnUnsafeAuthenticatedCache(t *testing.T) {
 	})
 }
 
-func TestMustValidateRoutePanicsOnTenantPathWithoutMatchPolicy(t *testing.T) {
-	assertRouteConfigPanic(t, string(PolicyTypeTenantMatchFromPath), func() {
+func TestMustValidateRoutePanicsOnProjectPathWithoutMatchPolicy(t *testing.T) {
+	assertRouteConfigPanic(t, string(PolicyTypeProjectMatchFromPath), func() {
 		MustValidateRoute(
 			http.MethodGet,
-			"/api/v1/tenants/{tenant_id}/projects",
+			"/api/v1/projects/{project_id}/tasks",
 			AuthRequired(nil, auth.ModeHybrid),
-			TenantRequired(),
+			ProjectRequired(),
+		)
+	})
+}
+
+func TestMustValidateRoutePanicsWhenProjectRequiredRouteHasNoProjectPathParam(t *testing.T) {
+	assertRouteConfigPanic(t, "requires path parameter {project_id} or {projectId}", func() {
+		MustValidateRoute(
+			http.MethodGet,
+			"/api/v1/system/whoami",
+			AuthRequired(nil, auth.ModeHybrid),
+			ProjectRequired(),
+			ProjectMatchFromPath("project_id"),
 		)
 	})
 }
@@ -74,16 +106,17 @@ func TestMustValidateRoutePassesOnStrictValidConfiguration(t *testing.T) {
 	assertRouteConfigDoesNotPanic(t, func() {
 		MustValidateRoute(
 			http.MethodGet,
-			"/api/v1/tenants/{tenant_id}/projects/{id}",
+			"/api/v1/projects/{project_id}/tasks/{id}",
 			AuthRequired(nil, auth.ModeHybrid),
-			TenantRequired(),
-			TenantMatchFromPath("tenant_id"),
+			ProjectRequired(),
+			ProjectMatchFromPath("project_id"),
+			ResolvePermissions(allowPermissionResolver{}),
 			RequirePermission(rbac.PermProjectView),
-			RateLimit(allowLimiter{}, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeTenant}),
+			RateLimit(allowLimiter{}, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeProject}),
 			CacheRead(mgr, cache.CacheReadConfig{
 				TTL: time.Minute,
 				VaryBy: cache.CacheVaryBy{
-					TenantID: true,
+					ProjectID: true,
 				},
 			}),
 		)

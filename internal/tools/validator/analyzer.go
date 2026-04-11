@@ -276,16 +276,18 @@ func parsePolicyMetadata(expr ast.Expr) (corepolicy.Metadata, error) {
 		meta.Type = corepolicy.PolicyTypeRequireAllPermissions
 	case "RequireAnyPermission", "RequireAnyPerm":
 		meta.Type = corepolicy.PolicyTypeRequireAnyPermission
-	case "TenantRequired":
-		meta.Type = corepolicy.PolicyTypeTenantRequired
-	case "TenantMatchFromPath":
-		meta.Type = corepolicy.PolicyTypeTenantMatchFromPath
+	case "ProjectRequired":
+		meta.Type = corepolicy.PolicyTypeProjectRequired
+	case "ProjectMatchFromPath":
+		meta.Type = corepolicy.PolicyTypeProjectMatchFromPath
 		if len(call.Args) > 0 {
 			param, err := extractStringLiteral(call.Args[0])
 			if err == nil {
-				meta.TenantPathParam = param
+				meta.ProjectPathParam = param
 			}
 		}
+	case "ResolvePermissions":
+		meta.Type = corepolicy.PolicyTypeResolvePermissions
 	case "RateLimit", "RateLimitWithKeyer":
 		meta.Type = corepolicy.PolicyTypeRateLimit
 	case "CacheRead":
@@ -348,8 +350,8 @@ func parseCacheReadMetadata(call *ast.CallExpr) corepolicy.CacheReadMetadata {
 				switch varyKey {
 				case "UserID":
 					meta.VaryByUserID = flag
-				case "TenantID":
-					meta.VaryByTenantID = flag
+				case "ProjectID":
+					meta.VaryByProjectID = flag
 				}
 			}
 		}

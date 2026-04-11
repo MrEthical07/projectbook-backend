@@ -3,6 +3,11 @@ CREATE INDEX IF NOT EXISTS users_created_at_idx ON users (created_at);
 CREATE INDEX IF NOT EXISTS auth_sessions_user_expires_idx ON auth_sessions (user_id, expires_at);
 CREATE INDEX IF NOT EXISTS auth_sessions_active_idx ON auth_sessions (user_id, expires_at) WHERE revoked_at IS NULL;
 
+CREATE INDEX IF NOT EXISTS email_verification_tokens_user_expires_idx ON email_verification_tokens (user_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS password_reset_tokens_user_expires_idx ON password_reset_tokens (user_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS auth_email_log_user_sent_idx ON auth_email_log (user_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS auth_email_log_recipient_sent_idx ON auth_email_log (recipient_email, sent_at DESC);
+
 CREATE INDEX IF NOT EXISTS projects_owner_user_id_idx ON projects (owner_user_id);
 CREATE INDEX IF NOT EXISTS projects_status_idx ON projects (status);
 CREATE INDEX IF NOT EXISTS projects_last_updated_at_idx ON projects (last_updated_at DESC);

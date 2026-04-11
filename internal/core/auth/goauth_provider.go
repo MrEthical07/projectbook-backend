@@ -100,9 +100,14 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 	cfg.Permission.MaxBits = 64
 	cfg.Permission.RootBitReserved = false
 
-	// User creation/role assignment is owned by application flows.
-	cfg.Account.Enabled = false
-	cfg.Account.DefaultRole = ""
+	// Enable auth-contract flows exposed through module endpoints.
+	cfg.PasswordReset.Enabled = true
+	cfg.PasswordReset.ResetTTL = time.Hour
+	cfg.EmailVerification.Enabled = true
+	cfg.EmailVerification.RequireForLogin = true
+	cfg.EmailVerification.VerificationTTL = 24 * time.Hour
+	cfg.Account.Enabled = true
+	cfg.Account.DefaultRole = "user"
 
 	return cfg
 }

@@ -52,8 +52,6 @@ const (
 
 // AuthGenConfig holds all wizard/config-driven choices.
 type AuthGenConfig struct {
-	// TenantEnabled adds optional tenant_id support.
-	TenantEnabled bool `yaml:"tenant_enabled"`
 	// RoleEnabled includes a role column.
 	RoleEnabled bool `yaml:"role_enabled"`
 	// PermissionsEnabled includes a permissions column.
@@ -83,7 +81,6 @@ type AuthGenConfig struct {
 // DefaultConfig returns the goAuth-aligned default configuration.
 func DefaultConfig() AuthGenConfig {
 	return AuthGenConfig{
-		TenantEnabled:      false,
 		RoleEnabled:        true,
 		PermissionsEnabled: true,
 		PermissionsMode:    PermsBitmask,
@@ -157,7 +154,6 @@ func LoadConfigFile(path string) (AuthGenConfig, error) {
 func (c AuthGenConfig) Summary() string {
 	var b strings.Builder
 	b.WriteString("Auth Bootstrap Configuration:\n")
-	b.WriteString(fmt.Sprintf("  tenant support:     %s\n", boolLabel(c.TenantEnabled)))
 	b.WriteString(fmt.Sprintf("  role:               %s\n", boolLabel(c.RoleEnabled)))
 	b.WriteString(fmt.Sprintf("  permissions:        %s\n", boolLabel(c.PermissionsEnabled)))
 	if c.PermissionsEnabled {

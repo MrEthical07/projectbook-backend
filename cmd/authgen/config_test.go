@@ -166,8 +166,7 @@ func TestLoadConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "test.yaml")
 
-	content := `tenant_enabled: true
-role_enabled: true
+	content := `role_enabled: true
 permissions_enabled: true
 permissions_mode: bitmask
 id_type: uuid
@@ -185,9 +184,6 @@ last_login: false
 	cfg, err := LoadConfigFile(cfgPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if !cfg.TenantEnabled {
-		t.Fatal("expected tenant enabled")
 	}
 	if cfg.TableName != "auth_users" {
 		t.Fatalf("expected table_name=auth_users, got %q", cfg.TableName)

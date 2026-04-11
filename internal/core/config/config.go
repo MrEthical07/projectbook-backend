@@ -32,6 +32,10 @@ type Config struct {
 	RateLimit RateLimitConfig
 	// Cache configures default route-level response caching behavior.
 	Cache CacheConfig
+	// Permissions configures project permission resolution behavior.
+	Permissions PermissionsConfig
+	// Mongo configures document-store dependency wiring.
+	Mongo MongoConfig
 	// Postgres controls primary SQL dependency wiring.
 	Postgres PostgresConfig
 	// Redis controls cache/session/rate-limit dependency wiring.
@@ -72,6 +76,42 @@ type CacheConfig struct {
 	DefaultMaxBytes int
 	// TagVersionCacheTTL caches tag version tokens in-process to reduce Redis MGET load.
 	TagVersionCacheTTL time.Duration
+}
+
+// PermissionsConfig defines runtime behavior for project permission resolution.
+type PermissionsConfig struct {
+	// Enabled enables permissions resolver wiring.
+	Enabled bool
+	// DBQueryTimeout bounds fallback DB membership lookup time.
+	DBQueryTimeout time.Duration
+	// RedisTTL controls Redis cache TTL for rbac:{userId} maps.
+	RedisTTL time.Duration
+	// BackfillTimeout bounds async Redis backfill duration.
+	BackfillTimeout time.Duration
+}
+
+// MongoConfig configures MongoDB connectivity and startup bootstrap behavior.
+type MongoConfig struct {
+	// Enabled toggles MongoDB dependency wiring.
+	Enabled bool
+	// URL is the MongoDB DSN/URI.
+	URL string
+	// Database is the MongoDB database name.
+	Database string
+	// MaxPoolSize bounds maximum Mongo client pool size.
+	MaxPoolSize int
+	// MinPoolSize sets minimum maintained Mongo client pool size.
+	MinPoolSize int
+	// ConnectTimeout bounds Mongo connection establishment.
+	ConnectTimeout time.Duration
+	// StartupPingTimeout bounds startup ping during dependency init.
+	StartupPingTimeout time.Duration
+	// HealthCheckTimeout bounds readiness health checks.
+	HealthCheckTimeout time.Duration
+	// BootstrapEnabled enables startup collection/index verification.
+	BootstrapEnabled bool
+	// BootstrapTimeout bounds startup bootstrap operations.
+	BootstrapTimeout time.Duration
 }
 
 // LogConfig holds structured logging configuration.
@@ -334,6 +374,24 @@ func Load() (*Config, error) {
 			DefaultMaxBytes:    getInt("CACHE_DEFAULT_MAX_BYTES", 256*1024),
 			TagVersionCacheTTL: getDuration("CACHE_TAG_VERSION_CACHE_TTL", 250*time.Millisecond),
 		},
+		Permissions: PermissionsConfig{
+			Enabled:         getBool("PERMISSIONS_ENABLED", false),
+			DBQueryTimeout:  getDuration("PERMISSIONS_DB_QUERY_TIMEOUT", 750*time.Millisecond),
+			RedisTTL:        getDuration("PERMISSIONS_REDIS_TTL", 6*time.Hour),
+			BackfillTimeout: getDuration("PERMISSIONS_BACKFILL_TIMEOUT", 500*time.Millisecond),
+		},
+		Mongo: MongoConfig{
+			Enabled:            getBool("MONGO_ENABLED", false),
+			URL:                getenv("MONGO_URL", ""),
+			Database:           getenv("MONGO_DB", "projectbook"),
+			MaxPoolSize:        getInt("MONGO_MAX_POOL_SIZE", 50),
+			MinPoolSize:        getInt("MONGO_MIN_POOL_SIZE", 0),
+			ConnectTimeout:     getDuration("MONGO_CONNECT_TIMEOUT", 5*time.Second),
+			StartupPingTimeout: getDuration("MONGO_STARTUP_PING_TIMEOUT", 3*time.Second),
+			HealthCheckTimeout: getDuration("MONGO_HEALTH_CHECK_TIMEOUT", 1*time.Second),
+			BootstrapEnabled:   getBool("MONGO_BOOTSTRAP_ENABLED", true),
+			BootstrapTimeout:   getDuration("MONGO_BOOTSTRAP_TIMEOUT", 10*time.Second),
+		},
 		Postgres: PostgresConfig{
 			Enabled:            getBool("POSTGRES_ENABLED", false),
 			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, ""),
@@ -492,6 +550,45 @@ func (c *Config) Lint() error {
 	}
 	if c.Cache.DefaultMaxBytes <= 0 {
 		return fmt.Errorf("cache default max bytes must be > 0")
+	}
+	if c.Permissions.Enabled && !c.Postgres.Enabled {
+		return fmt.Errorf("permissions enabled requires postgres enabled")
+	}
+	if c.Permissions.DBQueryTimeout <= 0 {
+		return fmt.Errorf("permissions db query timeout must be > 0")
+	}
+	if c.Permissions.RedisTTL <= 0 {
+		return fmt.Errorf("permissions redis ttl must be > 0")
+	}
+	if c.Permissions.BackfillTimeout <= 0 {
+		return fmt.Errorf("permissions backfill timeout must be > 0")
+	}
+	if c.Mongo.Enabled && strings.TrimSpace(c.Mongo.URL) == "" {
+		return fmt.Errorf("mongo url cannot be empty when enabled")
+	}
+	if strings.TrimSpace(c.Mongo.Database) == "" {
+		return fmt.Errorf("mongo database cannot be empty")
+	}
+	if c.Mongo.MaxPoolSize <= 0 {
+		return fmt.Errorf("mongo max pool size must be > 0")
+	}
+	if c.Mongo.MinPoolSize < 0 {
+		return fmt.Errorf("mongo min pool size must be >= 0")
+	}
+	if c.Mongo.MinPoolSize > c.Mongo.MaxPoolSize {
+		return fmt.Errorf("mongo min pool size cannot exceed max pool size")
+	}
+	if c.Mongo.ConnectTimeout <= 0 {
+		return fmt.Errorf("mongo connect timeout must be > 0")
+	}
+	if c.Mongo.StartupPingTimeout <= 0 {
+		return fmt.Errorf("mongo startup ping timeout must be > 0")
+	}
+	if c.Mongo.HealthCheckTimeout <= 0 {
+		return fmt.Errorf("mongo health check timeout must be > 0")
+	}
+	if c.Mongo.BootstrapTimeout <= 0 {
+		return fmt.Errorf("mongo bootstrap timeout must be > 0")
 	}
 	if strings.EqualFold(strings.TrimSpace(c.Env), "prod") || strings.EqualFold(strings.TrimSpace(c.Env), "production") {
 		if c.RateLimit.Enabled && c.RateLimit.FailOpen {
@@ -688,6 +785,42 @@ func (c *Config) Lint() error {
 		return err
 	}
 	if err := lintDurationEnv("CACHE_TAG_VERSION_CACHE_TTL"); err != nil {
+		return err
+	}
+	if err := lintBoolEnv("PERMISSIONS_ENABLED"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("PERMISSIONS_DB_QUERY_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("PERMISSIONS_REDIS_TTL"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("PERMISSIONS_BACKFILL_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := lintBoolEnv("MONGO_ENABLED"); err != nil {
+		return err
+	}
+	if err := lintIntEnv("MONGO_MAX_POOL_SIZE"); err != nil {
+		return err
+	}
+	if err := lintIntEnv("MONGO_MIN_POOL_SIZE"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("MONGO_CONNECT_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("MONGO_STARTUP_PING_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("MONGO_HEALTH_CHECK_TIMEOUT"); err != nil {
+		return err
+	}
+	if err := lintBoolEnv("MONGO_BOOTSTRAP_ENABLED"); err != nil {
+		return err
+	}
+	if err := lintDurationEnv("MONGO_BOOTSTRAP_TIMEOUT"); err != nil {
 		return err
 	}
 	if err := lintFloat64Env("HTTP_MIDDLEWARE_ACCESS_LOG_SAMPLE_RATE"); err != nil {

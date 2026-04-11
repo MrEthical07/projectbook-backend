@@ -1,0 +1,102 @@
+# Endpoint Tracker (Contract Freeze)
+
+This tracker is generated from docs/ProjectBookDocs/API_plan.md and is the frozen implementation backlog for ProjectBook API routes.
+
+- Total parsed endpoints: 84
+- Unique endpoints: 82
+- Contract target: 82 unique endpoints
+- Auth direction: goAuth auth-only
+
+## Status Values
+
+- not_started
+- in_progress
+- implemented
+- tested
+
+## Endpoints
+
+| ID | Category | Module | Method | Path | Source Function | Status | Owner | Implementation Target |
+|---|---|---|---|---|---|---|---|---|
+| EP-001 | Authentication | auth | POST | /api/v1/auth/signup | `authService.registerUser()` | tested | auth | `internal/modules/auth` |
+| EP-002 | Authentication | auth | POST | /api/v1/auth/login | `authService.authenticate()` | tested | auth | `internal/modules/auth` |
+| EP-003 | Authentication | auth | POST | /api/v1/auth/logout | `authService.invalidateSessionByToken()` | tested | auth | `internal/modules/auth` |
+| EP-004 | Authentication | auth | POST | /api/v1/auth/verify-email | `authService.verifyEmailToken()` | tested | auth | `internal/modules/auth` |
+| EP-005 | Authentication | auth | POST | /api/v1/auth/resend-verification | `authService.resendVerificationEmail()` | tested | auth | `internal/modules/auth` |
+| EP-006 | Authentication | auth | POST | /api/v1/auth/forgot-password | `authService.requestPasswordReset()` | tested | auth | `internal/modules/auth` |
+| EP-007 | Authentication | auth | POST | /api/v1/auth/reset-password | `authService.resetPassword()` | tested | auth | `internal/modules/auth` |
+| EP-008 | Home | home | GET | /api/v1/home/dashboard | `getUserDashboard()` | not_started | home | `internal/modules/home` |
+| EP-009 | Home | home | GET | /api/v1/home/projects | `getUserProjects()` | not_started | home | `internal/modules/home` |
+| EP-010 | Home | home | POST | /api/v1/home/projects | `createProject()` | not_started | home | `internal/modules/home` |
+| EP-011 | Home | home | GET | /api/v1/home/projects/reference | `getProjectCreationReference()` | not_started | home | `internal/modules/home` |
+| EP-012 | Home | home | GET | /api/v1/home/invites | `getUserInvitesPage()` | not_started | home | `internal/modules/home` |
+| EP-013 | Home | home | POST | /api/v1/home/invites/{inviteId}/accept | `acceptProjectInvite()` | not_started | home | `internal/modules/home` |
+| EP-014 | Home | home | POST | /api/v1/home/invites/{inviteId}/decline | `declineProjectInvite()` | not_started | home | `internal/modules/home` |
+| EP-015 | Home | home | GET | /api/v1/home/notifications | `getUserNotificationsPage()` | not_started | home | `internal/modules/home` |
+| EP-016 | Home | home | GET | /api/v1/home/activity | `getUserActivityPage()` | not_started | home | `internal/modules/home` |
+| EP-017 | Home | home | GET | /api/v1/home/dashboard-activity | `getUserDashboardActivity()` | not_started | home | `internal/modules/home` |
+| EP-018 | Home | home | GET | /api/v1/home/account | `getUserAccountSettings()` | not_started | home | `internal/modules/home` |
+| EP-019 | Home | home | PUT | /api/v1/home/account | `updateUserAccountSettings()` | not_started | home | `internal/modules/home` |
+| EP-020 | Home | home | GET | /api/v1/home/docs | `getUserDocsSections()` | not_started | home | `internal/modules/home` |
+| EP-021 | Project | project | GET | /api/v1/projects/{projectId}/dashboard | `getProjectDashboard()` | not_started | project | `internal/modules/project` |
+| EP-022 | Project | project | GET | /api/v1/projects/{projectId}/access | `getProjectAccess()` | not_started | project | `internal/modules/project` |
+| EP-023 | Project | project | GET | /api/v1/projects/{projectId}/sidebar | `getProjectSidebarData()` | not_started | project | `internal/modules/project` |
+| EP-024 | Project | project | GET | /api/v1/projects/{projectId}/settings | `getProjectSettings()` | not_started | project | `internal/modules/project` |
+| EP-025 | Project | project | PUT | /api/v1/projects/{projectId}/settings | `updateProjectSettings()` | not_started | project | `internal/modules/project` |
+| EP-026 | Project | project | POST | /api/v1/projects/{projectId}/archive | `archiveProject()` | not_started | project | `internal/modules/project` |
+| EP-027 | Project | project | DELETE | /api/v1/projects/{projectId} | `deleteProject()` | not_started | project | `internal/modules/project` |
+| EP-028 | Team Management | team | GET | /api/v1/projects/{projectId}/team/members | `getProjectTeamMembers()` | not_started | team | `internal/modules/team` |
+| EP-029 | Team Management | team | GET | /api/v1/projects/{projectId}/team/roles | `getProjectTeamRoles()` | not_started | team | `internal/modules/team` |
+| EP-030 | Team Management | team | POST | /api/v1/projects/{projectId}/team/invites | `createProjectInvite()` | not_started | team | `internal/modules/team` |
+| EP-031 | Team Management | team | POST | /api/v1/projects/{projectId}/team/invites/batch | `sendProjectInvites()` | not_started | team | `internal/modules/team` |
+| EP-032 | Team Management | team | DELETE | /api/v1/projects/{projectId}/team/invites/{email} | `cancelProjectInvite()` | not_started | team | `internal/modules/team` |
+| EP-033 | Team Management | team | PUT | /api/v1/projects/{projectId}/team/members/{memberId}/permissions | `updateProjectMemberPermissions()` | not_started | team | `internal/modules/team` |
+| EP-034 | Team Management | team | PUT | /api/v1/projects/{projectId}/team/roles/{role}/permissions | `updateProjectRolePermissions()` | not_started | team | `internal/modules/team` |
+| EP-035 | Stories | stories | GET | /api/v1/projects/{projectId}/stories | `getStories()` | not_started | stories | `internal/modules/stories` |
+| EP-036 | Stories | stories | POST | /api/v1/projects/{projectId}/stories | `createStory()` | not_started | stories | `internal/modules/stories` |
+| EP-037 | Stories | stories | GET | /api/v1/projects/{projectId}/stories/{slug} | `getStoryPageData()` | not_started | stories | `internal/modules/stories` |
+| EP-038 | Stories | stories | PUT | /api/v1/projects/{projectId}/stories/{storyId} | `updateStory()` | not_started | stories | `internal/modules/stories` |
+| EP-039 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys | `getJourneys()` | not_started | journeys | `internal/modules/journeys` |
+| EP-040 | Journeys | journeys | POST | /api/v1/projects/{projectId}/journeys | `createJourney()` | not_started | journeys | `internal/modules/journeys` |
+| EP-041 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys/{slug} | `getJourneyPageData()` | not_started | journeys | `internal/modules/journeys` |
+| EP-042 | Journeys | journeys | PUT | /api/v1/projects/{projectId}/journeys/{journeyId} | `updateJourney()` | not_started | journeys | `internal/modules/journeys` |
+| EP-043 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems | `getProblems()` | not_started | problems | `internal/modules/problems` |
+| EP-044 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems | `createProblem()` | not_started | problems | `internal/modules/problems` |
+| EP-045 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems/{slug} | `getProblemPageData()` | not_started | problems | `internal/modules/problems` |
+| EP-046 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId} | `updateProblem()` | not_started | problems | `internal/modules/problems` |
+| EP-047 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems/{problemId}/lock | `lockProblem()` | not_started | problems | `internal/modules/problems` |
+| EP-048 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId}/status | `updateProblemStatus()` | not_started | problems | `internal/modules/problems` |
+| EP-049 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas | `getIdeas()` | not_started | ideas | `internal/modules/ideas` |
+| EP-050 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas | `createIdea()` | not_started | ideas | `internal/modules/ideas` |
+| EP-051 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas/{slug} | `getIdeaPageData()` | not_started | ideas | `internal/modules/ideas` |
+| EP-052 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId} | `updateIdea()` | not_started | ideas | `internal/modules/ideas` |
+| EP-053 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas/{ideaId}/select | `selectIdea()` | not_started | ideas | `internal/modules/ideas` |
+| EP-054 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId}/status | `updateIdeaStatus()` | not_started | ideas | `internal/modules/ideas` |
+| EP-055 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks | `getTasks()` | not_started | tasks | `internal/modules/tasks` |
+| EP-056 | Tasks | tasks | POST | /api/v1/projects/{projectId}/tasks | `createTask()` | not_started | tasks | `internal/modules/tasks` |
+| EP-057 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks/{slug} | `getTaskPageData()` | not_started | tasks | `internal/modules/tasks` |
+| EP-058 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId} | `updateTask()` | not_started | tasks | `internal/modules/tasks` |
+| EP-059 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId}/status | `updateTaskStatus()` | not_started | tasks | `internal/modules/tasks` |
+| EP-060 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback | `getFeedback()` | not_started | feedback | `internal/modules/feedback` |
+| EP-061 | Feedback | feedback | POST | /api/v1/projects/{projectId}/feedback | `createFeedback()` | not_started | feedback | `internal/modules/feedback` |
+| EP-062 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback/{slug} | `getFeedbackPageData()` | not_started | feedback | `internal/modules/feedback` |
+| EP-063 | Feedback | feedback | PUT | /api/v1/projects/{projectId}/feedback/{feedbackId} | `updateFeedback()` | not_started | feedback | `internal/modules/feedback` |
+| EP-064 | Resources | resources | GET | /api/v1/projects/{projectId}/resources | `getResources()` | not_started | resources | `internal/modules/resources` |
+| EP-065 | Resources | resources | POST | /api/v1/projects/{projectId}/resources | `createResource()` | not_started | resources | `internal/modules/resources` |
+| EP-066 | Resources | resources | GET | /api/v1/projects/{projectId}/resources/{resourceId} | `getResourcePageData()` | not_started | resources | `internal/modules/resources` |
+| EP-067 | Resources | resources | PUT | /api/v1/projects/{projectId}/resources/{resourceId} | `updateResource()` | not_started | resources | `internal/modules/resources` |
+| EP-068 | Resources | resources | PUT | /api/v1/projects/{projectId}/resources/{resourceId}/status | `updateResourceStatus()` | not_started | resources | `internal/modules/resources` |
+| EP-069 | Pages | pages | GET | /api/v1/projects/{projectId}/pages | `getPages()` | not_started | pages | `internal/modules/pages` |
+| EP-070 | Pages | pages | POST | /api/v1/projects/{projectId}/pages | `createPage()` | not_started | pages | `internal/modules/pages` |
+| EP-071 | Pages | pages | GET | /api/v1/projects/{projectId}/pages/{slug} | `getPageEditorData()` | not_started | pages | `internal/modules/pages` |
+| EP-072 | Pages | pages | PUT | /api/v1/projects/{projectId}/pages/{pageId} | `updatePageEditor()` | not_started | pages | `internal/modules/pages` |
+| EP-073 | Pages | pages | PUT | /api/v1/projects/{projectId}/pages/{pageId}/rename | `renamePage()` | not_started | pages | `internal/modules/pages` |
+| EP-074 | Calendar | calendar | GET | /api/v1/projects/{projectId}/calendar | `getCalendarData()` | not_started | calendar | `internal/modules/calendar` |
+| EP-075 | Calendar | calendar | POST | /api/v1/projects/{projectId}/calendar | `createCalendarEvent()` | not_started | calendar | `internal/modules/calendar` |
+| EP-076 | Calendar | calendar | GET | /api/v1/projects/{projectId}/calendar/{eventId} | `getCalendarEventData()` | not_started | calendar | `internal/modules/calendar` |
+| EP-077 | Calendar | calendar | PUT | /api/v1/projects/{projectId}/calendar/{eventId} | `updateCalendarEvent()` | not_started | calendar | `internal/modules/calendar` |
+| EP-078 | Calendar | calendar | DELETE | /api/v1/projects/{projectId}/calendar/{eventId} | `deleteCalendarEvent()` | not_started | calendar | `internal/modules/calendar` |
+| EP-079 | Sidebar Artifacts | sidebar | POST | /api/v1/projects/{projectId}/sidebar/artifacts | `createSidebarArtifact()` | not_started | sidebar | `internal/modules/sidebar` |
+| EP-080 | Sidebar Artifacts | sidebar | PUT | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename | `renameSidebarArtifact()` | not_started | sidebar | `internal/modules/sidebar` |
+| EP-081 | Sidebar Artifacts | sidebar | DELETE | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId} | `deleteSidebarArtifact()` | not_started | sidebar | `internal/modules/sidebar` |
+| EP-082 | Activity | activity | GET | /api/v1/projects/{projectId}/activity | `getProjectActivity()` | not_started | activity | `internal/modules/activity` |

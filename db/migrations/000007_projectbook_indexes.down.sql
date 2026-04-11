@@ -39,5 +39,9 @@ DROP INDEX IF EXISTS projects_owner_user_id_idx;
 
 DROP INDEX IF EXISTS auth_sessions_active_idx;
 DROP INDEX IF EXISTS auth_sessions_user_expires_idx;
+DROP INDEX IF EXISTS auth_email_log_recipient_sent_idx;
+DROP INDEX IF EXISTS auth_email_log_user_sent_idx;
+DROP INDEX IF EXISTS password_reset_tokens_user_expires_idx;
+DROP INDEX IF EXISTS email_verification_tokens_user_expires_idx;
 
 DROP INDEX IF EXISTS users_created_at_idx;

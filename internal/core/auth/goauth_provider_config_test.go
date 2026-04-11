@@ -126,6 +126,27 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if cfg.Permission.RootBitReserved {
 		t.Fatalf("Permission.RootBitReserved=true want=false")
 	}
+	if !cfg.PasswordReset.Enabled {
+		t.Fatalf("PasswordReset.Enabled=false want=true")
+	}
+	if cfg.PasswordReset.ResetTTL != time.Hour {
+		t.Fatalf("PasswordReset.ResetTTL=%s want=%s", cfg.PasswordReset.ResetTTL, time.Hour)
+	}
+	if !cfg.EmailVerification.Enabled {
+		t.Fatalf("EmailVerification.Enabled=false want=true")
+	}
+	if !cfg.EmailVerification.RequireForLogin {
+		t.Fatalf("EmailVerification.RequireForLogin=false want=true")
+	}
+	if cfg.EmailVerification.VerificationTTL != 24*time.Hour {
+		t.Fatalf("EmailVerification.VerificationTTL=%s want=%s", cfg.EmailVerification.VerificationTTL, 24*time.Hour)
+	}
+	if !cfg.Account.Enabled {
+		t.Fatalf("Account.Enabled=false want=true")
+	}
+	if cfg.Account.DefaultRole != "user" {
+		t.Fatalf("Account.DefaultRole=%q want=%q", cfg.Account.DefaultRole, "user")
+	}
 }
 
 func TestNewGoAuthEngineBuildsWithControlledConfig(t *testing.T) {

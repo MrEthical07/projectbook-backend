@@ -64,7 +64,7 @@ Canonical parts are appended in deterministic order:
 
 1. `route=...`
 2. `method=...` when `VaryBy.Method`
-3. `tenant=...` when `VaryBy.TenantID`
+3. `project=...` when `VaryBy.ProjectID`
 4. `user=...` when `VaryBy.UserID`
 5. `role=...` when `VaryBy.Role`
 6. `path.{name}=...` for configured path params
@@ -101,7 +101,7 @@ TagSpecs []cache.CacheTagSpec
 type CacheTagSpec struct {
     Name       string
     PathParams []string
-    TenantID   bool
+    ProjectID  bool
     UserID     bool
     Literals   []cache.CacheTagLiteral
 }
@@ -109,7 +109,7 @@ type CacheTagSpec struct {
 
 V1 supports only:
 - path params
-- auth tenant id
+- auth project id
 - auth user id
 - literal key/value dimensions
 
@@ -147,9 +147,9 @@ Use precise scopes to avoid over-invalidation.
 | Route type | Recommended tag spec |
 |---|---|
 | Detail endpoint | `Name: "project", PathParams: ["id"]` |
-| Tenant list endpoint | `Name: "project-list", TenantID: true` |
+| Project list endpoint | `Name: "project-list", ProjectID: true` |
 | User self endpoint | `Name: "user-profile", UserID: true` |
-| Cross-entity list | `Name: "dashboard-list", TenantID: true, Literals: [{Key:"view",Value:"summary"}]` |
+| Cross-entity list | `Name: "dashboard-list", ProjectID: true, Literals: [{Key:"view",Value:"summary"}]` |
 
 ### Write route best practice
 
@@ -161,27 +161,27 @@ Example for project update:
 policy.CacheInvalidate(m.cacheMgr, cache.CacheInvalidateConfig{
     TagSpecs: []cache.CacheTagSpec{
         {Name: "project", PathParams: []string{"id"}},
-        {Name: "project-list", TenantID: true},
+        {Name: "project-list", ProjectID: true},
     },
 })
 ```
 
-This invalidates the updated project detail and tenant list keys without evicting unrelated projects from other ids.
+This invalidates the updated project detail and project list keys without evicting unrelated projects from other scopes.
 
 ---
 
 ## Practical examples
 
-### Tenant project list read cache
+### Project-scoped list read cache
 
 ```go
 policy.CacheRead(m.cacheMgr, cache.CacheReadConfig{
     TTL: 30 * time.Second,
     TagSpecs: []cache.CacheTagSpec{
-        {Name: "project-list", TenantID: true},
+        {Name: "project-list", ProjectID: true},
     },
     VaryBy: cache.CacheVaryBy{
-        TenantID:    true,
+        ProjectID:   true,
         QueryParams: []string{"limit", "cursor"},
     },
 })
@@ -196,7 +196,7 @@ policy.CacheRead(m.cacheMgr, cache.CacheReadConfig{
         {Name: "project", PathParams: []string{"id"}},
     },
     VaryBy: cache.CacheVaryBy{
-        TenantID:   true,
+        ProjectID:  true,
         PathParams: []string{"id"},
     },
 })
@@ -208,7 +208,7 @@ policy.CacheRead(m.cacheMgr, cache.CacheReadConfig{
 policy.CacheInvalidate(m.cacheMgr, cache.CacheInvalidateConfig{
     TagSpecs: []cache.CacheTagSpec{
         {Name: "project", PathParams: []string{"id"}},
-        {Name: "project-list", TenantID: true},
+        {Name: "project-list", ProjectID: true},
     },
 })
 ```
@@ -239,7 +239,7 @@ Cache write is bypassed when:
 5. Response is streaming/hijacked
 
 Auth safety rule still applies:
-- authenticated route cache requires `VaryBy.UserID` or `VaryBy.TenantID`.
+- authenticated route cache requires `VaryBy.UserID` or `VaryBy.ProjectID`.
 
 ---
 

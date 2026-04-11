@@ -44,7 +44,7 @@ func newPolicyTestAuthEngine(t testing.TB) (*goauth.Engine, string) {
 		user: goauth.UserRecord{
 			UserID:            "u1",
 			Identifier:        "user@example.com",
-			TenantID:          "t1",
+			TenantID:          "p1",
 			PasswordHash:      hash,
 			Status:            goauth.AccountActive,
 			Role:              "user",

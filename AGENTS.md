@@ -16,7 +16,7 @@ Use current code as reference, but do not preserve legacy SQL-centric patterns.
 - App wiring lives in internal/core/app.
 - Modules are registered in internal/modules/modules.go.
 - Module internals must follow handler/service/repository separation.
-- Policies remain mandatory for behavioral guarantees (auth, tenant, RBAC, rate-limit, cache, cache-control).
+- Policies remain mandatory for behavioral guarantees (auth, project, resolve-permissions, RBAC, rate-limit, cache, cache-control).
 
 ## 3. Data Layer Rules (Hard Constraints)
 
@@ -47,11 +47,12 @@ Always attach policies explicitly when route behavior requires auth/isolation/co
 
 Required policy order:
 1. auth
-2. tenant
-3. rbac
-4. rate limit
-5. cache
-6. cache-control (optional, after cache)
+2. project
+3. resolve permissions
+4. rbac
+5. rate limit
+6. cache
+7. cache-control (optional, after cache)
 
 Do not bypass policy.MustValidateRoute / validator-backed route checks.
 
@@ -111,7 +112,7 @@ Use this sequence for most feature work:
 
 1. Define behavior first:
 - endpoint shape (request/response)
-- auth/tenant/rbac requirements
+- auth/project/resolver/rbac requirements
 - cache/rate-limit requirements
 
 2. Add or update module code in this order:
@@ -141,7 +142,7 @@ Preferred scaffold command:
 Optional scaffold flags:
 
 - make module name=projects db=1
-- make module name=projects auth=1 tenant=1 ratelimit=1 cache=1
+- make module name=projects auth=1 ratelimit=1 cache=1
 
 Post-scaffold hardening checklist:
 
@@ -208,16 +209,17 @@ Do not introduce compatibility layers that keep dual access patterns alive.
 For protected routes, policy order must be:
 
 1. auth
-2. tenant
-3. rbac
-4. rate limit
-5. cache
-6. cache-control (optional)
+2. project
+3. resolve permissions
+4. rbac
+5. rate limit
+6. cache
+7. cache-control (optional)
 
 Safety checks:
 
-- authenticated cache routes must vary by user or tenant
-- tenant_id path routes must enforce tenant policies
+- authenticated cache routes must vary by user or project
+- project_id path routes should enforce project policies
 - do not bypass route validator-backed registration
 
 ## 16. Performance Guidance

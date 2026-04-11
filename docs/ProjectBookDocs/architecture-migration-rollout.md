@@ -1,5 +1,8 @@
 # Architecture Migration Rollout
 
+> Superseded Notice (2026-04-10): This rollout note is historical.
+> Current implementation authority is [contract-freeze.md](contract-freeze.md) and the frozen ProjectBook contract docs.
+
 Date: 2026-04-08
 Status: Completed
 Owner: Copilot refactor execution

@@ -144,8 +144,8 @@ Runtime sequence:
 
 When testing auth routes:
 
-- POST /api/v1/system/auth/login
-- POST /api/v1/system/auth/refresh
+- POST /api/v1/auth/login
+- POST /api/v1/auth/refresh
 - GET /api/v1/system/whoami (requires auth)
 
 See [docs/auth-goauth.md](auth-goauth.md) for details.
@@ -203,7 +203,7 @@ Action:
 Likely causes:
 
 - policies attached in wrong order
-- missing tenant policy for tenant route
+- missing project/resolver policy for protected project route
 - cache vary dimensions unsafe for authenticated route
 
 Action:

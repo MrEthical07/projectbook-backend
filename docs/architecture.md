@@ -157,9 +157,10 @@ Validation code is in:
 Key validations:
 
 - policy stage ordering
-- auth prerequisites for RBAC/tenant policies
-- tenant path rules for routes with tenant_id path params
-- cache safety rules on authenticated routes (must vary by user or tenant)
+- auth prerequisites for project/RBAC policies
+- resolver prerequisite for RBAC policies
+- project path rules for routes with project_id path params
+- cache safety rules on authenticated routes (must vary by user or project)
 
 ## 5. Handler, Adapter, and Response Model
 
@@ -227,14 +228,14 @@ Key behavior:
 - otherwise uses pool runner
 - WithTx starts pgx transaction, injects tx runner in context, commits or rolls back
 
-### 6.2 Document store status
+### 6.2 Document store implementation
 
-internal/core/storage/document_noop.go provides NoopDocumentStore.
+Concrete Mongo document-store execution is implemented in internal/core/storage/mongo_store.go.
 
-Purpose:
+Runtime behavior:
 
-- preserve the architecture contract for document modules now
-- allow compilation and interface wiring before concrete document backend arrives
+- when `MONGO_ENABLED=true`, dependency wiring initializes Mongo client/database, verifies startup bootstrap/indexes, and exposes Mongo-backed `DocumentStore`
+- when `MONGO_ENABLED=false`, dependency wiring keeps `storage.NoopDocumentStore` as the default document surface
 
 ### 6.3 Repository-owned operations
 
@@ -287,7 +288,7 @@ This preserves goAuth compatibility while removing direct query-object coupling 
 
 ## 9. Route-Level Flow Examples
 
-### 9.1 POST /api/v1/system/auth/login
+### 9.1 POST /api/v1/auth/login
 
 Files involved:
 
@@ -307,7 +308,7 @@ Runtime path:
 7. result maps back to goAuth user record
 8. goAuth issues tokens
 
-### 9.2 POST /api/v1/system/auth/refresh
+### 9.2 POST /api/v1/auth/refresh
 
 High-level path:
 

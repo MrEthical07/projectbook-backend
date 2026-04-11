@@ -84,17 +84,17 @@ AuthRequired behavior:
 AuthContext includes:
 
 - UserID
-- TenantID
+- ProjectID
 - Role
 - Permissions
 
-That context is then consumed by downstream handlers and tenant/RBAC policies.
+That context is then consumed by downstream handlers and project/RBAC policies.
 
 ## 7. Auth Routes In System Module
 
 Routes are registered in internal/modules/system/routes.go.
 
-### 7.1 POST /api/v1/system/auth/login
+### 7.1 POST /api/v1/auth/login
 
 Flow:
 
@@ -106,7 +106,7 @@ Flow:
 6. store executes against pgx runner
 7. goAuth validates and issues tokens
 
-### 7.2 POST /api/v1/system/auth/refresh
+### 7.2 POST /api/v1/auth/refresh
 
 Flow:
 
@@ -167,7 +167,7 @@ Mistake: bypassing provider/repository to hit DB directly for auth user reads
 
 Mistake: putting RBAC checks before auth policy
 
-- Correct approach: attach policies in correct order (auth before tenant/RBAC)
+- Correct approach: attach policies in correct order (auth before project/resolve-permissions/RBAC)
 
 ## 11. Troubleshooting Checklist
 

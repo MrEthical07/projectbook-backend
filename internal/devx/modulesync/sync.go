@@ -135,7 +135,8 @@ func cleanupManaged(dir string, managed map[string]struct{}) error {
 		if err != nil {
 			return fmt.Errorf("read managed target %s: %w", target, err)
 		}
-		if strings.HasPrefix(string(content), generatedHeaderPrefix) {
+		normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
+		if strings.HasPrefix(normalized, generatedHeaderPrefix) {
 			if err := os.Remove(target); err != nil {
 				return fmt.Errorf("remove stale managed target %s: %w", target, err)
 			}

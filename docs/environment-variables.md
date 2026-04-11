@@ -176,7 +176,46 @@ Runtime note:
 | REDIS_STARTUP_PING_TIMEOUT | 3s | must be > 0 |
 | REDIS_HEALTH_CHECK_TIMEOUT | 1s | must be > 0 |
 
-## 12. Metrics Variables
+## 12. Permissions Variables
+
+| Env var | Default | Notes |
+|---|---|---|
+| PERMISSIONS_ENABLED | false | enables project membership permission resolver |
+| PERMISSIONS_DB_QUERY_TIMEOUT | 750ms | must be > 0 |
+| PERMISSIONS_REDIS_TTL | 6h | must be > 0 |
+| PERMISSIONS_BACKFILL_TIMEOUT | 500ms | must be > 0 |
+
+Runtime notes:
+
+- when enabled, startup seeds default `role_permissions` rows for all projects using canonical role masks
+- startup resyncs non-custom `project_members.permission_mask` values to role masks
+- startup invalidates resolver keys (`rbac:{user}`) and permission cache tags for affected user/project scopes
+
+Lint dependency rule:
+
+- PERMISSIONS_ENABLED=true requires POSTGRES_ENABLED=true
+
+## 13. Mongo Variables
+
+| Env var | Default | Notes |
+|---|---|---|
+| MONGO_ENABLED | false | enables Mongo dependency wiring |
+| MONGO_URL | empty | required when enabled |
+| MONGO_DB | projectbook | required when enabled |
+| MONGO_MAX_POOL_SIZE | 50 | must be > 0 |
+| MONGO_MIN_POOL_SIZE | 0 | must be >= 0 and <= max |
+| MONGO_CONNECT_TIMEOUT | 5s | must be > 0 |
+| MONGO_STARTUP_PING_TIMEOUT | 3s | must be > 0 |
+| MONGO_HEALTH_CHECK_TIMEOUT | 1s | must be > 0 |
+| MONGO_BOOTSTRAP_ENABLED | true | enables startup collection/index verification |
+| MONGO_BOOTSTRAP_TIMEOUT | 10s | must be > 0 |
+
+Runtime notes:
+
+- when enabled, startup initializes Mongo client/database, optionally bootstraps ProjectBook collections/indexes, and exposes Mongo-backed `DocumentStore`
+- when disabled, runtime keeps `storage.NoopDocumentStore` as the document backend contract
+
+## 14. Metrics Variables
 
 | Env var | Default | Notes |
 |---|---|---|
@@ -185,7 +224,7 @@ Runtime note:
 | METRICS_AUTH_TOKEN | empty | required in prod when metrics enabled |
 | METRICS_EXCLUDE_PATHS | /healthz,/readyz | CSV path list |
 
-## 13. Tracing Variables
+## 15. Tracing Variables
 
 | Env var | Default | Notes |
 |---|---|---|
@@ -197,7 +236,7 @@ Runtime note:
 | TRACING_SAMPLE_RATIO | 0.05 | must be in [0,1] |
 | TRACING_INSECURE | true non-prod, false prod | transport security toggle |
 
-## 14. Production Constraints To Remember
+## 16. Production Constraints To Remember
 
 When APP_ENV is prod or production:
 
@@ -206,7 +245,7 @@ When APP_ENV is prod or production:
 - metrics auth token is required when metrics enabled
 - tracing insecure default changes to false
 
-## 15. Practical Validation Tips
+## 17. Practical Validation Tips
 
 If startup fails due to config:
 
@@ -215,7 +254,7 @@ If startup fails due to config:
 3. verify dependency combinations (auth/cache/rate-limit)
 4. verify prod-only constraints
 
-## 16. Related Docs
+## 18. Related Docs
 
 - [docs/workflows.md](workflows.md)
 - [docs/architecture.md](architecture.md)

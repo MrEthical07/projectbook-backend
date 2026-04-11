@@ -1,7 +1,6 @@
 # Auth bootstrap configuration for testing.
 # Default goAuth-aligned setup.
 
-tenant_enabled: false
 role_enabled: true
 permissions_enabled: true
 permissions_mode: bitmask

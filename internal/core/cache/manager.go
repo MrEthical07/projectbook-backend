@@ -27,8 +27,8 @@ type ObserveFunc func(route, outcome string)
 type CacheVaryBy struct {
 	// Method includes HTTP method in cache key.
 	Method bool
-	// TenantID includes principal tenant in cache key.
-	TenantID bool
+	// ProjectID includes principal project in cache key.
+	ProjectID bool
 	// UserID includes principal user in cache key.
 	UserID bool
 	// Role includes principal role in cache key.
@@ -53,8 +53,8 @@ type CacheTagSpec struct {
 	Name string
 	// PathParams appends selected path params (for example, "id") to scope invalidation.
 	PathParams []string
-	// TenantID appends auth tenant id to scope invalidation.
-	TenantID bool
+	// ProjectID appends auth project id to scope invalidation.
+	ProjectID bool
 	// UserID appends auth user id to scope invalidation.
 	UserID bool
 	// Literals appends constant dimensions to distinguish related scopes.
@@ -95,7 +95,7 @@ type CacheInvalidateConfig struct {
 type ReadKeyTemplate struct {
 	RoutePart          string
 	Method             bool
-	TenantID           bool
+	ProjectID          bool
 	UserID             bool
 	Role               bool
 	PathParams         []string
@@ -185,7 +185,7 @@ func PrepareReadKeyTemplate(cfg CacheReadConfig) ReadKeyTemplate {
 	return ReadKeyTemplate{
 		RoutePart:          routePart,
 		Method:             cfg.VaryBy.Method,
-		TenantID:           cfg.VaryBy.TenantID,
+		ProjectID:          cfg.VaryBy.ProjectID,
 		UserID:             cfg.VaryBy.UserID,
 		Role:               cfg.VaryBy.Role,
 		PathParams:         normalizedNames(cfg.VaryBy.PathParams),
@@ -276,8 +276,8 @@ func (m *Manager) BuildReadKeyWithTemplate(ctx context.Context, r *http.Request,
 	}
 
 	principal, hasPrincipal := auth.FromContext(r.Context())
-	if template.TenantID {
-		values = append(values, "tenant="+strings.TrimSpace(principal.TenantID))
+	if template.ProjectID {
+		values = append(values, "project="+strings.TrimSpace(principal.ProjectID))
 	}
 	if template.UserID {
 		values = append(values, "user="+strings.TrimSpace(principal.UserID))
@@ -521,7 +521,7 @@ func normalizeTagSpecs(specs []CacheTagSpec) []CacheTagSpec {
 		out = append(out, CacheTagSpec{
 			Name:       name,
 			PathParams: normalizedNames(spec.PathParams),
-			TenantID:   spec.TenantID,
+			ProjectID:  spec.ProjectID,
 			UserID:     spec.UserID,
 			Literals:   normalizeTagLiterals(spec.Literals),
 		})
@@ -599,8 +599,8 @@ func tagSpecKey(spec CacheTagSpec) string {
 	for _, pathParam := range spec.PathParams {
 		parts = append(parts, "path."+pathParam)
 	}
-	if spec.TenantID {
-		parts = append(parts, "tenant")
+	if spec.ProjectID {
+		parts = append(parts, "project")
 	}
 	if spec.UserID {
 		parts = append(parts, "user")
@@ -652,12 +652,12 @@ func resolveTagName(r *http.Request, principal auth.AuthContext, spec CacheTagSp
 		parts = append(parts, "path."+pathParam+"="+escapeTagValue(value))
 	}
 
-	if spec.TenantID {
-		tenantID := strings.TrimSpace(principal.TenantID)
-		if tenantID == "" {
-			return "", fmt.Errorf("missing tenant id for cache tag %q", spec.Name)
+	if spec.ProjectID {
+		projectID := strings.TrimSpace(principal.ProjectID)
+		if projectID == "" {
+			return "", fmt.Errorf("missing project id for cache tag %q", spec.Name)
 		}
-		parts = append(parts, "tenant="+escapeTagValue(tenantID))
+		parts = append(parts, "project="+escapeTagValue(projectID))
 	}
 
 	if spec.UserID {

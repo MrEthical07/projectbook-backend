@@ -10,7 +10,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 )
 
-// PresetOption mutates preset behavior used by TenantRead/TenantWrite/PublicRead.
+// PresetOption mutates preset behavior used by ProjectRead/ProjectWrite/PublicRead.
 type PresetOption func(*presetConfig)
 
 type presetConfig struct {
@@ -22,15 +22,15 @@ type presetConfig struct {
 	rateLimitRule ratelimit.Rule
 	rateLimitSet  bool
 
-	cacheManager     *cache.Manager
-	cacheTTL         time.Duration
-	cacheTagSpecs    []cache.CacheTagSpec
-	cacheConfigured  bool
-	cacheAllowAuth   bool
-	cacheVaryBy      cache.CacheVaryBy
-	invalidateTagCfg []cache.CacheTagSpec
-	invalidateTagSet bool
-	tenantMatchParam string
+	cacheManager      *cache.Manager
+	cacheTTL          time.Duration
+	cacheTagSpecs     []cache.CacheTagSpec
+	cacheConfigured   bool
+	cacheAllowAuth    bool
+	cacheVaryBy       cache.CacheVaryBy
+	invalidateTagCfg  []cache.CacheTagSpec
+	invalidateTagSet  bool
+	projectMatchParam string
 }
 
 func defaultPresetConfig() presetConfig {
@@ -40,12 +40,12 @@ func defaultPresetConfig() presetConfig {
 			Limit:  30,
 			Window: time.Minute,
 		},
-		cacheTTL:         30 * time.Second,
-		cacheTagSpecs:    []cache.CacheTagSpec{{Name: "resource"}},
-		cacheAllowAuth:   true,
-		cacheVaryBy:      cache.CacheVaryBy{TenantID: true},
-		invalidateTagCfg: []cache.CacheTagSpec{{Name: "resource"}},
-		tenantMatchParam: "tenant_id",
+		cacheTTL:          30 * time.Second,
+		cacheTagSpecs:     []cache.CacheTagSpec{{Name: "resource"}},
+		cacheAllowAuth:    true,
+		cacheVaryBy:       cache.CacheVaryBy{ProjectID: true},
+		invalidateTagCfg:  []cache.CacheTagSpec{{Name: "resource"}},
+		projectMatchParam: "project_id",
 	}
 }
 
@@ -131,12 +131,12 @@ func WithInvalidateTags(tagSpecs ...cache.CacheTagSpec) PresetOption {
 	}
 }
 
-// WithTenantMatchParam overrides tenant path parameter name used by presets.
-func WithTenantMatchParam(param string) PresetOption {
+// WithProjectMatchParam overrides project path parameter name used by presets.
+func WithProjectMatchParam(param string) PresetOption {
 	return func(cfg *presetConfig) {
 		trimmed := strings.TrimSpace(param)
 		if trimmed != "" {
-			cfg.tenantMatchParam = trimmed
+			cfg.projectMatchParam = trimmed
 		}
 	}
 }

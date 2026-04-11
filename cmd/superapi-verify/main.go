@@ -76,15 +76,25 @@ func hintForDiagnostic(message string) string {
 
 	switch {
 	case strings.Contains(normalized, "cannot appear after"):
-		return "reorder route policies as auth -> tenant -> rbac -> rate limit -> cache. See docs/policies.md"
-	case strings.Contains(normalized, "authrequired is required when rbac or tenant policies are configured"):
-		return "add policy.AuthRequired(...) before RBAC/tenant policies. See docs/policies.md"
-	case strings.Contains(normalized, "tenantmatchfrompath requires tenantrequired"):
-		return "add policy.TenantRequired() before policy.TenantMatchFromPath(...). See docs/policies.md"
-	case strings.Contains(normalized, "requires tenantrequired"):
-		return "route path includes {tenant_id}; add policy.TenantRequired() and policy.TenantMatchFromPath(\"tenant_id\"). See docs/policies.md"
-	case strings.Contains(normalized, "requires varyby.userid or varyby.tenantid"):
-		return "CacheRead on authenticated routes must vary by identity. Add VaryBy.UserID or VaryBy.TenantID. See docs/cache-guide.md"
+		return "reorder route policies as auth -> project -> resolve permissions -> rbac -> rate limit -> cache. See docs/policies.md"
+	case strings.Contains(normalized, "authrequired is required when rbac or project policies are configured"):
+		return "add policy.AuthRequired(...) before RBAC/project policies. See docs/policies.md"
+	case strings.Contains(normalized, "project_required requires project_match_from_path"):
+		return "project-scoped routes require policy.ProjectMatchFromPath(\"project_id\") (or \"projectId\") directly after policy.ProjectRequired(). See docs/policies.md"
+	case strings.Contains(normalized, "requires path parameter {project_id} or {projectid} when project_required is configured"):
+		return "project scope must come from route path. Add {project_id} (or {projectId}) to the route and include policy.ProjectMatchFromPath(...). See docs/policies.md"
+	case strings.Contains(normalized, "must use path param \"project_id\" or \"projectid\""):
+		return "use policy.ProjectMatchFromPath(\"project_id\") for snake_case routes or policy.ProjectMatchFromPath(\"projectId\") for camelCase routes. See docs/policies.md"
+	case strings.Contains(normalized, "resolve_permissions is required when rbac policies are configured"):
+		return "add policy.ResolvePermissions(...) between project and RBAC policies. See docs/policies.md"
+	case strings.Contains(normalized, "resolve_permissions requires projectrequired"):
+		return "add policy.ProjectRequired() before policy.ResolvePermissions(...). See docs/policies.md"
+	case strings.Contains(normalized, "projectmatchfrompath requires projectrequired"):
+		return "add policy.ProjectRequired() before policy.ProjectMatchFromPath(...). See docs/policies.md"
+	case strings.Contains(normalized, "requires projectrequired"):
+		return "route path includes {project_id}; add policy.ProjectRequired() and policy.ProjectMatchFromPath(\"project_id\"). See docs/policies.md"
+	case strings.Contains(normalized, "requires varyby.userid or varyby.projectid"):
+		return "CacheRead on authenticated routes must vary by identity. Add VaryBy.UserID or VaryBy.ProjectID. See docs/cache-guide.md"
 	case strings.Contains(normalized, "unsupported policy constructor"):
 		return "use supported policy constructors from internal/core/policy or extend static validator support first"
 	case strings.Contains(normalized, "variadic spread policies are not supported"):

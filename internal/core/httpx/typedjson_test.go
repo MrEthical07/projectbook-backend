@@ -39,8 +39,8 @@ func TestJSON_Success(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if got["ok"] != true {
-		t.Fatalf("ok = %v, want true", got["ok"])
+	if got["success"] != true {
+		t.Fatalf("success = %v, want true", got["success"])
 	}
 }
 

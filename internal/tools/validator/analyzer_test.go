@@ -37,13 +37,13 @@ func register(r httpx.Router, h http.Handler) {
 
 	found := false
 	for _, diagnostic := range diagnostics {
-		if strings.Contains(diagnostic.Message, "auth_required") {
+		if strings.Contains(diagnostic.Message, "auth_required") || strings.Contains(diagnostic.Message, "resolve_permissions") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected auth dependency diagnostic, got: %+v", diagnostics)
+		t.Fatalf("expected auth or resolver dependency diagnostic, got: %+v", diagnostics)
 	}
 }
 
@@ -54,21 +54,23 @@ func TestAnalyzePathsPassesValidRoutePolicyChain(t *testing.T) {
 import (
 	"net/http"
 	"time"
-		goauth "github.com/MrEthical07/goAuth"
+	goauth "github.com/MrEthical07/goAuth"
 	"github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
 	"github.com/MrEthical07/superapi/internal/core/policy"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-		"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/superapi/internal/core/rbac"
 )
-	func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter, cacheManager *cache.Manager) {
-	r.Handle(http.MethodGet, "/api/v1/tenants/{tenant_id}/projects", h,
-			policy.AuthRequired(engine, "strict"),
-		policy.TenantRequired(),
-		policy.TenantMatchFromPath("tenant_id"),
-			policy.RequirePermission(rbac.PermProjectView),
-		policy.RateLimit(limiter, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeTenant}),
-		policy.CacheRead(cacheManager, cache.CacheReadConfig{TTL: time.Minute, VaryBy: cache.CacheVaryBy{TenantID: true}}),
+
+func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter, cacheManager *cache.Manager) {
+	r.Handle(http.MethodGet, "/api/v1/projects/{project_id}/tasks", h,
+		policy.AuthRequired(engine, "strict"),
+		policy.ProjectRequired(),
+		policy.ProjectMatchFromPath("project_id"),
+		policy.ResolvePermissions(nil),
+		policy.RequirePermission(rbac.PermProjectView),
+		policy.RateLimit(limiter, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeProject}),
+		policy.CacheRead(cacheManager, cache.CacheReadConfig{TTL: time.Minute, VaryBy: cache.CacheVaryBy{ProjectID: true}}),
 	)
 }
 `

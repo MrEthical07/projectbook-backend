@@ -7,27 +7,28 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 )
 
-// TenantRead returns a validated policy chain for tenant-scoped read routes.
+// ProjectRead returns a validated policy chain for project-scoped read routes.
 //
 // Usage:
 //
-//	policies := policy.TenantRead(
+//	policies := policy.ProjectRead(
 //	    policy.WithAuthEngine(engine, auth.ModeStrict),
 //	    policy.WithLimiter(limiter),
 //	    policy.WithCacheManager(cacheMgr),
 //	)
-func TenantRead(opts ...PresetOption) []Policy {
+func ProjectRead(opts ...PresetOption) []Policy {
 	cfg := applyPresetOptions(opts...)
-	requireAuthEngine("TenantRead", cfg)
-	requireLimiter("TenantRead", cfg)
-	requireCacheManager("TenantRead", cfg)
+	requireAuthEngine("ProjectRead", cfg)
+	requireLimiter("ProjectRead", cfg)
+	requireCacheManager("ProjectRead", cfg)
 
 	rule := cfg.rateLimitRule
-	rule.Scope = ratelimit.ScopeTenant
+	rule.Scope = ratelimit.ScopeProject
 
 	policies := []Policy{
 		AuthRequired(cfg.authEngine, cfg.authMode),
-		TenantRequired(),
+		ProjectRequired(),
+		ProjectMatchFromPath(cfg.projectMatchParam),
 		RateLimit(cfg.limiter, rule),
 		CacheRead(cfg.cacheManager, cache.CacheReadConfig{
 			TTL:                cfg.cacheTTL,
@@ -37,19 +38,19 @@ func TenantRead(opts ...PresetOption) []Policy {
 		}),
 	}
 
-	mustValidatePreset("TenantRead", http.MethodGet, "/api/v1/resource/{id}", policies)
+	mustValidatePreset("ProjectRead", http.MethodGet, "/api/v1/projects/{project_id}/resource/{id}", policies)
 	return policies
 }
 
-// TenantWrite returns a validated policy chain for tenant-scoped write routes.
-func TenantWrite(opts ...PresetOption) []Policy {
+// ProjectWrite returns a validated policy chain for project-scoped write routes.
+func ProjectWrite(opts ...PresetOption) []Policy {
 	cfg := applyPresetOptions(opts...)
-	requireAuthEngine("TenantWrite", cfg)
-	requireLimiter("TenantWrite", cfg)
-	requireCacheManager("TenantWrite", cfg)
+	requireAuthEngine("ProjectWrite", cfg)
+	requireLimiter("ProjectWrite", cfg)
+	requireCacheManager("ProjectWrite", cfg)
 
 	rule := cfg.rateLimitRule
-	rule.Scope = ratelimit.ScopeTenant
+	rule.Scope = ratelimit.ScopeProject
 	tagSpecs := cfg.invalidateTagCfg
 	if !cfg.invalidateTagSet {
 		tagSpecs = cfg.cacheTagSpecs
@@ -57,12 +58,13 @@ func TenantWrite(opts ...PresetOption) []Policy {
 
 	policies := []Policy{
 		AuthRequired(cfg.authEngine, cfg.authMode),
-		TenantRequired(),
+		ProjectRequired(),
+		ProjectMatchFromPath(cfg.projectMatchParam),
 		RateLimit(cfg.limiter, rule),
 		CacheInvalidate(cfg.cacheManager, cache.CacheInvalidateConfig{TagSpecs: append([]cache.CacheTagSpec(nil), tagSpecs...)}),
 	}
 
-	mustValidatePreset("TenantWrite", http.MethodPost, "/api/v1/resource", policies)
+	mustValidatePreset("ProjectWrite", http.MethodPost, "/api/v1/projects/{project_id}/resource", policies)
 	return policies
 }
 

@@ -11,7 +11,7 @@ Related frontend repository: https://github.com/MrEthical07/projectbook
 Out of the box, ProjectBook Backend provides:
 
 - A module-based API structure so features are isolated and easy to maintain.
-- A policy system for route behavior (auth, tenant, RBAC, rate-limit, cache, cache-control).
+- A policy system for route behavior (auth, project, resolve-permissions, RBAC, rate-limit, cache, cache-control).
 - A standard response envelope and typed application errors.
 - Built-in goAuth integration for login, refresh, and protected routes.
 - Redis-backed response caching and rate limiting.
@@ -92,8 +92,8 @@ As of now:
 | GET | /readyz | Dependency readiness check |
 | GET | /metrics | Prometheus metrics endpoint |
 | POST | /system/parse-duration | Simple demo endpoint for typed handler flow |
-| POST | /api/v1/system/auth/login | Login through goAuth engine |
-| POST | /api/v1/system/auth/refresh | Token refresh through goAuth |
+| POST | /api/v1/auth/login | Login through goAuth engine |
+| POST | /api/v1/auth/refresh | Token refresh through goAuth |
 | GET | /api/v1/system/whoami | Protected endpoint returning principal info |
 
 ## 6. What Makes This Different From "Basic CRUD Templates"

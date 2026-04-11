@@ -13,9 +13,9 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/params"
+	"github.com/MrEthical07/superapi/internal/core/projectscope"
 	"github.com/MrEthical07/superapi/internal/core/requestid"
 	"github.com/MrEthical07/superapi/internal/core/response"
-	"github.com/MrEthical07/superapi/internal/core/tenant"
 )
 
 // AuthRequired enforces authentication on a route.
@@ -34,7 +34,7 @@ import (
 //	)
 //
 // Notes:
-// - Place before RBAC and tenant policies
+// - Place before RBAC and project policies
 // - Requires a non-nil engine when route is expected to be protected
 func AuthRequired(engine *goauth.Engine, mode auth.Mode) Policy {
 	p := authRequiredWithEngine(engine, mode)
@@ -128,7 +128,6 @@ func authRequiredWithEngine(engine *goauth.Engine, mode auth.Mode) Policy {
 
 				principal := auth.AuthContext{
 					UserID:         result.UserID,
-					TenantID:       result.TenantID,
 					Role:           result.Role,
 					PermissionMask: maskValueToUint64(result.Mask),
 					Permissions:    append([]string(nil), result.Permissions...),
@@ -173,52 +172,65 @@ func maskValueToUint64(mask any) uint64 {
 	}
 }
 
-// TenantRequired ensures authenticated requests carry tenant scope.
+// ProjectRequired ensures authenticated requests carry project scope.
 //
 // Behavior:
 // - Returns 401 when authentication context is absent
-// - Returns 403 when tenant scope is missing
+// - Resolves project scope strictly from request path params (project_id/projectId)
+// - Returns 403 when scope is missing or conflicting
 //
 // Notes:
-// - Required for tenant-isolated routes
+// - Required for project-isolated routes
 // - Place after AuthRequired
-func TenantRequired() Policy {
+func ProjectRequired() Policy {
 	p := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rid := requestid.FromContext(r.Context())
-			if _, ok := auth.FromContext(r.Context()); !ok {
+			principal, ok := auth.FromContext(r.Context())
+			if !ok || strings.TrimSpace(principal.UserID) == "" {
 				response.Error(w, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required"), rid)
 				return
 			}
-			if err := tenant.RequireTenant(r.Context()); err != nil {
-				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "tenant scope required"), rid)
+
+			pathProjectID, hasPathProjectID := requestProjectID(r)
+			if !hasPathProjectID {
+				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "project scope required"), rid)
 				return
 			}
-			next.ServeHTTP(w, r)
+
+			principalProjectID := strings.TrimSpace(principal.ProjectID)
+			if principalProjectID != "" && !projectscope.IsSameProject(principalProjectID, pathProjectID) {
+				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "project scope mismatch"), rid)
+				return
+			}
+
+			principal.ProjectID = pathProjectID
+
+			next.ServeHTTP(w, r.WithContext(auth.WithContext(r.Context(), principal)))
 		})
 	}
 
-	return annotatePolicy(p, Metadata{Type: PolicyTypeTenantRequired, Name: "TenantRequired"})
+	return annotatePolicy(p, Metadata{Type: PolicyTypeProjectRequired, Name: "ProjectRequired"})
 }
 
-// TenantMatchFromPath enforces tenant isolation using a route path parameter.
+// ProjectMatchFromPath enforces project isolation using a route path parameter.
 //
 // Behavior:
-// - Returns 400 when route tenant parameter is missing
+// - Returns 400 when route project parameter is missing
 // - Returns 401 when auth context is missing
-// - Returns 404 when principal tenant and route tenant mismatch
+// - Returns 403 when principal project and route project mismatch
 //
 // Usage:
 //
-//	r.Handle(http.MethodGet, "/api/v1/tenants/{tenant_id}/projects", handler,
+//	r.Handle(http.MethodGet, "/api/v1/projects/{project_id}/tasks", handler,
 //	    policy.AuthRequired(engine, mode),
-//	    policy.TenantRequired(),
-//	    policy.TenantMatchFromPath("tenant_id"),
+//	    policy.ProjectRequired(),
+//	    policy.ProjectMatchFromPath("project_id"),
 //	)
-func TenantMatchFromPath(paramName string) Policy {
+func ProjectMatchFromPath(paramName string) Policy {
 	paramName = strings.TrimSpace(paramName)
 	if paramName == "" {
-		panicInvalidRouteConfigf("%s requires a non-empty path parameter name", PolicyTypeTenantMatchFromPath)
+		panicInvalidRouteConfigf("%s requires a non-empty path parameter name", PolicyTypeProjectMatchFromPath)
 	}
 
 	p := func(next http.Handler) http.Handler {
@@ -230,17 +242,17 @@ func TenantMatchFromPath(paramName string) Policy {
 				return
 			}
 
-			resourceTenant := strings.TrimSpace(params.URLParam(r, paramName))
-			if resourceTenant == "" {
+			resourceProject := strings.TrimSpace(params.URLParam(r, paramName))
+			if resourceProject == "" {
 				response.Error(w, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, paramName+" is required"), rid)
 				return
 			}
-			if strings.TrimSpace(principal.TenantID) == "" {
-				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "tenant scope required"), rid)
+			if strings.TrimSpace(principal.ProjectID) == "" {
+				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "project scope required"), rid)
 				return
 			}
-			if !tenant.IsSameTenant(principal.TenantID, resourceTenant) {
-				response.Error(w, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "not found"), rid)
+			if !projectscope.IsSameProject(principal.ProjectID, resourceProject) {
+				response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "project scope mismatch"), rid)
 				return
 			}
 
@@ -249,8 +261,26 @@ func TenantMatchFromPath(paramName string) Policy {
 	}
 
 	return annotatePolicy(p, Metadata{
-		Type:            PolicyTypeTenantMatchFromPath,
-		Name:            "TenantMatchFromPath",
-		TenantPathParam: paramName,
+		Type:             PolicyTypeProjectMatchFromPath,
+		Name:             "ProjectMatchFromPath",
+		ProjectPathParam: paramName,
 	})
+}
+
+func requestProjectID(r *http.Request) (string, bool) {
+	if r == nil {
+		return "", false
+	}
+
+	candidates := []string{"project_id", "projectId"}
+	for _, name := range candidates {
+		if value := strings.TrimSpace(params.URLParam(r, name)); value != "" {
+			return value, true
+		}
+		if value := strings.TrimSpace(r.PathValue(name)); value != "" {
+			return value, true
+		}
+	}
+
+	return "", false
 }

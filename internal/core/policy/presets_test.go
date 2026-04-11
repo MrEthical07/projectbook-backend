@@ -27,10 +27,10 @@ func newPresetDeps(t *testing.T) (*goauth.Engine, ratelimit.Limiter, *cache.Mana
 	return &goauth.Engine{}, presetAllowLimiter{}, mgr
 }
 
-func TestTenantReadPresetPassesValidator(t *testing.T) {
+func TestProjectReadPresetPassesValidator(t *testing.T) {
 	engine, limiter, mgr := newPresetDeps(t)
 
-	policies := TenantRead(
+	policies := ProjectRead(
 		WithAuthEngine(engine, auth.ModeStrict),
 		WithLimiter(limiter),
 		WithCacheManager(mgr),
@@ -41,15 +41,15 @@ func TestTenantReadPresetPassesValidator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DescribePolicies() error = %v", err)
 	}
-	if err := ValidateRouteMetadata(http.MethodGet, "/api/v1/projects/{id}", metas); err != nil {
+	if err := ValidateRouteMetadata(http.MethodGet, "/api/v1/projects/{project_id}", metas); err != nil {
 		t.Fatalf("ValidateRouteMetadata() error = %v", err)
 	}
 }
 
-func TestTenantWritePresetPassesValidator(t *testing.T) {
+func TestProjectWritePresetPassesValidator(t *testing.T) {
 	engine, limiter, mgr := newPresetDeps(t)
 
-	policies := TenantWrite(
+	policies := ProjectWrite(
 		WithAuthEngine(engine, auth.ModeStrict),
 		WithLimiter(limiter),
 		WithCacheManager(mgr),
@@ -60,7 +60,7 @@ func TestTenantWritePresetPassesValidator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DescribePolicies() error = %v", err)
 	}
-	if err := ValidateRouteMetadata(http.MethodPost, "/api/v1/projects", metas); err != nil {
+	if err := ValidateRouteMetadata(http.MethodPost, "/api/v1/projects/{project_id}/members", metas); err != nil {
 		t.Fatalf("ValidateRouteMetadata() error = %v", err)
 	}
 }
@@ -83,7 +83,7 @@ func TestPublicReadPresetPassesValidator(t *testing.T) {
 	}
 }
 
-func TestTenantReadPresetPanicsWithoutAuth(t *testing.T) {
+func TestProjectReadPresetPanicsWithoutAuth(t *testing.T) {
 	_, limiter, mgr := newPresetDeps(t)
 
 	defer func() {
@@ -92,7 +92,7 @@ func TestTenantReadPresetPanicsWithoutAuth(t *testing.T) {
 		}
 	}()
 
-	_ = TenantRead(
+	_ = ProjectRead(
 		WithLimiter(limiter),
 		WithCacheManager(mgr),
 	)

@@ -33,10 +33,12 @@ const (
 	PolicyTypeRequirePerm PolicyType = PolicyTypeRequireAllPermissions
 	// PolicyTypeRequireAnyPerm is a deprecated alias for any-of permission policy type.
 	PolicyTypeRequireAnyPerm PolicyType = PolicyTypeRequireAnyPermission
-	// PolicyTypeTenantRequired marks tenant scope enforcement policy.
-	PolicyTypeTenantRequired PolicyType = "tenant_required"
-	// PolicyTypeTenantMatchFromPath marks path-tenant isolation policy.
-	PolicyTypeTenantMatchFromPath PolicyType = "tenant_match_from_path"
+	// PolicyTypeProjectRequired marks project scope enforcement policy.
+	PolicyTypeProjectRequired PolicyType = "project_required"
+	// PolicyTypeProjectMatchFromPath marks path-project isolation policy.
+	PolicyTypeProjectMatchFromPath PolicyType = "project_match_from_path"
+	// PolicyTypeResolvePermissions marks project permission resolution policy.
+	PolicyTypeResolvePermissions PolicyType = "resolve_permissions"
 	// PolicyTypeRateLimit marks route throttling policy.
 	PolicyTypeRateLimit PolicyType = "rate_limit"
 	// PolicyTypeCacheRead marks cache read/write policy.
@@ -53,8 +55,8 @@ type CacheReadMetadata struct {
 	AllowAuthenticated bool
 	// VaryByUserID indicates cache key varies by user ID.
 	VaryByUserID bool
-	// VaryByTenantID indicates cache key varies by tenant ID.
-	VaryByTenantID bool
+	// VaryByProjectID indicates cache key varies by project ID.
+	VaryByProjectID bool
 }
 
 // CacheInvalidateMetadata stores cache invalidation policy details.
@@ -69,8 +71,8 @@ type Metadata struct {
 	Type PolicyType
 	// Name is human-readable policy name for diagnostics.
 	Name string
-	// TenantPathParam is the tenant route parameter for tenant-match policy.
-	TenantPathParam string
+	// ProjectPathParam is the route parameter used for project-match policy.
+	ProjectPathParam string
 	// CacheRead holds cache-read safety metadata.
 	CacheRead CacheReadMetadata
 	// CacheInvalidate holds cache invalidation metadata.

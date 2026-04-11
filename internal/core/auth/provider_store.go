@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	goauth "github.com/MrEthical07/goAuth"
@@ -89,10 +90,10 @@ func (p *StoreUserProvider) CreateUser(ctx context.Context, input goauth.CreateU
 	}
 
 	row, err := p.repo.Create(ctx, CreateStoredUserInput{
-		Identifier:   input.Identifier,
-		PasswordHash: input.PasswordHash,
-		Role:         input.Role,
-		Status:       mapAccountStatusToString(input.Status),
+		Identifier:    input.Identifier,
+		Name:          strings.TrimSpace(input.Identifier),
+		PasswordHash:  input.PasswordHash,
+		EmailVerified: input.Status == goauth.AccountActive,
 	})
 	if err != nil {
 		return goauth.UserRecord{}, fmt.Errorf("create user: %w", err)
@@ -159,12 +160,17 @@ func (p *StoreUserProvider) ConsumeBackupCode(_ context.Context, _ string, _ [32
 // --- Mapping helpers ---
 
 func mapUserToRecord(row StoredUser) goauth.UserRecord {
+	status := goauth.AccountPendingVerification
+	if row.EmailVerified {
+		status = goauth.AccountActive
+	}
+
 	return goauth.UserRecord{
 		UserID:       row.ID,
 		Identifier:   row.Email,
 		PasswordHash: row.PasswordHash,
-		Role:         row.Role,
-		Status:       parseAccountStatus(row.Status),
+		Role:         "user",
+		Status:       status,
 	}
 }
 

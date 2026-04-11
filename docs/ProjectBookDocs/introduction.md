@@ -1,5 +1,15 @@
 # Introduction
 
+## Contract Baseline
+
+ProjectBook backend implementation must follow the frozen contract in [contract-freeze.md](contract-freeze.md).
+
+Implementation planning and execution status are tracked in:
+
+- [endpoint-tracker.md](endpoint-tracker.md)
+- [endpoint-tracker.json](endpoint-tracker.json)
+- [endpoint-tracker.csv](endpoint-tracker.csv)
+
 ProjectBook is a Design Thinking platform for product teams. It keeps research context, problem statements, ideas, tasks, and feedback connected inside each project scope.
 
 ## Problem It Solves

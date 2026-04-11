@@ -447,8 +447,9 @@ Policy behavior:
 Protected route policy order remains:
 
 1. auth
-2. tenant
-3. rbac (`RequirePermission` / `RequireAnyPermission` / `RequireAllPermissions`)
-4. rate limit
-5. cache
-6. cache-control (optional)
+2. project
+3. resolve permissions
+4. rbac (`RequirePermission` / `RequireAnyPermission` / `RequireAllPermissions`)
+5. rate limit
+6. cache
+7. cache-control (optional)

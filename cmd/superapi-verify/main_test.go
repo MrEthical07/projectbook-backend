@@ -56,8 +56,11 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 )
 func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter) {
-	r.Handle(http.MethodGet, "/api/v1/projects/{id}", h,
+	r.Handle(http.MethodGet, "/api/v1/projects/{project_id}", h,
 		policy.AuthRequired(engine, "hybrid"),
+		policy.ProjectRequired(),
+		policy.ProjectMatchFromPath("project_id"),
+		policy.ResolvePermissions(nil),
 		policy.RequirePerm("project.read"),
 		policy.RateLimit(limiter, ratelimit.Rule{Limit: 10, Window: time.Minute, Scope: ratelimit.ScopeUser}),
 	)

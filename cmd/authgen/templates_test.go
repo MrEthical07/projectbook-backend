@@ -40,16 +40,15 @@ func TestRenderMigrationUp_Default(t *testing.T) {
 	}
 }
 
-func TestRenderMigrationUp_WithAllOptions(t *testing.T) {
+func TestRenderMigrationUp_WithOptionalColumns(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.TenantEnabled = true
 	cfg.VerificationFlag = true
 	cfg.SoftDelete = true
 	cfg.LastLogin = true
 
 	sql := renderMigrationUp(cfg)
 
-	for _, s := range []string{"tenant_id", "is_verified", "deleted_at", "last_login_at"} {
+	for _, s := range []string{"is_verified", "deleted_at", "last_login_at"} {
 		if !strings.Contains(sql, s) {
 			t.Errorf("migration UP should contain %q", s)
 		}
@@ -126,16 +125,6 @@ func TestRenderQueries_Default(t *testing.T) {
 	}
 }
 
-func TestRenderQueries_WithTenant(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.TenantEnabled = true
-	sql := renderQueries(cfg)
-
-	if !strings.Contains(sql, "GetAuthUserByIDAndTenant") {
-		t.Errorf("queries with tenant should contain GetAuthUserByIDAndTenant\n\nGot:\n%s", sql)
-	}
-}
-
 func TestRenderQueries_WithVerification(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.VerificationFlag = true
@@ -189,19 +178,6 @@ func TestRenderProvider_Default(t *testing.T) {
 		if !strings.Contains(provider, s) {
 			t.Errorf("provider should contain %q", s)
 		}
-	}
-}
-
-func TestRenderProvider_WithTenant(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.TenantEnabled = true
-	provider, err := renderProvider(cfg)
-	if err != nil {
-		t.Fatalf("render provider: %v", err)
-	}
-
-	if !strings.Contains(provider, "parseTenantUUID") {
-		t.Error("provider with tenant should contain parseTenantUUID")
 	}
 }
 

@@ -34,8 +34,6 @@ type TemplateOptions struct {
 	UseDB bool
 	// UseAuth includes AuthRequired policy wiring.
 	UseAuth bool
-	// UseTenant includes tenant policy wiring.
-	UseTenant bool
 	// UseRateLimit includes default rate-limit policy wiring.
 	UseRateLimit bool
 	// UseCache includes default cache-read policy wiring.
@@ -255,7 +253,7 @@ func renderRoutesFile(cfg TemplateConfig) string {
 		`"net/http"`,
 		`"github.com/MrEthical07/superapi/internal/core/httpx"`,
 	}
-	if cfg.Options.UseAuth || cfg.Options.UseTenant || cfg.Options.UseRateLimit || cfg.Options.UseCache {
+	if cfg.Options.UseAuth || cfg.Options.UseRateLimit || cfg.Options.UseCache {
 		imports = append(imports, `"github.com/MrEthical07/superapi/internal/core/policy"`)
 	}
 	if cfg.Options.UseCache || cfg.Options.UseRateLimit {
@@ -304,9 +302,6 @@ func routePolicies(cfg TemplateConfig) []string {
 	if opt.UseAuth {
 		policies = append(policies, "\t\tpolicy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),")
 	}
-	if opt.UseTenant {
-		policies = append(policies, "\t\tpolicy.TenantRequired(),")
-	}
 	if opt.UseRateLimit {
 		policies = append(policies, "\t\tpolicy.RateLimit(m.runtime.Limiter(), ratelimit.Rule{Limit: 30, Window: time.Minute, Scope: ratelimit.ScopeAuto}),")
 	}
@@ -316,19 +311,13 @@ func routePolicies(cfg TemplateConfig) []string {
 		cacheCfg.WriteString("Key: \"" + spec.Package + ".ping\", ")
 		cacheCfg.WriteString("TTL: 30 * time.Second")
 		cacheCfg.WriteString(", TagSpecs: []cache.CacheTagSpec{{Name: \"" + spec.Package + ".ping\"")
-		if opt.UseTenant {
-			cacheCfg.WriteString(", TenantID: true")
-		} else if opt.UseAuth {
+		if opt.UseAuth {
 			cacheCfg.WriteString(", UserID: true")
 		}
 		cacheCfg.WriteString("}}")
-		if opt.UseAuth || opt.UseTenant {
+		if opt.UseAuth {
 			cacheCfg.WriteString(", AllowAuthenticated: true, VaryBy: cache.CacheVaryBy{")
-			if opt.UseTenant {
-				cacheCfg.WriteString("TenantID: true")
-			} else {
-				cacheCfg.WriteString("UserID: true")
-			}
+			cacheCfg.WriteString("UserID: true")
 			cacheCfg.WriteString("}")
 		}
 		cacheCfg.WriteString("}")
@@ -366,9 +355,9 @@ func renderHandlerTestFile(spec ModuleSpec) string {
 		"\th := NewHandler(NewService(NewRepo()))\n\trr := httptest.NewRecorder()\n\treq := httptest.NewRequest(http.MethodGet, \"/api/v1/" + spec.RoutePath + "/ping\", nil)\n\n" +
 		"\thandler := httpx.Adapter(h.Ping)\n\thandler.ServeHTTP(rr, req)\n\n" +
 		"\tif rr.Code != http.StatusOK {\n\t\tt.Fatalf(\"status=%d want=%d\", rr.Code, http.StatusOK)\n\t}\n\n" +
-		"\tvar body struct {\n\t\tOK   bool `json:\"ok\"`\n\t\tData pingResponse `json:\"data\"`\n\t}\n" +
+		"\tvar body struct {\n\t\tSuccess bool `json:\"success\"`\n\t\tData pingResponse `json:\"data\"`\n\t}\n" +
 		"\tif err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {\n\t\tt.Fatalf(\"unmarshal response: %v\", err)\n\t}\n" +
-		"\tif !body.OK || body.Data.Module != \"" + spec.Package + "\" || body.Data.Status != \"ok\" {\n" +
+		"\tif !body.Success || body.Data.Module != \"" + spec.Package + "\" || body.Data.Status != \"ok\" {\n" +
 		"\t\tt.Fatalf(\"unexpected response: %+v\", body)\n\t}\n}\n"
 }
 

@@ -196,12 +196,12 @@ func TestRequirePermissionTreatsMissingMaskAsZero(t *testing.T) {
 	}
 }
 
-func TestTenantRequiredUnauthorizedWhenMissingAuth(t *testing.T) {
+func TestProjectRequiredUnauthorizedWhenMissingAuth(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		TenantRequired(),
+		ProjectRequired(),
 	)
 
 	rr := httptest.NewRecorder()
@@ -212,12 +212,12 @@ func TestTenantRequiredUnauthorizedWhenMissingAuth(t *testing.T) {
 	}
 }
 
-func TestTenantRequiredForbiddenWhenTenantMissing(t *testing.T) {
+func TestProjectRequiredForbiddenWhenProjectMissing(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		TenantRequired(),
+		ProjectRequired(),
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
@@ -230,14 +230,32 @@ func TestTenantRequiredForbiddenWhenTenantMissing(t *testing.T) {
 	}
 }
 
-func TestTenantMatchFromPathPassesOnMatch(t *testing.T) {
+func TestProjectRequiredRejectsAuthContextFallbackWithoutPathProject(t *testing.T) {
+	h := Chain(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+		ProjectRequired(),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/secure", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", ProjectID: "p1"}))
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want=%d", rr.Code, http.StatusForbidden)
+	}
+}
+
+func TestProjectMatchFromPathPassesOnMatch(t *testing.T) {
 	r := chi.NewRouter()
-	r.With(TenantMatchFromPath("id")).Get("/api/v1/tenants/{id}", func(w http.ResponseWriter, _ *http.Request) {
+	r.With(ProjectMatchFromPath("id")).Get("/api/v1/projects/{id}", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t1", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", TenantID: "t1"}))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/p1", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", ProjectID: "p1"}))
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -246,32 +264,32 @@ func TestTenantMatchFromPathPassesOnMatch(t *testing.T) {
 	}
 }
 
-func TestTenantMatchFromPathReturnsNotFoundOnMismatch(t *testing.T) {
+func TestProjectMatchFromPathReturnsForbiddenOnMismatch(t *testing.T) {
 	r := chi.NewRouter()
-	r.With(TenantMatchFromPath("id")).Get("/api/v1/tenants/{id}", func(w http.ResponseWriter, _ *http.Request) {
+	r.With(ProjectMatchFromPath("id")).Get("/api/v1/projects/{id}", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t2", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", TenantID: "t1"}))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/p2", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", ProjectID: "p1"}))
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("status=%d want=%d", rr.Code, http.StatusNotFound)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want=%d", rr.Code, http.StatusForbidden)
 	}
 }
 
-func TestTenantMatchFromPathReturnsBadRequestOnMissingParam(t *testing.T) {
+func TestProjectMatchFromPathReturnsBadRequestOnMissingParam(t *testing.T) {
 	h := Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
-		TenantMatchFromPath("id"),
+		ProjectMatchFromPath("id"),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenants", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", TenantID: "t1"}))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), auth.AuthContext{UserID: "u1", ProjectID: "p1"}))
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 

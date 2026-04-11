@@ -113,34 +113,6 @@ func TestGenerateAuth_ForceOverwrite(t *testing.T) {
 	}
 }
 
-func TestGenerateAuth_WithTenant(t *testing.T) {
-	root := setupTestWorkspace(t)
-	cfg := DefaultConfig()
-	cfg.TenantEnabled = true
-
-	if err := GenerateAuth(root, cfg, false); err != nil {
-		t.Fatalf("GenerateAuth: %v", err)
-	}
-
-	// Check migration contains tenant_id
-	migrations := filepath.Join(root, "db", "migrations")
-	entries, _ := os.ReadDir(migrations)
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") && strings.Contains(e.Name(), "auth_users") {
-			content, _ := os.ReadFile(filepath.Join(migrations, e.Name()))
-			if !strings.Contains(string(content), "tenant_id") {
-				t.Error("migration should contain tenant_id")
-			}
-		}
-	}
-
-	// Check queries contain tenant query
-	queryContent, _ := os.ReadFile(filepath.Join(root, "db", "queries", "auth_users.sql"))
-	if !strings.Contains(string(queryContent), "GetAuthUserByIDAndTenant") {
-		t.Error("queries should contain tenant-aware query")
-	}
-}
-
 func TestGenerateAuth_InvalidConfig(t *testing.T) {
 	root := setupTestWorkspace(t)
 	cfg := AuthGenConfig{

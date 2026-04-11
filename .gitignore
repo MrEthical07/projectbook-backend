@@ -24,6 +24,8 @@ profile.cov
 go.work
 go.work.sum
 
+.gocache
+
 # Environment files
 .env
 .env.*
@@ -49,3 +51,6 @@ performance/results/
 # Editor/IDE
 # .idea/
 .vscode/
+
+
+notes.md

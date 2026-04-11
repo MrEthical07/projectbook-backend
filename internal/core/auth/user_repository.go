@@ -14,19 +14,19 @@ var ErrAuthUserNotFound = errors.New("auth user not found")
 
 // StoredUser is the storage-layer projection used by the auth repository.
 type StoredUser struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	Role         string
-	Status       string
+	ID            string
+	Email         string
+	Name          string
+	PasswordHash  string
+	EmailVerified bool
 }
 
 // CreateStoredUserInput is the repository input model for creating auth users.
 type CreateStoredUserInput struct {
-	Identifier   string
-	PasswordHash string
-	Role         string
-	Status       string
+	Identifier    string
+	Name          string
+	PasswordHash  string
+	EmailVerified bool
 }
 
 // UserRepository defines domain-level auth user persistence operations.
@@ -55,9 +55,9 @@ const (
 SELECT
 	id::text,
 	email,
+	name,
 	password_hash,
-	COALESCE(role, ''),
-	status
+	is_email_verified
 FROM users
 WHERE email = $1
 `
@@ -66,9 +66,9 @@ WHERE email = $1
 SELECT
 	id::text,
 	email,
+	name,
 	password_hash,
-	COALESCE(role, ''),
-	status
+	is_email_verified
 FROM users
 WHERE id = $1::uuid
 `
@@ -81,26 +81,26 @@ RETURNING id::text
 `
 
 	queryCreateAuthUser = `
-INSERT INTO users (email, password_hash, role, permissions, status)
-VALUES ($1, $2, NULLIF($3, ''), 0, $4)
+INSERT INTO users (email, name, password_hash, is_email_verified)
+VALUES ($1, $2, $3, $4)
 RETURNING
 	id::text,
 	email,
+	name,
 	password_hash,
-	COALESCE(role, ''),
-	status
+	is_email_verified
 `
 
-	queryUpdateStatus = `
+	queryUpdateEmailVerification = `
 UPDATE users
-SET status = $2, updated_at = NOW()
+SET is_email_verified = $2, updated_at = NOW()
 WHERE id = $1::uuid
 RETURNING
 	id::text,
 	email,
+	name,
 	password_hash,
-	COALESCE(role, ''),
-	status
+	is_email_verified
 `
 )
 
@@ -108,7 +108,7 @@ func (r *relationalUserRepository) GetByIdentifier(ctx context.Context, identifi
 	var user StoredUser
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryAuthUserByIdentifier,
 		func(row storage.RowScanner) error {
-			return row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.Status)
+			return row.Scan(&user.ID, &user.Email, &user.Name, &user.PasswordHash, &user.EmailVerified)
 		},
 		strings.TrimSpace(identifier),
 	))
@@ -125,7 +125,7 @@ func (r *relationalUserRepository) GetByID(ctx context.Context, userID string) (
 	var user StoredUser
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryAuthUserByID,
 		func(row storage.RowScanner) error {
-			return row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.Status)
+			return row.Scan(&user.ID, &user.Email, &user.Name, &user.PasswordHash, &user.EmailVerified)
 		},
 		strings.TrimSpace(userID),
 	))
@@ -160,12 +160,12 @@ func (r *relationalUserRepository) Create(ctx context.Context, input CreateStore
 	var user StoredUser
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryCreateAuthUser,
 		func(row storage.RowScanner) error {
-			return row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.Status)
+			return row.Scan(&user.ID, &user.Email, &user.Name, &user.PasswordHash, &user.EmailVerified)
 		},
 		strings.TrimSpace(input.Identifier),
+		strings.TrimSpace(input.Name),
 		input.PasswordHash,
-		strings.TrimSpace(input.Role),
-		strings.TrimSpace(input.Status),
+		input.EmailVerified,
 	))
 	if err != nil {
 		return StoredUser{}, fmt.Errorf("create user: %w", err)
@@ -175,12 +175,12 @@ func (r *relationalUserRepository) Create(ctx context.Context, input CreateStore
 
 func (r *relationalUserRepository) UpdateStatus(ctx context.Context, userID string, status string) (StoredUser, error) {
 	var user StoredUser
-	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryUpdateStatus,
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryUpdateEmailVerification,
 		func(row storage.RowScanner) error {
-			return row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.Status)
+			return row.Scan(&user.ID, &user.Email, &user.Name, &user.PasswordHash, &user.EmailVerified)
 		},
 		strings.TrimSpace(userID),
-		strings.TrimSpace(status),
+		statusToVerifiedFlag(status),
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -189,4 +189,8 @@ func (r *relationalUserRepository) UpdateStatus(ctx context.Context, userID stri
 		return StoredUser{}, fmt.Errorf("update account status: %w", err)
 	}
 	return user, nil
+}
+
+func statusToVerifiedFlag(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "active")
 }

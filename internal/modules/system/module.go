@@ -8,7 +8,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 )
 
-// Module provides system utility and auth demonstration routes.
+// Module provides system utility routes.
 type Module struct {
 	runtime  modulekit.Runtime
 	rateRule ratelimit.Rule

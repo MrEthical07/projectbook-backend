@@ -137,7 +137,7 @@ func TestCacheReadAuthSafetyPanicsWithoutUserOrTenantVary(t *testing.T) {
 	).ServeHTTP)
 
 	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t1", nil)
-	req1 = req1.WithContext(auth.WithContext(req1.Context(), auth.AuthContext{UserID: "u1", TenantID: "t1"}))
+	req1 = req1.WithContext(auth.WithContext(req1.Context(), auth.AuthContext{UserID: "u1", ProjectID: "t1"}))
 
 	defer func() {
 		recovered := recover()

@@ -8,6 +8,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	"github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/superapi/internal/core/permissions"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 )
@@ -109,4 +110,12 @@ func (r Runtime) CacheManager() *cache.Manager {
 		return nil
 	}
 	return r.deps.CacheMgr
+}
+
+// PermissionResolver returns configured project permission resolver.
+func (r Runtime) PermissionResolver() permissions.Resolver {
+	if r.deps == nil {
+		return nil
+	}
+	return r.deps.PermissionsResolver
 }

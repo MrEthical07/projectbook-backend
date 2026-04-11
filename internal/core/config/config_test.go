@@ -516,3 +516,50 @@ func TestLoadRejectsInvalidProfile(t *testing.T) {
 		t.Fatalf("expected load error for invalid profile")
 	}
 }
+
+func TestLintRejectsEnabledMongoWithoutURL(t *testing.T) {
+	t.Setenv("MONGO_ENABLED", "true")
+	t.Setenv("MONGO_URL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for enabled mongo without url")
+	}
+}
+
+func TestLintRejectsInvalidMongoPoolBounds(t *testing.T) {
+	t.Setenv("MONGO_ENABLED", "true")
+	t.Setenv("MONGO_URL", "mongodb://localhost:27017")
+	t.Setenv("MONGO_MAX_POOL_SIZE", "5")
+	t.Setenv("MONGO_MIN_POOL_SIZE", "6")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for mongo min pool size exceeding max")
+	}
+}
+
+func TestLoadMongoDefaults(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Mongo.Database != "projectbook" {
+		t.Fatalf("mongo database=%q want=%q", cfg.Mongo.Database, "projectbook")
+	}
+	if cfg.Mongo.MaxPoolSize != 50 {
+		t.Fatalf("mongo max pool size=%d want=%d", cfg.Mongo.MaxPoolSize, 50)
+	}
+	if cfg.Mongo.ConnectTimeout <= 0 {
+		t.Fatalf("mongo connect timeout must be > 0")
+	}
+}

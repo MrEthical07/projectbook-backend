@@ -37,7 +37,7 @@ func TestKeyByTokenHashDeterministicAndSafe(t *testing.T) {
 
 func TestResolveScopeAndIdentifierAutoPrefersUser(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/system/whoami", nil)
-	ctx := auth.WithContext(req.Context(), auth.AuthContext{UserID: "u-123", TenantID: "t-456"})
+	ctx := auth.WithContext(req.Context(), auth.AuthContext{UserID: "u-123", ProjectID: "t-456"})
 	req = req.WithContext(ctx)
 
 	scope, id := ResolveScopeAndIdentifier(req, Rule{Scope: ScopeAuto})

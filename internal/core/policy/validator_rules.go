@@ -13,7 +13,10 @@ func validateRouteRules(method, pattern string, metas []Metadata) error {
 	if err := validateAuthDependencies(metas); err != nil {
 		return err
 	}
-	if err := validateTenantRules(pattern, metas); err != nil {
+	if err := validateProjectRules(pattern, metas); err != nil {
+		return err
+	}
+	if err := validateResolverRules(metas); err != nil {
 		return err
 	}
 	if err := validateCacheSafety(metas); err != nil {
@@ -25,8 +28,8 @@ func validateRouteRules(method, pattern string, metas []Metadata) error {
 func validatePolicyOrdering(metas []Metadata) error {
 	previousStage := 0
 	previousType := PolicyTypeUnknown
-	tenantRequiredIndex := -1
-	tenantMatchIndex := -1
+	projectRequiredIndex := -1
+	projectMatchIndex := -1
 
 	for i, meta := range metas {
 		stage := policyOrderStage(meta.Type)
@@ -39,19 +42,19 @@ func validatePolicyOrdering(metas []Metadata) error {
 		}
 
 		switch meta.Type {
-		case PolicyTypeTenantRequired:
-			if tenantRequiredIndex == -1 {
-				tenantRequiredIndex = i
+		case PolicyTypeProjectRequired:
+			if projectRequiredIndex == -1 {
+				projectRequiredIndex = i
 			}
-		case PolicyTypeTenantMatchFromPath:
-			if tenantMatchIndex == -1 {
-				tenantMatchIndex = i
+		case PolicyTypeProjectMatchFromPath:
+			if projectMatchIndex == -1 {
+				projectMatchIndex = i
 			}
 		}
 	}
 
-	if tenantRequiredIndex >= 0 && tenantMatchIndex >= 0 && tenantMatchIndex < tenantRequiredIndex {
-		return fmt.Errorf("policy %s must appear after %s", PolicyTypeTenantMatchFromPath, PolicyTypeTenantRequired)
+	if projectRequiredIndex >= 0 && projectMatchIndex >= 0 && projectMatchIndex < projectRequiredIndex {
+		return fmt.Errorf("policy %s must appear after %s", PolicyTypeProjectMatchFromPath, PolicyTypeProjectRequired)
 	}
 
 	return nil
@@ -66,33 +69,68 @@ func validateAuthDependencies(metas []Metadata) error {
 	if hasPolicyType(metas, PolicyTypeRequirePermission) ||
 		hasPolicyType(metas, PolicyTypeRequireAnyPermission) ||
 		hasPolicyType(metas, PolicyTypeRequireAllPermissions) ||
-		hasPolicyType(metas, PolicyTypeTenantRequired) {
-		return fmt.Errorf("%s is required when RBAC or tenant policies are configured", PolicyTypeAuthRequired)
+		hasPolicyType(metas, PolicyTypeProjectRequired) ||
+		hasPolicyType(metas, PolicyTypeResolvePermissions) {
+		return fmt.Errorf("%s is required when RBAC or project policies are configured", PolicyTypeAuthRequired)
 	}
 
 	return nil
 }
 
-func validateTenantRules(pattern string, metas []Metadata) error {
-	hasTenantRequired := hasPolicyType(metas, PolicyTypeTenantRequired)
-	tenantMatchPolicies := findPolicies(metas, PolicyTypeTenantMatchFromPath)
+func validateProjectRules(pattern string, metas []Metadata) error {
+	hasProjectRequired := hasPolicyType(metas, PolicyTypeProjectRequired)
+	projectMatchPolicies := findPolicies(metas, PolicyTypeProjectMatchFromPath)
+	hasProjectPath := patternContainsProjectID(pattern)
+	expectedProjectPathParam := routeProjectPathParam(pattern)
+	expectedProjectPathParamDisplay := displayProjectPathParam(expectedProjectPathParam)
 
-	if len(tenantMatchPolicies) > 0 && !hasTenantRequired {
-		return fmt.Errorf("%s requires %s", PolicyTypeTenantMatchFromPath, PolicyTypeTenantRequired)
+	if hasProjectRequired {
+		if !hasProjectPath {
+			return fmt.Errorf("route %s requires path parameter {project_id} or {projectId} when %s is configured", pattern, PolicyTypeProjectRequired)
+		}
+		if len(projectMatchPolicies) == 0 {
+			return fmt.Errorf("%s requires %s", PolicyTypeProjectRequired, PolicyTypeProjectMatchFromPath)
+		}
 	}
 
-	if patternContainsTenantID(pattern) {
-		if !hasTenantRequired {
-			return fmt.Errorf("route %s requires %s", pattern, PolicyTypeTenantRequired)
+	if len(projectMatchPolicies) > 0 && !hasProjectRequired {
+		return fmt.Errorf("%s requires %s", PolicyTypeProjectMatchFromPath, PolicyTypeProjectRequired)
+	}
+
+	if hasProjectPath {
+		if !hasProjectRequired {
+			return fmt.Errorf("route %s requires %s", pattern, PolicyTypeProjectRequired)
 		}
-		if len(tenantMatchPolicies) == 0 {
-			return fmt.Errorf("route %s requires %s", pattern, PolicyTypeTenantMatchFromPath)
+		if len(projectMatchPolicies) == 0 {
+			return fmt.Errorf("route %s requires %s", pattern, PolicyTypeProjectMatchFromPath)
 		}
-		for _, tenantMatch := range tenantMatchPolicies {
-			if normalizePathParam(tenantMatch.TenantPathParam) != tenantIDParam {
-				return fmt.Errorf("%s for route %s must use path param %q", PolicyTypeTenantMatchFromPath, pattern, tenantIDParam)
+		for _, projectMatch := range projectMatchPolicies {
+			normalizedProjectPathParam := normalizePathParam(projectMatch.ProjectPathParam)
+			if !isProjectPathParam(normalizedProjectPathParam) {
+				return fmt.Errorf("%s for route %s must use path param %q or %q", PolicyTypeProjectMatchFromPath, pattern, projectIDParam, projectIDParamAlias)
+			}
+			if expectedProjectPathParam != "" && normalizedProjectPathParam != expectedProjectPathParam {
+				return fmt.Errorf("%s for route %s must use path param %q", PolicyTypeProjectMatchFromPath, pattern, expectedProjectPathParamDisplay)
 			}
 		}
+	}
+
+	return nil
+}
+
+func validateResolverRules(metas []Metadata) error {
+	hasResolver := hasPolicyType(metas, PolicyTypeResolvePermissions)
+	hasProjectRequired := hasPolicyType(metas, PolicyTypeProjectRequired)
+	hasRBAC := hasPolicyType(metas, PolicyTypeRequirePermission) ||
+		hasPolicyType(metas, PolicyTypeRequireAnyPermission) ||
+		hasPolicyType(metas, PolicyTypeRequireAllPermissions)
+
+	if hasResolver && !hasProjectRequired {
+		return fmt.Errorf("%s requires %s", PolicyTypeResolvePermissions, PolicyTypeProjectRequired)
+	}
+
+	if hasRBAC && !hasResolver {
+		return fmt.Errorf("%s is required when RBAC policies are configured", PolicyTypeResolvePermissions)
 	}
 
 	return nil
@@ -105,8 +143,8 @@ func validateCacheSafety(metas []Metadata) error {
 
 	cacheReadPolicies := findPolicies(metas, PolicyTypeCacheRead)
 	for _, cacheRead := range cacheReadPolicies {
-		if !cacheRead.CacheRead.VaryByUserID && !cacheRead.CacheRead.VaryByTenantID {
-			return fmt.Errorf("%s on authenticated routes requires VaryBy.UserID or VaryBy.TenantID", PolicyTypeCacheRead)
+		if !cacheRead.CacheRead.VaryByUserID && !cacheRead.CacheRead.VaryByProjectID {
+			return fmt.Errorf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID", PolicyTypeCacheRead)
 		}
 	}
 
@@ -136,27 +174,58 @@ func policyOrderStage(policyType PolicyType) int {
 	switch policyType {
 	case PolicyTypeAuthRequired:
 		return 1
-	case PolicyTypeTenantRequired, PolicyTypeTenantMatchFromPath:
+	case PolicyTypeProjectRequired, PolicyTypeProjectMatchFromPath:
 		return 2
-	case PolicyTypeRequirePermission, PolicyTypeRequireAnyPermission, PolicyTypeRequireAllPermissions:
+	case PolicyTypeResolvePermissions:
 		return 3
-	case PolicyTypeRateLimit:
+	case PolicyTypeRequirePermission, PolicyTypeRequireAnyPermission, PolicyTypeRequireAllPermissions:
 		return 4
-	case PolicyTypeCacheRead, PolicyTypeCacheInvalidate:
+	case PolicyTypeRateLimit:
 		return 5
-	case PolicyTypeCacheControl:
+	case PolicyTypeCacheRead, PolicyTypeCacheInvalidate:
 		return 6
+	case PolicyTypeCacheControl:
+		return 7
 	default:
 		return 0
 	}
 }
 
-const tenantIDParam = "tenant_id"
+const (
+	projectIDParam      = "project_id"
+	projectIDParamAlias = "projectId"
+	projectIDParamCamel = "projectid"
+)
 
-func patternContainsTenantID(pattern string) bool {
-	return strings.Contains(strings.ToLower(strings.TrimSpace(pattern)), "{"+tenantIDParam+"}")
+func patternContainsProjectID(pattern string) bool {
+	loweredPattern := strings.ToLower(strings.TrimSpace(pattern))
+	return strings.Contains(loweredPattern, "{"+projectIDParam+"}") || strings.Contains(loweredPattern, "{"+projectIDParamCamel+"}")
 }
 
 func normalizePathParam(param string) string {
 	return strings.ToLower(strings.TrimSpace(param))
+}
+
+func routeProjectPathParam(pattern string) string {
+	loweredPattern := strings.ToLower(strings.TrimSpace(pattern))
+	switch {
+	case strings.Contains(loweredPattern, "{"+projectIDParam+"}"):
+		return projectIDParam
+	case strings.Contains(loweredPattern, "{"+projectIDParamCamel+"}"):
+		return projectIDParamCamel
+	default:
+		return ""
+	}
+}
+
+func isProjectPathParam(pathParam string) bool {
+	normalizedPathParam := normalizePathParam(pathParam)
+	return normalizedPathParam == projectIDParam || normalizedPathParam == projectIDParamCamel
+}
+
+func displayProjectPathParam(pathParam string) string {
+	if pathParam == projectIDParamCamel {
+		return projectIDParamAlias
+	}
+	return projectIDParam
 }

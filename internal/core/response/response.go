@@ -22,7 +22,7 @@ type ErrorBody struct {
 // Envelope is the standard API response shape for all endpoints.
 type Envelope struct {
 	// OK indicates whether request completed successfully.
-	OK bool `json:"ok"`
+	OK bool `json:"success"`
 	// Data contains success payload.
 	Data any `json:"data,omitempty"`
 	// Error contains error payload for failed responses.

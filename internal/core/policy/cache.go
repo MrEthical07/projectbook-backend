@@ -48,7 +48,7 @@ func newCacheReadRuntime(manager *cache.Manager, cfg cache.CacheReadConfig) cach
 		allowedMethods:    buildMethodSet(cfg.Methods),
 		cacheStatuses:     buildCacheStatusSet(cfg.CacheStatuses),
 		maxBytes:          maxBytes,
-		requireAuthSafety: !template.UserID && !template.TenantID,
+		requireAuthSafety: !template.UserID && !template.ProjectID,
 	}
 }
 
@@ -140,13 +140,13 @@ func (c *cacheReadRuntime) routeLabel(route string) string {
 //	    policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 //	        TTL: 30 * time.Second,
 //	        TagSpecs: []cache.CacheTagSpec{{Name: "project", PathParams: []string{"id"}}},
-//	        VaryBy: cache.CacheVaryBy{TenantID: true, UserID: true},
+//	        VaryBy: cache.CacheVaryBy{ProjectID: true, UserID: true},
 //	    }),
 //	)
 //
 // Notes:
 // - TTL must be > 0
-// - Authenticated cache usage requires VaryBy.UserID or VaryBy.TenantID
+// - Authenticated cache usage requires VaryBy.UserID or VaryBy.ProjectID
 func CacheRead(manager *cache.Manager, cfg cache.CacheReadConfig) Policy {
 	if manager == nil {
 		panicInvalidRouteConfigf("%s requires a non-nil cache manager", PolicyTypeCacheRead)
@@ -235,7 +235,7 @@ func CacheRead(manager *cache.Manager, cfg cache.CacheReadConfig) Policy {
 		CacheRead: CacheReadMetadata{
 			AllowAuthenticated: cfg.AllowAuthenticated,
 			VaryByUserID:       cfg.VaryBy.UserID,
-			VaryByTenantID:     cfg.VaryBy.TenantID,
+			VaryByProjectID:    cfg.VaryBy.ProjectID,
 		},
 	})
 }
@@ -400,14 +400,14 @@ func hasAuthPrincipal(r *http.Request) bool {
 	if !ok {
 		return false
 	}
-	return strings.TrimSpace(principal.UserID) != "" || strings.TrimSpace(principal.TenantID) != "" || strings.TrimSpace(principal.Role) != ""
+	return strings.TrimSpace(principal.UserID) != "" || strings.TrimSpace(principal.ProjectID) != "" || strings.TrimSpace(principal.Role) != ""
 }
 
 func ensureAuthCacheSafety(r *http.Request) {
 	if !hasAuthPrincipal(r) {
 		return
 	}
-	panicInvalidRouteConfigf("%s on authenticated routes requires VaryBy.UserID or VaryBy.TenantID", PolicyTypeCacheRead)
+	panicInvalidRouteConfigf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID", PolicyTypeCacheRead)
 }
 
 func validateCacheTagSpecs(specs []cache.CacheTagSpec, requireAtLeastOne bool) error {

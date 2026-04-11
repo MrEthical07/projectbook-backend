@@ -26,8 +26,8 @@ func TestRequestTimeoutReturnsGatewayTimeoutEnvelope(t *testing.T) {
 		t.Fatalf("unmarshal response: %v", err)
 	}
 
-	if ok, _ := body["ok"].(bool); ok {
-		t.Fatalf("ok = true, want false")
+	if success, _ := body["success"].(bool); success {
+		t.Fatalf("success = true, want false")
 	}
 
 	errorObj, _ := body["error"].(map[string]any)

@@ -12,21 +12,21 @@ import (
 func BenchmarkBuildReadKey(b *testing.B) {
 	mgr, _ := newTestManager(b)
 
-	req := httptest.NewRequest("GET", "/api/v1/tenants/t1/projects/p1?limit=10&cursor=abc", nil)
+	req := httptest.NewRequest("GET", "/api/v1/projects/p1/tasks/t1?limit=10&cursor=abc", nil)
 	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("tenant_id", "t1")
 	rctx.URLParams.Add("project_id", "p1")
+	rctx.URLParams.Add("task_id", "t1")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 	cfg := CacheReadConfig{
 		TTL: 30 * time.Second,
 		TagSpecs: []CacheTagSpec{
 			{Name: "project"},
-			{Name: "tenant"},
+			{Name: "task"},
 		},
 		VaryBy: CacheVaryBy{
-			TenantID:    true,
-			PathParams:  []string{"tenant_id", "project_id"},
+			ProjectID:   true,
+			PathParams:  []string{"project_id", "task_id"},
 			QueryParams: []string{"limit", "cursor"},
 		},
 	}
@@ -36,7 +36,7 @@ func BenchmarkBuildReadKey(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := mgr.BuildReadKey(ctx, req, "/api/v1/tenants/{tenant_id}/projects/{project_id}", cfg); err != nil {
+		if _, err := mgr.BuildReadKey(ctx, req, "/api/v1/projects/{project_id}/tasks/{task_id}", cfg); err != nil {
 			b.Fatalf("BuildReadKey error: %v", err)
 		}
 	}
@@ -45,26 +45,26 @@ func BenchmarkBuildReadKey(b *testing.B) {
 func BenchmarkBuildReadKeyWithTemplate(b *testing.B) {
 	mgr, _ := newTestManager(b)
 
-	req := httptest.NewRequest("GET", "/api/v1/tenants/t1/projects/p1?limit=10&cursor=abc", nil)
+	req := httptest.NewRequest("GET", "/api/v1/projects/p1/tasks/t1?limit=10&cursor=abc", nil)
 	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("tenant_id", "t1")
 	rctx.URLParams.Add("project_id", "p1")
+	rctx.URLParams.Add("task_id", "t1")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 	cfg := CacheReadConfig{
 		TTL: 30 * time.Second,
 		TagSpecs: []CacheTagSpec{
 			{Name: "project"},
-			{Name: "tenant"},
+			{Name: "task"},
 		},
 		VaryBy: CacheVaryBy{
-			TenantID:    true,
-			PathParams:  []string{"tenant_id", "project_id"},
+			ProjectID:   true,
+			PathParams:  []string{"project_id", "task_id"},
 			QueryParams: []string{"limit", "cursor"},
 		},
 	}
 	template := PrepareReadKeyTemplate(cfg)
-	routePart := NormalizeRoute("/api/v1/tenants/{tenant_id}/projects/{project_id}")
+	routePart := NormalizeRoute("/api/v1/projects/{project_id}/tasks/{task_id}")
 
 	ctx := context.Background()
 	b.ReportAllocs()

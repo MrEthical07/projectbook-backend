@@ -12,35 +12,33 @@ import (
 )
 
 const createAuthUser = `-- name: CreateAuthUser :one
-INSERT INTO users (email, password_hash, role, permissions, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, password_hash, role, permissions, status, created_at, updated_at
+INSERT INTO users (email, name, password_hash, is_email_verified)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, name, password_hash, is_email_verified, last_login_at, created_at, updated_at
 `
 
 type CreateAuthUserParams struct {
-	Email        string      `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	Role         pgtype.Text `json:"role"`
-	Permissions  int64       `json:"permissions"`
-	Status       string      `json:"status"`
+	Email           string `json:"email"`
+	Name            string `json:"name"`
+	PasswordHash    string `json:"password_hash"`
+	IsEmailVerified bool   `json:"is_email_verified"`
 }
 
 func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createAuthUser,
 		arg.Email,
+		arg.Name,
 		arg.PasswordHash,
-		arg.Role,
-		arg.Permissions,
-		arg.Status,
+		arg.IsEmailVerified,
 	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.Name,
 		&i.PasswordHash,
-		&i.Role,
-		&i.Permissions,
-		&i.Status,
+		&i.IsEmailVerified,
+		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -48,7 +46,7 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 }
 
 const getAuthUserByID = `-- name: GetAuthUserByID :one
-SELECT id, email, password_hash, role, permissions, status, created_at, updated_at
+SELECT id, email, name, password_hash, is_email_verified, last_login_at, created_at, updated_at
 FROM users
 WHERE id = $1
 `
@@ -59,10 +57,10 @@ func (q *Queries) GetAuthUserByID(ctx context.Context, id pgtype.UUID) (User, er
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.Name,
 		&i.PasswordHash,
-		&i.Role,
-		&i.Permissions,
-		&i.Status,
+		&i.IsEmailVerified,
+		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -70,7 +68,7 @@ func (q *Queries) GetAuthUserByID(ctx context.Context, id pgtype.UUID) (User, er
 }
 
 const getAuthUserByLogin = `-- name: GetAuthUserByLogin :one
-SELECT id, email, password_hash, role, permissions, status, created_at, updated_at
+SELECT id, email, name, password_hash, is_email_verified, last_login_at, created_at, updated_at
 FROM users
 WHERE email = $1
 `
@@ -81,10 +79,35 @@ func (q *Queries) GetAuthUserByLogin(ctx context.Context, email string) (User, e
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.Name,
 		&i.PasswordHash,
-		&i.Role,
-		&i.Permissions,
-		&i.Status,
+		&i.IsEmailVerified,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateAuthUserEmailVerification = `-- name: UpdateAuthUserEmailVerification :one
+UPDATE users SET is_email_verified = $2, updated_at = NOW() WHERE id = $1 RETURNING id, email, name, password_hash, is_email_verified, last_login_at, created_at, updated_at
+`
+
+type UpdateAuthUserEmailVerificationParams struct {
+	ID              pgtype.UUID `json:"id"`
+	IsEmailVerified bool        `json:"is_email_verified"`
+}
+
+func (q *Queries) UpdateAuthUserEmailVerification(ctx context.Context, arg UpdateAuthUserEmailVerificationParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateAuthUserEmailVerification, arg.ID, arg.IsEmailVerified)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.IsEmailVerified,
+		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -103,29 +126,4 @@ type UpdateAuthUserPasswordHashParams struct {
 func (q *Queries) UpdateAuthUserPasswordHash(ctx context.Context, arg UpdateAuthUserPasswordHashParams) error {
 	_, err := q.db.Exec(ctx, updateAuthUserPasswordHash, arg.ID, arg.PasswordHash)
 	return err
-}
-
-const updateAuthUserStatus = `-- name: UpdateAuthUserStatus :one
-UPDATE users SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING id, email, password_hash, role, permissions, status, created_at, updated_at
-`
-
-type UpdateAuthUserStatusParams struct {
-	ID     pgtype.UUID `json:"id"`
-	Status string      `json:"status"`
-}
-
-func (q *Queries) UpdateAuthUserStatus(ctx context.Context, arg UpdateAuthUserStatusParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateAuthUserStatus, arg.ID, arg.Status)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Role,
-		&i.Permissions,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }

@@ -67,26 +67,23 @@ func RunWizard(scanner *bufio.Scanner) (AuthGenConfig, error) {
 func runFullCustomFlow(scanner *bufio.Scanner) AuthGenConfig {
 	cfg := AuthGenConfig{}
 
-	// 1. Multi-tenancy
-	cfg.TenantEnabled = promptYesNo(scanner, "Include tenant support?", false)
-
-	// 2. Roles / permissions
+	// 1. Roles / permissions
 	cfg.RoleEnabled = promptYesNo(scanner, "Include role field?", true)
 	cfg.PermissionsEnabled = promptYesNo(scanner, "Include permissions field?", true)
 	if cfg.PermissionsEnabled {
 		cfg.PermissionsMode = promptPermissionsMode(scanner)
 	}
 
-	// 3. User identity
+	// 2. User identity
 	cfg.IDType = promptIDType(scanner)
 
-	// 4. Login identifier
+	// 3. Login identifier
 	cfg.LoginMethod = promptLoginMethod(scanner)
 
-	// 5. Table naming
+	// 4. Table naming
 	cfg.TableName = promptString(scanner, "Users table name", "users")
 
-	// 6. Optional columns
+	// 5. Optional columns
 	cfg.PasswordHash = promptYesNo(scanner, "Store password hash in user table?", true)
 	cfg.StatusEnabled = promptYesNo(scanner, "Include status column?", true)
 	cfg.VerificationFlag = promptYesNo(scanner, "Include verification flag (is_verified)?", false)
@@ -102,7 +99,6 @@ func editSelectedFields(scanner *bufio.Scanner, cfg AuthGenConfig) AuthGenConfig
 		key   string
 		label string
 	}{
-		{"tenant", "Tenant support"},
 		{"role", "Role field"},
 		{"permissions", "Permissions"},
 		{"id_type", "ID type"},
@@ -130,8 +126,6 @@ func editSelectedFields(scanner *bufio.Scanner, cfg AuthGenConfig) AuthGenConfig
 
 	for _, idx := range selected {
 		switch fields[idx].key {
-		case "tenant":
-			cfg.TenantEnabled = promptYesNo(scanner, "Include tenant support?", cfg.TenantEnabled)
 		case "role":
 			cfg.RoleEnabled = promptYesNo(scanner, "Include role field?", cfg.RoleEnabled)
 		case "permissions":

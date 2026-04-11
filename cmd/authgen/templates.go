@@ -33,11 +33,6 @@ func renderMigrationUp(cfg AuthGenConfig) string {
 	// If email login but not email PK, the column was added above.
 	// If email PK and email login, the PK above covers it.
 
-	// Tenant
-	if cfg.TenantEnabled {
-		columns = append(columns, "    tenant_id UUID")
-	}
-
 	// Password hash
 	if cfg.PasswordHash {
 		columns = append(columns, "    password_hash TEXT NOT NULL")
@@ -87,11 +82,6 @@ func renderMigrationUp(cfg AuthGenConfig) string {
 	if cfg.IDType != IDTypeEmail {
 		b.WriteString(fmt.Sprintf("\nCREATE UNIQUE INDEX IF NOT EXISTS %s_%s_unique_idx ON %s (%s);\n",
 			cfg.TableName, loginColName, cfg.TableName, loginColName))
-	}
-
-	if cfg.TenantEnabled {
-		b.WriteString(fmt.Sprintf("\nCREATE INDEX IF NOT EXISTS %s_tenant_id_idx ON %s (tenant_id);\n",
-			cfg.TableName, cfg.TableName))
 	}
 
 	if cfg.StatusEnabled {
@@ -197,17 +187,6 @@ func renderQueries(cfg AuthGenConfig) string {
 			table, idCol))
 	}
 
-	// -- GetAuthUserByTenant (if tenant enabled)
-	if cfg.TenantEnabled {
-		b.WriteString("-- name: GetAuthUserByIDAndTenant :one\n")
-		b.WriteString(fmt.Sprintf("SELECT %s\nFROM %s\nWHERE %s = $1 AND tenant_id = $2",
-			strings.Join(selectCols, ", "), table, idCol))
-		if cfg.SoftDelete {
-			b.WriteString(" AND deleted_at IS NULL")
-		}
-		b.WriteString(";\n\n")
-	}
-
 	return b.String()
 }
 
@@ -221,9 +200,6 @@ func buildSelectColumns(cfg AuthGenConfig) []string {
 		cols = append(cols, cfg.LoginColumnName())
 	}
 
-	if cfg.TenantEnabled {
-		cols = append(cols, "tenant_id")
-	}
 	if cfg.PasswordHash {
 		cols = append(cols, "password_hash")
 	}
@@ -279,11 +255,6 @@ func buildInsertColumns(cfg AuthGenConfig) (cols []string, params []string) {
 		paramIdx++
 	}
 
-	if cfg.TenantEnabled {
-		cols = append(cols, "tenant_id")
-		params = append(params, fmt.Sprintf("$%d", paramIdx))
-		paramIdx++
-	}
 	if cfg.PasswordHash {
 		cols = append(cols, "password_hash")
 		params = append(params, fmt.Sprintf("$%d", paramIdx))
@@ -554,8 +525,6 @@ type ProviderTemplateData struct {
 	PermsTextArray bool
 	// PermsJSONB indicates JSONB permission storage mode.
 	PermsJSONB bool
-	// HasTenant indicates tenant_id support is enabled.
-	HasTenant bool
 	// MapFunc is generated mapper source from sqlc row to goAuth record.
 	MapFunc string
 	// CreateParams is generated CreateAuthUser parameter mapping source.
@@ -576,7 +545,6 @@ func buildProviderTemplateData(cfg AuthGenConfig) ProviderTemplateData {
 		PermsBitmask:    cfg.PermissionsMode == PermsBitmask,
 		PermsTextArray:  cfg.PermissionsMode == PermsTextArray,
 		PermsJSONB:      cfg.PermissionsMode == PermsJSONB,
-		HasTenant:       cfg.TenantEnabled,
 		ModelName:       toPascal(cfg.TableName),
 	}
 
@@ -627,9 +595,6 @@ func buildMapFunc(cfg AuthGenConfig) string {
 		b.WriteString(fmt.Sprintf("\t\tIdentifier: row.%s,\n", toPascal(cfg.LoginColumnName())))
 	}
 
-	if cfg.TenantEnabled {
-		b.WriteString("\t\tTenantID:     formatUUID(row.TenantID),\n")
-	}
 	if cfg.PasswordHash {
 		b.WriteString("\t\tPasswordHash: row.PasswordHash,\n")
 	}
@@ -644,7 +609,7 @@ func buildMapFunc(cfg AuthGenConfig) string {
 	b.WriteString("}\n\n")
 
 	// UUID formatter helper
-	if cfg.IDType == IDTypeUUID || cfg.TenantEnabled {
+	if cfg.IDType == IDTypeUUID {
 		b.WriteString("func formatUUID(u pgtype.UUID) string {\n")
 		b.WriteString("\tif !u.Valid {\n")
 		b.WriteString("\t\treturn \"\"\n")
@@ -677,9 +642,6 @@ func buildCreateParams(cfg AuthGenConfig) []string {
 		params = append(params, fmt.Sprintf("%s: input.Identifier", loginField))
 	}
 
-	if cfg.TenantEnabled {
-		params = append(params, "TenantID: parseTenantUUID(input.TenantID)")
-	}
 	if cfg.PasswordHash {
 		params = append(params, "PasswordHash: input.PasswordHash")
 	}
@@ -725,15 +687,6 @@ func renderProvider(cfg AuthGenConfig) (string, error) {
 	var b strings.Builder
 	if err := providerTemplate.Execute(&b, data); err != nil {
 		return "", fmt.Errorf("render provider template: %w", err)
-	}
-
-	// Add parseTenantUUID helper if tenant is enabled
-	if cfg.TenantEnabled {
-		b.WriteString("\nfunc parseTenantUUID(s string) pgtype.UUID {\n")
-		b.WriteString("\tvar u pgtype.UUID\n")
-		b.WriteString("\t_ = u.Scan(s)\n")
-		b.WriteString("\treturn u\n")
-		b.WriteString("}\n")
 	}
 
 	return b.String(), nil

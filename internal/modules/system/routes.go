@@ -73,8 +73,6 @@ type authTokenResponse struct {
 // For policy behavior, see docs/policies.md.
 func (m *Module) Register(r httpx.Router) error {
 	r.Handle(http.MethodPost, "/system/parse-duration", httpx.Adapter(m.parseDuration))
-	r.Handle(http.MethodPost, "/api/v1/system/auth/login", httpx.Adapter(m.login))
-	r.Handle(http.MethodPost, "/api/v1/system/auth/refresh", httpx.Adapter(m.refresh))
 
 	if limiter := m.runtime.Limiter(); limiter != nil {
 		r.Handle(
@@ -82,7 +80,7 @@ func (m *Module) Register(r httpx.Router) error {
 			"/api/v1/system/whoami",
 			httpx.Adapter(m.whoami),
 			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.RateLimitWithKeyer(limiter, "system.whoami", m.rateRule, ratelimit.KeyByUserOrTenantOrTokenHash(16)),
+			policy.RateLimitWithKeyer(limiter, "system.whoami", m.rateRule, ratelimit.KeyByUserOrProjectOrTokenHash(16)),
 		)
 		return nil
 	}
@@ -98,7 +96,7 @@ func (m *Module) Register(r httpx.Router) error {
 
 type whoamiResponse struct {
 	UserID         string   `json:"user_id"`
-	TenantID       string   `json:"tenant_id,omitempty"`
+	ProjectID      string   `json:"project_id,omitempty"`
 	Role           string   `json:"role,omitempty"`
 	PermissionMask uint64   `json:"permission_mask,omitempty"`
 	Permissions    []string `json:"permissions,omitempty"`
@@ -112,7 +110,7 @@ func (m *Module) whoami(ctx *httpx.Context, _ httpx.NoBody) (whoamiResponse, err
 
 	return whoamiResponse{
 		UserID:         principal.UserID,
-		TenantID:       principal.TenantID,
+		ProjectID:      principal.ProjectID,
 		Role:           principal.Role,
 		PermissionMask: principal.PermissionMask,
 		Permissions:    append([]string(nil), principal.Permissions...),

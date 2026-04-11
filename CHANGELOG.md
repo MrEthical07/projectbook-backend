@@ -2,6 +2,79 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.3 (2026-04-11)
+
+### Breaking Changes
+- Auth HTTP routes were migrated from system paths to module-owned auth paths.
+	- Removed `POST /api/v1/system/auth/login`.
+	- Removed `POST /api/v1/system/auth/refresh`.
+	- Added module-owned routes under `/api/v1/auth/*`.
+
+### Added
+- New auth module at `internal/modules/auth` with strict layering:
+	- `dto.go`
+	- `handler.go`
+	- `service.go`
+	- `repo.go`
+	- `routes.go`
+- Implemented EP-001 through EP-007 in the auth module:
+	- signup, login, logout, verify-email, resend-verification, forgot-password, reset-password.
+- Added compatibility refresh endpoint `POST /api/v1/auth/refresh` for performance tooling continuity.
+
+### Changed
+- API envelope serialization migrated from `ok` to `success` in core response flow.
+- Updated typed/timeout/cache test assertions and generator expectations to `success`.
+- goAuth provider config now enables account creation, password reset, and email verification flows.
+- Signup flow now preserves API name semantics via post-create repository name update.
+- Module registration now includes auth module in `internal/modules/modules.go`.
+
+### Documentation
+- Updated docs and performance assets that referenced `/api/v1/system/auth/*` to `/api/v1/auth/*`.
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-001 through EP-007 as `tested`.
+- Added contract-freeze evidence updates for the completed auth implementation wave.
+
+## v0.7.2 (2026-04-10)
+
+### Breaking Changes
+- Protected route policy contract now requires project-scoped permission resolution before RBAC.
+	- Required order: auth -> project -> resolve permissions -> rbac -> rate limit -> cache -> cache-control
+	- RBAC policy stacks without `ResolvePermissions(...)` now fail validator checks.
+
+### Added
+- New permissions resolver package and policy stage.
+	- Added `internal/core/permissions` with hybrid Redis-first + relational fallback resolution.
+	- Added `policy.ResolvePermissions(...)` middleware with explicit status mapping:
+		- unauthenticated -> `401`
+		- missing membership / missing project scope -> `403`
+		- inconsistent permission state -> `500`
+		- dependency failure -> `503`
+- Added permission-tag invalidation helpers for user/project-scoped cache freshness.
+- Added permission lifecycle startup sync for role-mask consistency.
+	- Seeds canonical role masks into `role_permissions` for all projects.
+	- Resyncs non-custom member masks from role masks.
+	- Invalidates resolver keys and permission cache tags for affected scopes.
+- Added concrete Mongo document backend wiring.
+	- Added Mongo client/database dependency initialization and readiness checks.
+	- Added startup collection/index bootstrap verification.
+	- Added concrete `MongoDocumentStore` for module document operations.
+
+### Changed
+- Project isolation behavior updated in auth policies.
+	- `AuthRequired()` no longer seeds project scope from auth provider tenant semantics.
+	- `ProjectRequired()` now requires explicit project path scope and rejects path/auth mismatches with `403`.
+	- `ProjectMatchFromPath(...)` mismatch behavior changed to `403`.
+- Added runtime/config wiring for permissions resolver in app dependencies and module runtime.
+- Updated route validator, static analyzer, and `superapi-verify` hints for resolver-stage requirements.
+- Simplified scaffold tooling by removing tenant options from:
+	- `cmd/modulegen`
+	- `cmd/authgen`
+	- `make module` passthrough flags
+
+### Documentation
+- Rewrote `docs/policies.md` to the project-scoped resolver model.
+- Updated policy/cache/architecture/module/auth guides to remove tenant-era route ordering guidance.
+- Updated ProjectBook RBAC docs to the enforced resolver-aware protected route chain.
+
 ## v0.7.1 (2026-04-06)
 
 ### Fixed

@@ -57,8 +57,8 @@ curl http://127.0.0.1:8080/readyz
 
 ## 2) Auth endpoints used by k6
 
-- POST /api/v1/system/auth/login
-- POST /api/v1/system/auth/refresh
+- POST /api/v1/auth/login
+- POST /api/v1/auth/refresh
 - GET /api/v1/system/whoami
 
 Login/refresh responses return:
@@ -81,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File performance/k6/seed-users.ps1 -Count 50
 
 ```powershell
 $loginBody = @{ identifier = "loadtest+vu1@example.com"; password = "LoadTest123!" } | ConvertTo-Json
-$login = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/api/v1/system/auth/login" -Body $loginBody -ContentType "application/json"
+$login = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/api/v1/auth/login" -Body $loginBody -ContentType "application/json"
 $token = $login.data.access_token
 Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/v1/system/whoami" -Headers @{ Authorization = "Bearer $token" }
 ```

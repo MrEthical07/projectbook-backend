@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS workspace_members CASCADE;
 DROP TABLE IF EXISTS workspaces CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
 
 DROP TABLE IF EXISTS role_permissions_default CASCADE;
 DROP TABLE IF EXISTS project_role_permissions CASCADE;
@@ -11,6 +12,9 @@ DROP TABLE IF EXISTS project_settings CASCADE;
 DROP TABLE IF EXISTS project_invites CASCADE;
 DROP TABLE IF EXISTS project_members CASCADE;
 DROP TABLE IF EXISTS projects CASCADE;
+DROP TABLE IF EXISTS auth_email_log CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
+DROP TABLE IF EXISTS email_verification_tokens CASCADE;
 DROP TABLE IF EXISTS account_settings CASCADE;
 DROP TABLE IF EXISTS auth_sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
@@ -36,6 +40,33 @@ CREATE TABLE auth_sessions (
     user_agent TEXT NULL,
     ip_address INET NULL,
     device_label TEXT NULL
+);
+
+CREATE TABLE email_verification_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE auth_email_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NULL REFERENCES users (id) ON DELETE SET NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('verify', 'reset')),
+    recipient_email CITEXT NOT NULL,
+    link TEXT NOT NULL,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE account_settings (

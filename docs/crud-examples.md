@@ -27,7 +27,7 @@ Domain model (repo/service-facing):
 ```go
 type Project struct {
     ID       string
-    TenantID string
+    ProjectID string
     Name     string
     Status   string
 }
@@ -49,14 +49,14 @@ Example migration (up):
 ```sql
 CREATE TABLE IF NOT EXISTS projects (
     id         TEXT PRIMARY KEY,
-    tenant_id  TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     name       TEXT NOT NULL,
     status     TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS projects_tenant_id_idx ON projects (tenant_id);
+CREATE INDEX IF NOT EXISTS projects_project_id_idx ON projects (project_id);
 ```
 
 Note:
@@ -71,17 +71,17 @@ Define repository interface in domain terms.
 ```go
 type CreateProjectInput struct {
     ID       string
-    TenantID string
+    ProjectID string
     Name     string
     Status   string
 }
 
 type ProjectRepository interface {
     Create(ctx context.Context, input CreateProjectInput) (Project, error)
-    GetByID(ctx context.Context, tenantID, id string) (Project, error)
-    List(ctx context.Context, tenantID string, limit int32) ([]Project, error)
-    Update(ctx context.Context, tenantID, id string, name string, status string) (Project, error)
-    Delete(ctx context.Context, tenantID, id string) error
+    GetByID(ctx context.Context, projectID, id string) (Project, error)
+    List(ctx context.Context, projectID string, limit int32) ([]Project, error)
+    Update(ctx context.Context, projectID, id string, name string, status string) (Project, error)
+    Delete(ctx context.Context, projectID, id string) error
 }
 ```
 
@@ -97,10 +97,10 @@ type service struct {
     store storage.RelationalStore
 }
 
-func (s *service) Create(ctx context.Context, tenantID string, req createProjectRequest) (Project, error) {
+func (s *service) Create(ctx context.Context, projectID string, req createProjectRequest) (Project, error) {
     input := CreateProjectInput{
         ID:       newProjectID(),
-        TenantID: tenantID,
+        ProjectID: projectID,
         Name:     strings.TrimSpace(req.Name),
         Status:   strings.TrimSpace(strings.ToLower(req.Status)),
     }
@@ -117,8 +117,8 @@ func (s *service) Create(ctx context.Context, tenantID string, req createProject
     return out, err
 }
 
-func (s *service) GetByID(ctx context.Context, tenantID, id string) (Project, error) {
-    return s.repo.GetByID(ctx, tenantID, id)
+func (s *service) GetByID(ctx context.Context, projectID, id string) (Project, error) {
+    return s.repo.GetByID(ctx, projectID, id)
 }
 ```
 
@@ -140,27 +140,27 @@ type relationalRepository struct {
 func (r *relationalRepository) Create(ctx context.Context, input CreateProjectInput) (Project, error) {
     var out Project
     err := r.store.Execute(ctx, storage.RelationalQueryOne(`
-INSERT INTO projects (id, tenant_id, name, status)
+INSERT INTO projects (id, project_id, name, status)
 VALUES ($1, $2, $3, $4)
-RETURNING id, tenant_id, name, status
+RETURNING id, project_id, name, status
 `, func(row storage.RowScanner) error {
-        return row.Scan(&out.ID, &out.TenantID, &out.Name, &out.Status)
-    }, input.ID, input.TenantID, input.Name, input.Status))
+        return row.Scan(&out.ID, &out.ProjectID, &out.Name, &out.Status)
+    }, input.ID, input.ProjectID, input.Name, input.Status))
     if err != nil {
         return Project{}, err
     }
     return out, nil
 }
 
-func (r *relationalRepository) GetByID(ctx context.Context, tenantID, id string) (Project, error) {
+func (r *relationalRepository) GetByID(ctx context.Context, projectID, id string) (Project, error) {
     var out Project
     err := r.store.Execute(ctx, storage.RelationalQueryOne(`
-SELECT id, tenant_id, name, status
+SELECT id, project_id, name, status
 FROM projects
-WHERE tenant_id = $1 AND id = $2
+WHERE project_id = $1 AND id = $2
 `, func(row storage.RowScanner) error {
-        return row.Scan(&out.ID, &out.TenantID, &out.Name, &out.Status)
-    }, tenantID, id))
+        return row.Scan(&out.ID, &out.ProjectID, &out.Name, &out.Status)
+    }, projectID, id))
     if err != nil {
         return Project{}, err
     }
@@ -182,7 +182,7 @@ type documentRepository struct {
 func (r *documentRepository) Create(ctx context.Context, input CreateProjectInput) (Project, error) {
     payload := map[string]any{
         "id":        input.ID,
-        "tenant_id": input.TenantID,
+        "project_id": input.ProjectID,
         "name":      input.Name,
         "status":    input.Status,
     }
@@ -204,12 +204,12 @@ Handler reads transport input and delegates to service.
 
 ```go
 func (h *Handler) Create(ctx *httpx.Context, req createProjectRequest) (projectResponse, error) {
-    tenantID, ok := tenant.TenantIDFromContext(ctx.Context())
+    projectID, ok := projectscope.ProjectIDFromContext(ctx.Context())
     if !ok {
-        return projectResponse{}, apperr.New(apperr.CodeForbidden, 403, "tenant scope required")
+        return projectResponse{}, apperr.New(apperr.CodeForbidden, 403, "project scope required")
     }
 
-    project, err := h.svc.Create(ctx.Context(), tenantID, req)
+    project, err := h.svc.Create(ctx.Context(), projectID, req)
     if err != nil {
         return projectResponse{}, err
     }
@@ -225,20 +225,22 @@ No business workflow and no query execution in handler.
 Attach policies in required order:
 
 1. auth
-2. tenant
-3. rbac
-4. rate limit
-5. cache
-6. cache-control
+2. project
+3. resolve permissions
+4. rbac
+5. rate limit
+6. cache
+7. cache-control
 
 Example route stack for GET /projects/{id}:
 
 - AuthRequired
-- TenantRequired
+- ProjectRequired
+- ResolvePermissions
 - RateLimit
 - CacheRead
 
-For write routes, add CacheInvalidate after auth/tenant/rbac/rate-limit policies.
+For write routes, add CacheInvalidate after auth/project/resolver/rbac/rate-limit policies.
 
 ## 10. DTO Suggestions
 

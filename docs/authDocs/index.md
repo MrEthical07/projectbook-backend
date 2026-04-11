@@ -1,5 +1,9 @@
 # goAuth Documentation Index
 
+> Contract Notice (2026-04-10): For ProjectBook backend behavior, the authoritative contract source is docs/ProjectBookDocs/*.
+> This directory is authoritative only for goAuth engine internals and integration mechanics.
+> If a conflict exists between docs/authDocs/* and docs/ProjectBookDocs/*, follow docs/ProjectBookDocs/*.
+
 This directory contains the authoritative documentation for the goAuth authentication engine.
 
 ## Quick Navigation

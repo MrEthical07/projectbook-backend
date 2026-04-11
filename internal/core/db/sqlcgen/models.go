@@ -14,22 +14,13 @@ type SystemSetting struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Tenant struct {
-	ID        string             `json:"id"`
-	Slug      string             `json:"slug"`
-	Name      string             `json:"name"`
-	Status    string             `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
 type User struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	Role         pgtype.Text        `json:"role"`
-	Permissions  int64              `json:"permissions"`
-	Status       string             `json:"status"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID              pgtype.UUID        `json:"id"`
+	Email           string             `json:"email"`
+	Name            string             `json:"name"`
+	PasswordHash    string             `json:"password_hash"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }

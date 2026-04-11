@@ -22,7 +22,7 @@ import (
 type Scope string
 
 const (
-	// ScopeAuto resolves to user, tenant, token, then anon fallback.
+	// ScopeAuto resolves to user, project, token, then anon fallback.
 	ScopeAuto Scope = "auto"
 	// ScopeAnon keys all anonymous traffic together.
 	ScopeAnon Scope = "anon"
@@ -30,8 +30,8 @@ const (
 	ScopeIP Scope = "ip"
 	// ScopeUser keys by authenticated user ID.
 	ScopeUser Scope = "user"
-	// ScopeTenant keys by authenticated tenant ID.
-	ScopeTenant Scope = "tenant"
+	// ScopeProject keys by authenticated project ID.
+	ScopeProject Scope = "project"
 	// ScopeToken keys by hashed bearer token fingerprint.
 	ScopeToken Scope = "token"
 )
@@ -283,8 +283,8 @@ func ResolveScopeAndIdentifier(r *http.Request, rule Rule) (Scope, string) {
 			return scope, id
 		}
 		return ScopeAnon, "anonymous"
-	case ScopeTenant:
-		if scope, id := normalizeKey(KeyByTenant()(r)); scope != ScopeAnon {
+	case ScopeProject:
+		if scope, id := normalizeKey(KeyByProject()(r)); scope != ScopeAnon {
 			return scope, id
 		}
 		return ScopeAnon, "anonymous"
@@ -294,7 +294,7 @@ func ResolveScopeAndIdentifier(r *http.Request, rule Rule) (Scope, string) {
 		}
 		return ScopeAnon, "anonymous"
 	case ScopeAuto, "":
-		if scope, id := normalizeKey(KeyByUserOrTenantOrTokenHash(16)(r)); scope != ScopeAnon {
+		if scope, id := normalizeKey(KeyByUserOrProjectOrTokenHash(16)(r)); scope != ScopeAnon {
 			return scope, id
 		}
 		return ScopeAnon, "anonymous"
@@ -347,17 +347,17 @@ func KeyByUser() Keyer {
 	}
 }
 
-// KeyByTenant resolves identity from authenticated tenant ID.
-func KeyByTenant() Keyer {
+// KeyByProject resolves identity from authenticated project ID.
+func KeyByProject() Keyer {
 	return func(r *http.Request) (Scope, string) {
 		if r == nil {
 			return ScopeAnon, "anonymous"
 		}
 		principal, ok := auth.FromContext(r.Context())
-		if !ok || strings.TrimSpace(principal.TenantID) == "" {
+		if !ok || strings.TrimSpace(principal.ProjectID) == "" {
 			return ScopeAnon, "anonymous"
 		}
-		return ScopeTenant, principal.TenantID
+		return ScopeProject, principal.ProjectID
 	}
 }
 
@@ -381,16 +381,16 @@ func KeyByTokenHash(prefixLen int) Keyer {
 	}
 }
 
-// KeyByUserOrTenantOrTokenHash resolves user, then tenant, then token-hash identity.
-func KeyByUserOrTenantOrTokenHash(prefixLen int) Keyer {
+// KeyByUserOrProjectOrTokenHash resolves user, then project, then token-hash identity.
+func KeyByUserOrProjectOrTokenHash(prefixLen int) Keyer {
 	user := KeyByUser()
-	tenant := KeyByTenant()
+	project := KeyByProject()
 	token := KeyByTokenHash(prefixLen)
 	return func(r *http.Request) (Scope, string) {
 		if scope, id := user(r); scope != ScopeAnon {
 			return scope, id
 		}
-		if scope, id := tenant(r); scope != ScopeAnon {
+		if scope, id := project(r); scope != ScopeAnon {
 			return scope, id
 		}
 		if scope, id := token(r); scope != ScopeAnon {
