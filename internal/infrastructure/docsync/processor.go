@@ -294,7 +294,7 @@ func collectionForArtifactType(artifactType string) (string, error) {
 	case "page":
 		return "page_documents", nil
 	case "resource":
-		return "resource_version_documents", nil
+		return "resource_documents", nil
 	default:
 		return "", fmt.Errorf("unsupported artifact type %q", artifactType)
 	}

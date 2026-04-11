@@ -82,6 +82,14 @@ var projectBookMongoCollections = []mongoCollectionSpec{
 		},
 	},
 	{
+		name: "resource_documents",
+		indexes: []mongoIndexSpec{
+			{name: "ux_resource_documents_artifact_id", keys: bson.D{{Key: "artifact_id", Value: 1}}, unique: true},
+			{name: "ix_resource_documents_project_updated", keys: bson.D{{Key: "project_id", Value: 1}, {Key: "updated_at", Value: -1}}},
+			{name: "ix_resource_documents_project_revision", keys: bson.D{{Key: "project_id", Value: 1}, {Key: "revision", Value: -1}}},
+		},
+	},
+	{
 		name: "resource_version_documents",
 		indexes: []mongoIndexSpec{
 			{name: "ux_resource_version_documents_resource_version_id", keys: bson.D{{Key: "resource_version_id", Value: 1}}, unique: true},

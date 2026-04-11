@@ -2,6 +2,67 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.8 (2026-04-11)
+
+### Added
+- New Resources module at `internal/modules/resources` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- New Pages module at `internal/modules/pages` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- New Calendar module at `internal/modules/calendar` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- New Sidebar module at `internal/modules/sidebar` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- New Activity module at `internal/modules/activity` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- Implemented EP-064 through EP-082 under `/api/v1/projects/{projectId}/*`:
+	- resources list/create/detail/update/status flows.
+	- pages list/create/detail/update/rename flows.
+	- calendar list/create/detail/update/delete flows with derived-event write guards.
+	- sidebar artifact create/rename/delete convenience flows with prefix-based delegation.
+	- project activity read endpoint.
+- Added migration pair for resources/pages/calendar contract surfaces:
+	- `db/migrations/000011_resources_pages_calendar_contract.up.sql`
+	- `db/migrations/000011_resources_pages_calendar_contract.down.sql`
+
+### Changed
+- Module registry now includes:
+	- `resources.New()`
+	- `pages.New()`
+	- `calendar.New()`
+	- `sidebar.New()`
+	- `activity.New()`
+- Mongo bootstrap now provisions `resource_documents` collection/indexes.
+- Document sync processor now routes `resource` artifacts to `resource_documents`.
+
+### Documentation
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-064 through EP-082 as `tested` and point implementation ownership to their module paths.
+
 ## v0.7.7 (2026-04-11)
 
 ### Added
