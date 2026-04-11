@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/modules/home"
 	"github.com/MrEthical07/superapi/internal/modules/project"
 	"github.com/MrEthical07/superapi/internal/modules/system"
+	"github.com/MrEthical07/superapi/internal/modules/team"
 	// MODULE_IMPORTS
 )
 
@@ -21,6 +22,7 @@ func All() []app.Module {
 		auth.New(),
 		home.New(),
 		project.New(),
+		team.New(),
 		health.New(),
 		system.New(),
 		// MODULE_LIST

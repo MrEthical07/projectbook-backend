@@ -2,6 +2,28 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.6 (2026-04-11)
+
+### Added
+- New Team module at `internal/modules/team` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- Implemented EP-028 through EP-034 under `/api/v1/projects/{projectId}/team/*`:
+	- members list, roles list, single invite create, batch invite create (partial success with `207`), invite cancel, member permission update, role permission update.
+- Added migration pair for team member list/read hot paths:
+	- `db/migrations/000009_team_member_indexes.up.sql`
+	- `db/migrations/000009_team_member_indexes.down.sql`
+
+### Changed
+- Module registry now includes `team.New()` in `internal/modules/modules.go`.
+
+### Documentation
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-028 through EP-034 as `tested`.
+
 ## v0.7.5 (2026-04-11)
 
 ### Added
