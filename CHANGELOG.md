@@ -2,6 +2,28 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.4 (2026-04-11)
+
+### Added
+- New Home module at `internal/modules/home` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- Implemented EP-008 through EP-020 under `/api/v1/home/*`:
+	- dashboard/projects/create-project/reference/invites/notifications/activity/dashboard-activity/account/docs.
+
+### Changed
+- Module registry now includes `home.New()` in `internal/modules/modules.go`.
+- Home write workflows use service-owned transaction boundaries with repository-only data access.
+- Home routes apply authenticated cache variation by `UserID` and write-path cache invalidation for related home tags.
+
+### Documentation
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-008 through EP-020 as `tested`.
+- Home implementation follows contract-first verification against API guidelines and relational schema surfaces before route wiring.
+
 ## v0.7.3 (2026-04-11)
 
 ### Breaking Changes

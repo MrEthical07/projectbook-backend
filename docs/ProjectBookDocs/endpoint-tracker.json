@@ -83,7 +83,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/dashboard",
         "sourceFunction":  "getUserDashboard()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -94,7 +94,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/projects",
         "sourceFunction":  "getUserProjects()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -105,7 +105,7 @@
         "method":  "POST",
         "path":  "/api/v1/home/projects",
         "sourceFunction":  "createProject()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -116,7 +116,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/projects/reference",
         "sourceFunction":  "getProjectCreationReference()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -127,7 +127,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/invites",
         "sourceFunction":  "getUserInvitesPage()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -138,7 +138,7 @@
         "method":  "POST",
         "path":  "/api/v1/home/invites/{inviteId}/accept",
         "sourceFunction":  "acceptProjectInvite()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -149,7 +149,7 @@
         "method":  "POST",
         "path":  "/api/v1/home/invites/{inviteId}/decline",
         "sourceFunction":  "declineProjectInvite()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -160,7 +160,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/notifications",
         "sourceFunction":  "getUserNotificationsPage()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -171,7 +171,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/activity",
         "sourceFunction":  "getUserActivityPage()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -182,7 +182,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/dashboard-activity",
         "sourceFunction":  "getUserDashboardActivity()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -193,7 +193,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/account",
         "sourceFunction":  "getUserAccountSettings()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -204,7 +204,7 @@
         "method":  "PUT",
         "path":  "/api/v1/home/account",
         "sourceFunction":  "updateUserAccountSettings()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
@@ -215,7 +215,7 @@
         "method":  "GET",
         "path":  "/api/v1/home/docs",
         "sourceFunction":  "getUserDocsSections()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "home",
         "implementation":  "internal/modules/home"
     },
