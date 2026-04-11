@@ -2,6 +2,35 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.7 (2026-04-11)
+
+### Added
+- New Artifacts module at `internal/modules/artifacts` with strict layering:
+	- `dto.go`
+	- `repo.go`
+	- `service.go`
+	- `handler.go`
+	- `routes.go`
+	- `module.go`
+- Implemented EP-035 through EP-063 under `/api/v1/projects/{projectId}/*`:
+	- stories, journeys, problems, ideas, tasks, and feedback list/create/detail/update flows.
+	- problem lock and status transition endpoint.
+	- idea select endpoint and status transition endpoint.
+	- task status transition endpoint with rejected-idea start guard.
+- Added migration pair for artifact primary-chain/orphan semantics:
+	- `db/migrations/000010_artifact_chain_links.up.sql`
+	- `db/migrations/000010_artifact_chain_links.down.sql`
+- Added document sync outbox processor:
+	- `internal/infrastructure/docsync/processor.go`
+	- app wiring in `internal/core/app/deps.go` and lifecycle run loop in `internal/core/app/app.go`.
+
+### Changed
+- Module registry now includes `artifacts.New()` in `internal/modules/modules.go`.
+- Artifact chain behavior now enforces non-cascading deletes and orphan recalculation across story/journey/problem/idea/task/feedback links.
+
+### Documentation
+- Endpoint tracker artifacts (`md`/`json`/`csv`) now mark EP-035 through EP-063 as `tested` and point implementation ownership to `internal/modules/artifacts`.
+
 ## v0.7.6 (2026-04-11)
 
 ### Added

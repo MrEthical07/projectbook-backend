@@ -52,35 +52,35 @@ This tracker is generated from docs/ProjectBookDocs/API_plan.md and is the froze
 | EP-032 | Team Management | team | DELETE | /api/v1/projects/{projectId}/team/invites/{email} | `cancelProjectInvite()` | tested | team | `internal/modules/team` |
 | EP-033 | Team Management | team | PUT | /api/v1/projects/{projectId}/team/members/{memberId}/permissions | `updateProjectMemberPermissions()` | tested | team | `internal/modules/team` |
 | EP-034 | Team Management | team | PUT | /api/v1/projects/{projectId}/team/roles/{role}/permissions | `updateProjectRolePermissions()` | tested | team | `internal/modules/team` |
-| EP-035 | Stories | stories | GET | /api/v1/projects/{projectId}/stories | `getStories()` | not_started | stories | `internal/modules/stories` |
-| EP-036 | Stories | stories | POST | /api/v1/projects/{projectId}/stories | `createStory()` | not_started | stories | `internal/modules/stories` |
-| EP-037 | Stories | stories | GET | /api/v1/projects/{projectId}/stories/{slug} | `getStoryPageData()` | not_started | stories | `internal/modules/stories` |
-| EP-038 | Stories | stories | PUT | /api/v1/projects/{projectId}/stories/{storyId} | `updateStory()` | not_started | stories | `internal/modules/stories` |
-| EP-039 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys | `getJourneys()` | not_started | journeys | `internal/modules/journeys` |
-| EP-040 | Journeys | journeys | POST | /api/v1/projects/{projectId}/journeys | `createJourney()` | not_started | journeys | `internal/modules/journeys` |
-| EP-041 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys/{slug} | `getJourneyPageData()` | not_started | journeys | `internal/modules/journeys` |
-| EP-042 | Journeys | journeys | PUT | /api/v1/projects/{projectId}/journeys/{journeyId} | `updateJourney()` | not_started | journeys | `internal/modules/journeys` |
-| EP-043 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems | `getProblems()` | not_started | problems | `internal/modules/problems` |
-| EP-044 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems | `createProblem()` | not_started | problems | `internal/modules/problems` |
-| EP-045 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems/{slug} | `getProblemPageData()` | not_started | problems | `internal/modules/problems` |
-| EP-046 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId} | `updateProblem()` | not_started | problems | `internal/modules/problems` |
-| EP-047 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems/{problemId}/lock | `lockProblem()` | not_started | problems | `internal/modules/problems` |
-| EP-048 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId}/status | `updateProblemStatus()` | not_started | problems | `internal/modules/problems` |
-| EP-049 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas | `getIdeas()` | not_started | ideas | `internal/modules/ideas` |
-| EP-050 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas | `createIdea()` | not_started | ideas | `internal/modules/ideas` |
-| EP-051 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas/{slug} | `getIdeaPageData()` | not_started | ideas | `internal/modules/ideas` |
-| EP-052 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId} | `updateIdea()` | not_started | ideas | `internal/modules/ideas` |
-| EP-053 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas/{ideaId}/select | `selectIdea()` | not_started | ideas | `internal/modules/ideas` |
-| EP-054 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId}/status | `updateIdeaStatus()` | not_started | ideas | `internal/modules/ideas` |
-| EP-055 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks | `getTasks()` | not_started | tasks | `internal/modules/tasks` |
-| EP-056 | Tasks | tasks | POST | /api/v1/projects/{projectId}/tasks | `createTask()` | not_started | tasks | `internal/modules/tasks` |
-| EP-057 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks/{slug} | `getTaskPageData()` | not_started | tasks | `internal/modules/tasks` |
-| EP-058 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId} | `updateTask()` | not_started | tasks | `internal/modules/tasks` |
-| EP-059 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId}/status | `updateTaskStatus()` | not_started | tasks | `internal/modules/tasks` |
-| EP-060 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback | `getFeedback()` | not_started | feedback | `internal/modules/feedback` |
-| EP-061 | Feedback | feedback | POST | /api/v1/projects/{projectId}/feedback | `createFeedback()` | not_started | feedback | `internal/modules/feedback` |
-| EP-062 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback/{slug} | `getFeedbackPageData()` | not_started | feedback | `internal/modules/feedback` |
-| EP-063 | Feedback | feedback | PUT | /api/v1/projects/{projectId}/feedback/{feedbackId} | `updateFeedback()` | not_started | feedback | `internal/modules/feedback` |
+| EP-035 | Stories | stories | GET | /api/v1/projects/{projectId}/stories | `getStories()` | tested | stories | `internal/modules/artifacts` |
+| EP-036 | Stories | stories | POST | /api/v1/projects/{projectId}/stories | `createStory()` | tested | stories | `internal/modules/artifacts` |
+| EP-037 | Stories | stories | GET | /api/v1/projects/{projectId}/stories/{slug} | `getStoryPageData()` | tested | stories | `internal/modules/artifacts` |
+| EP-038 | Stories | stories | PUT | /api/v1/projects/{projectId}/stories/{storyId} | `updateStory()` | tested | stories | `internal/modules/artifacts` |
+| EP-039 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys | `getJourneys()` | tested | journeys | `internal/modules/artifacts` |
+| EP-040 | Journeys | journeys | POST | /api/v1/projects/{projectId}/journeys | `createJourney()` | tested | journeys | `internal/modules/artifacts` |
+| EP-041 | Journeys | journeys | GET | /api/v1/projects/{projectId}/journeys/{slug} | `getJourneyPageData()` | tested | journeys | `internal/modules/artifacts` |
+| EP-042 | Journeys | journeys | PUT | /api/v1/projects/{projectId}/journeys/{journeyId} | `updateJourney()` | tested | journeys | `internal/modules/artifacts` |
+| EP-043 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems | `getProblems()` | tested | problems | `internal/modules/artifacts` |
+| EP-044 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems | `createProblem()` | tested | problems | `internal/modules/artifacts` |
+| EP-045 | Problem Statements | problems | GET | /api/v1/projects/{projectId}/problems/{slug} | `getProblemPageData()` | tested | problems | `internal/modules/artifacts` |
+| EP-046 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId} | `updateProblem()` | tested | problems | `internal/modules/artifacts` |
+| EP-047 | Problem Statements | problems | POST | /api/v1/projects/{projectId}/problems/{problemId}/lock | `lockProblem()` | tested | problems | `internal/modules/artifacts` |
+| EP-048 | Problem Statements | problems | PUT | /api/v1/projects/{projectId}/problems/{problemId}/status | `updateProblemStatus()` | tested | problems | `internal/modules/artifacts` |
+| EP-049 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas | `getIdeas()` | tested | ideas | `internal/modules/artifacts` |
+| EP-050 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas | `createIdea()` | tested | ideas | `internal/modules/artifacts` |
+| EP-051 | Ideas | ideas | GET | /api/v1/projects/{projectId}/ideas/{slug} | `getIdeaPageData()` | tested | ideas | `internal/modules/artifacts` |
+| EP-052 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId} | `updateIdea()` | tested | ideas | `internal/modules/artifacts` |
+| EP-053 | Ideas | ideas | POST | /api/v1/projects/{projectId}/ideas/{ideaId}/select | `selectIdea()` | tested | ideas | `internal/modules/artifacts` |
+| EP-054 | Ideas | ideas | PUT | /api/v1/projects/{projectId}/ideas/{ideaId}/status | `updateIdeaStatus()` | tested | ideas | `internal/modules/artifacts` |
+| EP-055 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks | `getTasks()` | tested | tasks | `internal/modules/artifacts` |
+| EP-056 | Tasks | tasks | POST | /api/v1/projects/{projectId}/tasks | `createTask()` | tested | tasks | `internal/modules/artifacts` |
+| EP-057 | Tasks | tasks | GET | /api/v1/projects/{projectId}/tasks/{slug} | `getTaskPageData()` | tested | tasks | `internal/modules/artifacts` |
+| EP-058 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId} | `updateTask()` | tested | tasks | `internal/modules/artifacts` |
+| EP-059 | Tasks | tasks | PUT | /api/v1/projects/{projectId}/tasks/{taskId}/status | `updateTaskStatus()` | tested | tasks | `internal/modules/artifacts` |
+| EP-060 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback | `getFeedback()` | tested | feedback | `internal/modules/artifacts` |
+| EP-061 | Feedback | feedback | POST | /api/v1/projects/{projectId}/feedback | `createFeedback()` | tested | feedback | `internal/modules/artifacts` |
+| EP-062 | Feedback | feedback | GET | /api/v1/projects/{projectId}/feedback/{slug} | `getFeedbackPageData()` | tested | feedback | `internal/modules/artifacts` |
+| EP-063 | Feedback | feedback | PUT | /api/v1/projects/{projectId}/feedback/{feedbackId} | `updateFeedback()` | tested | feedback | `internal/modules/artifacts` |
 | EP-064 | Resources | resources | GET | /api/v1/projects/{projectId}/resources | `getResources()` | not_started | resources | `internal/modules/resources` |
 | EP-065 | Resources | resources | POST | /api/v1/projects/{projectId}/resources | `createResource()` | not_started | resources | `internal/modules/resources` |
 | EP-066 | Resources | resources | GET | /api/v1/projects/{projectId}/resources/{resourceId} | `getResourcePageData()` | not_started | resources | `internal/modules/resources` |

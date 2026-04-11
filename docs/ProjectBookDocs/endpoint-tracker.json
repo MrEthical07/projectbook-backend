@@ -380,9 +380,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/stories",
         "sourceFunction":  "getStories()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "stories",
-        "implementation":  "internal/modules/stories"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-036",
@@ -391,9 +391,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/stories",
         "sourceFunction":  "createStory()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "stories",
-        "implementation":  "internal/modules/stories"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-037",
@@ -402,9 +402,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/stories/{slug}",
         "sourceFunction":  "getStoryPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "stories",
-        "implementation":  "internal/modules/stories"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-038",
@@ -413,9 +413,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/stories/{storyId}",
         "sourceFunction":  "updateStory()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "stories",
-        "implementation":  "internal/modules/stories"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-039",
@@ -424,9 +424,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/journeys",
         "sourceFunction":  "getJourneys()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "journeys",
-        "implementation":  "internal/modules/journeys"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-040",
@@ -435,9 +435,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/journeys",
         "sourceFunction":  "createJourney()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "journeys",
-        "implementation":  "internal/modules/journeys"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-041",
@@ -446,9 +446,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/journeys/{slug}",
         "sourceFunction":  "getJourneyPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "journeys",
-        "implementation":  "internal/modules/journeys"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-042",
@@ -457,9 +457,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/journeys/{journeyId}",
         "sourceFunction":  "updateJourney()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "journeys",
-        "implementation":  "internal/modules/journeys"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-043",
@@ -468,9 +468,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/problems",
         "sourceFunction":  "getProblems()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-044",
@@ -479,9 +479,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/problems",
         "sourceFunction":  "createProblem()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-045",
@@ -490,9 +490,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/problems/{slug}",
         "sourceFunction":  "getProblemPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-046",
@@ -501,9 +501,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/problems/{problemId}",
         "sourceFunction":  "updateProblem()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-047",
@@ -512,9 +512,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/problems/{problemId}/lock",
         "sourceFunction":  "lockProblem()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-048",
@@ -523,9 +523,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/problems/{problemId}/status",
         "sourceFunction":  "updateProblemStatus()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "problems",
-        "implementation":  "internal/modules/problems"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-049",
@@ -534,9 +534,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/ideas",
         "sourceFunction":  "getIdeas()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-050",
@@ -545,9 +545,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/ideas",
         "sourceFunction":  "createIdea()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-051",
@@ -556,9 +556,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/ideas/{slug}",
         "sourceFunction":  "getIdeaPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-052",
@@ -567,9 +567,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/ideas/{ideaId}",
         "sourceFunction":  "updateIdea()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-053",
@@ -578,9 +578,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/ideas/{ideaId}/select",
         "sourceFunction":  "selectIdea()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-054",
@@ -589,9 +589,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/ideas/{ideaId}/status",
         "sourceFunction":  "updateIdeaStatus()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "ideas",
-        "implementation":  "internal/modules/ideas"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-055",
@@ -600,9 +600,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/tasks",
         "sourceFunction":  "getTasks()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "tasks",
-        "implementation":  "internal/modules/tasks"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-056",
@@ -611,9 +611,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/tasks",
         "sourceFunction":  "createTask()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "tasks",
-        "implementation":  "internal/modules/tasks"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-057",
@@ -622,9 +622,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/tasks/{slug}",
         "sourceFunction":  "getTaskPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "tasks",
-        "implementation":  "internal/modules/tasks"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-058",
@@ -633,9 +633,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/tasks/{taskId}",
         "sourceFunction":  "updateTask()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "tasks",
-        "implementation":  "internal/modules/tasks"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-059",
@@ -644,9 +644,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/tasks/{taskId}/status",
         "sourceFunction":  "updateTaskStatus()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "tasks",
-        "implementation":  "internal/modules/tasks"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-060",
@@ -655,9 +655,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/feedback",
         "sourceFunction":  "getFeedback()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "feedback",
-        "implementation":  "internal/modules/feedback"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-061",
@@ -666,9 +666,9 @@
         "method":  "POST",
         "path":  "/api/v1/projects/{projectId}/feedback",
         "sourceFunction":  "createFeedback()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "feedback",
-        "implementation":  "internal/modules/feedback"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-062",
@@ -677,9 +677,9 @@
         "method":  "GET",
         "path":  "/api/v1/projects/{projectId}/feedback/{slug}",
         "sourceFunction":  "getFeedbackPageData()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "feedback",
-        "implementation":  "internal/modules/feedback"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-063",
@@ -688,9 +688,9 @@
         "method":  "PUT",
         "path":  "/api/v1/projects/{projectId}/feedback/{feedbackId}",
         "sourceFunction":  "updateFeedback()",
-        "status":  "not_started",
+        "status":  "tested",
         "owner":  "feedback",
-        "implementation":  "internal/modules/feedback"
+        "implementation":  "internal/modules/artifacts"
     },
     {
         "id":  "EP-064",

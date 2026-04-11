@@ -2,6 +2,7 @@ package modules
 
 import (
 	"github.com/MrEthical07/superapi/internal/core/app"
+	"github.com/MrEthical07/superapi/internal/modules/artifacts"
 	"github.com/MrEthical07/superapi/internal/modules/auth"
 	"github.com/MrEthical07/superapi/internal/modules/health"
 	"github.com/MrEthical07/superapi/internal/modules/home"
@@ -22,6 +23,7 @@ func All() []app.Module {
 		auth.New(),
 		home.New(),
 		project.New(),
+		artifacts.New(),
 		team.New(),
 		health.New(),
 		system.New(),

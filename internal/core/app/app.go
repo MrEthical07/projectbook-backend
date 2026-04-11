@@ -148,6 +148,14 @@ func (a *App) Run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 
+	if a.deps != nil && a.deps.DocumentSyncProcessor != nil {
+		go a.deps.DocumentSyncProcessor.Run(ctx, func(err error) {
+			if err != nil {
+				a.log.Error().Err(err).Msg("document sync processor tick failed")
+			}
+		})
+	}
+
 	go func() {
 		a.log.Info().
 			Str("addr", a.cfg.HTTP.Addr).
