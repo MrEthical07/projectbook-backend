@@ -6,9 +6,10 @@ Use it as a practical checklist during daily development.
 
 ## 1. Running The API
 
-### 1.1 Minimal local run (no external dependencies)
+### 1.1 Default run (dependency-on baseline)
 
-Use this when you only need process-level behavior and basic routes.
+Default configuration enables Postgres, Redis, auth, cache, rate-limit, and permissions.
+Use this mode when local Postgres and Redis are available.
 
 ```bash
 go run ./cmd/api
@@ -18,12 +19,26 @@ What to expect:
 
 - API starts on configured HTTP_ADDR (default :8080)
 - health and readiness routes are available
-- external dependency features are disabled unless enabled via env
+- auth, cache, rate-limit, and permissions features are active by default
 
-### 1.2 Full local run (Postgres + Redis + auth + cache + rate-limit)
+### 1.2 Minimal local run (no external dependencies)
+
+Use this when you only need process-level behavior and basic routes.
 
 ```bash
-POSTGRES_ENABLED=true POSTGRES_URL="postgres://user:pass@localhost:5432/mydb?sslmode=disable" REDIS_ENABLED=true REDIS_ADDR="127.0.0.1:6379" AUTH_ENABLED=true RATELIMIT_ENABLED=true CACHE_ENABLED=true go run ./cmd/api
+APP_PROFILE=minimal go run ./cmd/api
+```
+
+What to expect:
+
+- API starts on configured HTTP_ADDR (default :8080)
+- health and readiness routes are available
+- Postgres, Redis, auth, cache, rate-limit, and permissions are disabled by profile defaults
+
+### 1.3 Full local run (explicit env form)
+
+```bash
+POSTGRES_ENABLED=true POSTGRES_URL="postgres://user:pass@localhost:5432/mydb?sslmode=disable" REDIS_ENABLED=true REDIS_ADDR="127.0.0.1:6379" AUTH_ENABLED=true RATELIMIT_ENABLED=true CACHE_ENABLED=true PERMISSIONS_ENABLED=true go run ./cmd/api
 ```
 
 Use this mode when testing realistic route behavior.

@@ -328,7 +328,7 @@ func Load() (*Config, error) {
 				RecovererEnabled:       getBool("HTTP_MIDDLEWARE_RECOVERER_ENABLED", true),
 				MaxBodyBytes:           getInt64("HTTP_MIDDLEWARE_MAX_BODY_BYTES", 1<<20), // 1 MiB
 				SecurityHeadersEnabled: getBool("HTTP_MIDDLEWARE_SECURITY_HEADERS_ENABLED", securityHeadersDefault),
-				RequestTimeout:         getDuration("HTTP_MIDDLEWARE_REQUEST_TIMEOUT", 0),
+				RequestTimeout:         getDuration("HTTP_MIDDLEWARE_REQUEST_TIMEOUT", 10*time.Second),
 				AccessLog: AccessLogConfig{
 					Enabled:          getBool("HTTP_MIDDLEWARE_ACCESS_LOG_ENABLED", true),
 					SampleRate:       getFloat64("HTTP_MIDDLEWARE_ACCESS_LOG_SAMPLE_RATE", 0.05),
@@ -341,7 +341,7 @@ func Load() (*Config, error) {
 					TrustedProxies: getCSV("HTTP_TRUSTED_PROXIES", nil),
 				},
 				CORS: CORSConfig{
-					Enabled:             getBool("HTTP_MIDDLEWARE_CORS_ENABLED", false),
+					Enabled:             getBool("HTTP_MIDDLEWARE_CORS_ENABLED", true),
 					AllowOrigins:        getCSV("HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS", nil),
 					DenyOrigins:         getCSV("HTTP_MIDDLEWARE_CORS_DENY_ORIGINS", nil),
 					AllowMethods:        getCSV("HTTP_MIDDLEWARE_CORS_ALLOW_METHODS", nil),
@@ -359,23 +359,23 @@ func Load() (*Config, error) {
 			Format: getenv("LOG_FORMAT", "json"),
 		},
 		Auth: AuthConfig{
-			Enabled: getBool("AUTH_ENABLED", false),
+			Enabled: getBool("AUTH_ENABLED", true),
 			Mode:    getenv("AUTH_MODE", "hybrid"),
 		},
 		RateLimit: RateLimitConfig{
-			Enabled:       getBool("RATELIMIT_ENABLED", false),
+			Enabled:       getBool("RATELIMIT_ENABLED", true),
 			FailOpen:      getBool("RATELIMIT_FAIL_OPEN", rateLimitFailOpenDefault),
 			DefaultLimit:  getInt("RATELIMIT_DEFAULT_LIMIT", 10),
 			DefaultWindow: getDuration("RATELIMIT_DEFAULT_WINDOW", time.Minute),
 		},
 		Cache: CacheConfig{
-			Enabled:            getBool("CACHE_ENABLED", false),
+			Enabled:            getBool("CACHE_ENABLED", true),
 			FailOpen:           getBool("CACHE_FAIL_OPEN", cacheFailOpenDefault),
 			DefaultMaxBytes:    getInt("CACHE_DEFAULT_MAX_BYTES", 256*1024),
 			TagVersionCacheTTL: getDuration("CACHE_TAG_VERSION_CACHE_TTL", 250*time.Millisecond),
 		},
 		Permissions: PermissionsConfig{
-			Enabled:         getBool("PERMISSIONS_ENABLED", false),
+			Enabled:         getBool("PERMISSIONS_ENABLED", true),
 			DBQueryTimeout:  getDuration("PERMISSIONS_DB_QUERY_TIMEOUT", 750*time.Millisecond),
 			RedisTTL:        getDuration("PERMISSIONS_REDIS_TTL", 6*time.Hour),
 			BackfillTimeout: getDuration("PERMISSIONS_BACKFILL_TIMEOUT", 500*time.Millisecond),
@@ -393,8 +393,8 @@ func Load() (*Config, error) {
 			BootstrapTimeout:   getDuration("MONGO_BOOTSTRAP_TIMEOUT", 10*time.Second),
 		},
 		Postgres: PostgresConfig{
-			Enabled:            getBool("POSTGRES_ENABLED", false),
-			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, ""),
+			Enabled:            getBool("POSTGRES_ENABLED", true),
+			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable"),
 			MaxConns:           getInt32("POSTGRES_MAX_CONNS", 10),
 			MinConns:           getInt32("POSTGRES_MIN_CONNS", 0),
 			ConnMaxLifetime:    getDuration("POSTGRES_CONN_MAX_LIFETIME", 30*time.Minute),
@@ -403,7 +403,7 @@ func Load() (*Config, error) {
 			HealthCheckTimeout: getDuration("POSTGRES_HEALTH_CHECK_TIMEOUT", 1*time.Second),
 		},
 		Redis: RedisConfig{
-			Enabled:            getBool("REDIS_ENABLED", false),
+			Enabled:            getBool("REDIS_ENABLED", true),
 			Addr:               getenvAlias([]string{"REDIS_ADDR", "REDIS_URL"}, "127.0.0.1:6379"),
 			Password:           getenv("REDIS_PASSWORD", ""),
 			DB:                 getInt("REDIS_DB", 0),

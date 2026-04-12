@@ -24,6 +24,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequireAnyPermission(
 			rbac.PermStoryCreate,
 			rbac.PermProblemCreate,
@@ -38,6 +39,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequireAnyPermission(
 			rbac.PermStoryEdit,
 			rbac.PermProblemEdit,
@@ -52,6 +54,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequireAnyPermission(
 			rbac.PermStoryDelete,
 			rbac.PermProblemDelete,

@@ -33,6 +33,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermStoryCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/stories/{slug}", httpx.Adapter(m.handler.GetStory),
@@ -47,6 +48,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermStoryEdit),
 	)
 
@@ -63,6 +65,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermStoryCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/journeys/{slug}", httpx.Adapter(m.handler.GetJourney),
@@ -77,6 +80,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermStoryEdit),
 	)
 
@@ -93,6 +97,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermProblemCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/problems/{slug}", httpx.Adapter(m.handler.GetProblem),
@@ -107,6 +112,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermProblemEdit),
 	)
 	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/problems/{problemId}/lock", httpx.Adapter(m.handler.LockProblem),
@@ -121,6 +127,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermProblemStatusChange),
 	)
 
@@ -137,6 +144,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermIdeaCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/ideas/{slug}", httpx.Adapter(m.handler.GetIdea),
@@ -151,6 +159,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermIdeaEdit),
 	)
 	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/ideas/{ideaId}/select", httpx.Adapter(m.handler.SelectIdea),
@@ -165,6 +174,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermIdeaStatusChange),
 	)
 
@@ -181,6 +191,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermTaskCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/tasks/{slug}", httpx.Adapter(m.handler.GetTask),
@@ -195,6 +206,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermTaskEdit),
 	)
 	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/tasks/{taskId}/status", httpx.Adapter(m.handler.UpdateTaskStatus),
@@ -202,6 +214,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermTaskStatusChange),
 	)
 
@@ -218,6 +231,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermFeedbackCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/feedback/{slug}", httpx.Adapter(m.handler.GetFeedback),
@@ -232,6 +246,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermFeedbackEdit),
 	)
 

@@ -32,6 +32,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermPageCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/pages/{slug}", httpx.Adapter(m.handler.GetPage),
@@ -46,6 +47,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermPageEdit),
 	)
 	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/pages/{pageId}/rename", httpx.Adapter(m.handler.RenamePage),
@@ -53,6 +55,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermPageEdit),
 	)
 

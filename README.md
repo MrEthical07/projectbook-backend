@@ -68,6 +68,9 @@ ProjectBook Backend uses **goAuth** as its authentication engine.
 go run ./cmd/api
 ```
 
+Default configuration enables Postgres, Redis, auth, cache, rate-limit, and permissions.
+Ensure Postgres and Redis are running locally before using default startup.
+
 After startup:
 - Liveness: GET /healthz
 - Readiness: GET /readyz
@@ -86,18 +89,19 @@ go run ./cmd/api
 
 ### Full mode (Postgres + Redis + auth)
 
-Use .env.example full-mode defaults, then run:
+Use default settings (or .env.example full-mode values), then run:
 
 ```bash
 go run ./cmd/api
 ```
 
-Required full-mode toggles are already shown in .env.example:
+Equivalent explicit full-mode toggles are shown in .env.example:
 - POSTGRES_ENABLED=true with valid POSTGRES_URL
 - REDIS_ENABLED=true with valid REDIS_ADDR
 - AUTH_ENABLED=true
 - RATELIMIT_ENABLED=true
 - CACHE_ENABLED=true
+- PERMISSIONS_ENABLED=true
 
 ## How To Build APIs
 

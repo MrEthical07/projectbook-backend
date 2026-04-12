@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLintRejectsInvalidMiddlewareBoolEnv(t *testing.T) {
 	t.Setenv("HTTP_MIDDLEWARE_REQUEST_ID_ENABLED", "not-a-bool")
@@ -30,12 +33,12 @@ func TestLintRejectsNegativeMiddlewareBodyLimit(t *testing.T) {
 
 func TestLintRejectsEnabledPostgresWithoutURL(t *testing.T) {
 	t.Setenv("POSTGRES_ENABLED", "true")
-	t.Setenv("POSTGRES_URL", "")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
+	cfg.Postgres.URL = ""
 
 	if err := cfg.Lint(); err == nil {
 		t.Fatalf("expected lint error for enabled postgres without URL")
@@ -197,6 +200,41 @@ func TestTracingDefaultsToDisabled(t *testing.T) {
 
 	if cfg.Tracing.Enabled {
 		t.Fatalf("expected tracing to be disabled by default")
+	}
+}
+
+func TestLoadDefaultsEnableCoreDependencies(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := cfg.HTTP.Middleware.RequestTimeout, 10*time.Second; got != want {
+		t.Fatalf("RequestTimeout=%s want=%s", got, want)
+	}
+	if !cfg.HTTP.Middleware.CORS.Enabled {
+		t.Fatalf("expected CORS enabled by default")
+	}
+	if !cfg.Auth.Enabled {
+		t.Fatalf("expected auth enabled by default")
+	}
+	if !cfg.RateLimit.Enabled {
+		t.Fatalf("expected ratelimit enabled by default")
+	}
+	if !cfg.Cache.Enabled {
+		t.Fatalf("expected cache enabled by default")
+	}
+	if !cfg.Permissions.Enabled {
+		t.Fatalf("expected permissions enabled by default")
+	}
+	if !cfg.Postgres.Enabled {
+		t.Fatalf("expected postgres enabled by default")
+	}
+	if !cfg.Redis.Enabled {
+		t.Fatalf("expected redis enabled by default")
+	}
+	if got, want := cfg.Postgres.URL, "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable"; got != want {
+		t.Fatalf("Postgres.URL=%q want=%q", got, want)
 	}
 }
 

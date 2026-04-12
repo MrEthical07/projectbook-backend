@@ -32,6 +32,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermResourceCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/resources/{resourceId}", httpx.Adapter(m.handler.GetResource),
@@ -46,6 +47,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermResourceEdit),
 	)
 	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/resources/{resourceId}/status", httpx.Adapter(m.handler.UpdateResourceStatus),
@@ -53,6 +55,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermResourceStatusChange),
 	)
 

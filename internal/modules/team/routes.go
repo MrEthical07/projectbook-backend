@@ -45,6 +45,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -63,6 +64,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
 	} else {
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/team/members", httpx.Adapter(m.handler.ListMembers), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberView))
@@ -90,6 +92,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermMemberCreate),
+			policy.RequireJSON(),
 			policy.RateLimit(limiter, inviteRule),
 			policy.CacheInvalidate(cacheMgr, invalidateTeamTags),
 		)
@@ -102,6 +105,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermMemberCreate),
+			policy.RequireJSON(),
 			policy.RateLimit(limiter, batchInviteRule),
 			policy.CacheInvalidate(cacheMgr, invalidateTeamTags),
 		)
@@ -126,6 +130,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermMemberEdit),
+			policy.RequireJSON(),
 			policy.RateLimit(limiter, memberUpdateRule),
 			policy.CacheInvalidate(cacheMgr, invalidateTeamTags),
 		)
@@ -138,6 +143,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermMemberEdit),
+			policy.RequireJSON(),
 			policy.RateLimit(limiter, roleUpdateRule),
 			policy.CacheInvalidate(cacheMgr, invalidateTeamTags),
 		)
@@ -145,28 +151,28 @@ func (m *Module) Register(r httpx.Router) error {
 	}
 
 	if limiter != nil {
-		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RateLimit(limiter, inviteRule))
-		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RateLimit(limiter, batchInviteRule))
+		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON(), policy.RateLimit(limiter, inviteRule))
+		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON(), policy.RateLimit(limiter, batchInviteRule))
 		r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}/team/invites/{email}", httpx.Adapter(m.handler.CancelInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberDelete), policy.RateLimit(limiter, cancelInviteRule))
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RateLimit(limiter, memberUpdateRule))
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RateLimit(limiter, roleUpdateRule))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON(), policy.RateLimit(limiter, memberUpdateRule))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON(), policy.RateLimit(limiter, roleUpdateRule))
 		return nil
 	}
 
 	if cacheMgr != nil {
-		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
-		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
+		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
+		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
 		r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}/team/invites/{email}", httpx.Adapter(m.handler.CancelInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberDelete), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, invalidateTeamTags))
 		return nil
 	}
 
-	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate))
-	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate))
+	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites", httpx.Adapter(m.handler.CreateInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON())
+	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/team/invites/batch", httpx.Adapter(m.handler.BatchInvites), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberCreate), policy.RequireJSON())
 	r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}/team/invites/{email}", httpx.Adapter(m.handler.CancelInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberDelete))
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit))
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit))
+	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/members/{memberId}/permissions", httpx.Adapter(m.handler.UpdateMemberPermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON())
+	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/team/roles/{role}/permissions", httpx.Adapter(m.handler.UpdateRolePermissions), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberEdit), policy.RequireJSON())
 
 	return nil
 }

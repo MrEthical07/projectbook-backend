@@ -45,6 +45,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -62,6 +63,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -80,6 +82,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -98,6 +101,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second, Vary: []string{"Authorization"}}),
 		)
 	} else {
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard", httpx.Adapter(m.handler.Dashboard), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
@@ -126,6 +130,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermProjectEdit),
+			policy.RequireJSON(),
 			policy.RateLimit(limiter, settingsRule),
 			policy.CacheInvalidate(cacheMgr, invalidateProjectTags),
 		)
@@ -157,20 +162,20 @@ func (m *Module) Register(r httpx.Router) error {
 	}
 
 	if limiter != nil {
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit), policy.RateLimit(limiter, settingsRule))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit), policy.RequireJSON(), policy.RateLimit(limiter, settingsRule))
 		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/archive", httpx.Adapter(m.handler.Archive), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectArchive), policy.RateLimit(limiter, archiveRule))
 		r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}", httpx.Adapter(m.handler.Delete), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectDelete), policy.RateLimit(limiter, deleteRule))
 		return nil
 	}
 
 	if cacheMgr != nil {
-		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit), policy.CacheInvalidate(cacheMgr, invalidateProjectTags))
+		r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, invalidateProjectTags))
 		r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/archive", httpx.Adapter(m.handler.Archive), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectArchive), policy.CacheInvalidate(cacheMgr, invalidateProjectTags))
 		r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}", httpx.Adapter(m.handler.Delete), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectDelete), policy.CacheInvalidate(cacheMgr, invalidateProjectTags))
 		return nil
 	}
 
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit))
+	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.UpdateSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectEdit), policy.RequireJSON())
 	r.Handle(http.MethodPost, "/api/v1/projects/{projectId}/archive", httpx.Adapter(m.handler.Archive), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectArchive))
 	r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}", httpx.Adapter(m.handler.Delete), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectDelete))
 

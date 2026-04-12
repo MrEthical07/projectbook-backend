@@ -18,13 +18,14 @@ const (
 
 var profileDefaults = map[string]map[string]string{
 	ProfileMinimal: {
-		"APP_ENV":           "dev",
-		"AUTH_ENABLED":      "false",
-		"CACHE_ENABLED":     "false",
-		"RATELIMIT_ENABLED": "false",
-		"MONGO_ENABLED":     "false",
-		"POSTGRES_ENABLED":  "false",
-		"REDIS_ENABLED":     "false",
+		"APP_ENV":             "dev",
+		"AUTH_ENABLED":        "false",
+		"CACHE_ENABLED":       "false",
+		"RATELIMIT_ENABLED":   "false",
+		"PERMISSIONS_ENABLED": "false",
+		"MONGO_ENABLED":       "false",
+		"POSTGRES_ENABLED":    "false",
+		"REDIS_ENABLED":       "false",
 	},
 	ProfileDev: {
 		"APP_ENV":                  "dev",
@@ -36,6 +37,7 @@ var profileDefaults = map[string]map[string]string{
 		"RATELIMIT_FAIL_OPEN":      "true",
 		"RATELIMIT_DEFAULT_LIMIT":  "1000",
 		"RATELIMIT_DEFAULT_WINDOW": "1m",
+		"PERMISSIONS_ENABLED":      "true",
 		"MONGO_ENABLED":            "false",
 		"POSTGRES_ENABLED":         "true",
 		"POSTGRES_URL":             "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",
@@ -52,6 +54,7 @@ var profileDefaults = map[string]map[string]string{
 		"RATELIMIT_FAIL_OPEN":      "false",
 		"RATELIMIT_DEFAULT_LIMIT":  "100",
 		"RATELIMIT_DEFAULT_WINDOW": "1m",
+		"PERMISSIONS_ENABLED":      "true",
 		"MONGO_ENABLED":            "false",
 		"POSTGRES_ENABLED":         "true",
 		"POSTGRES_URL":             "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",

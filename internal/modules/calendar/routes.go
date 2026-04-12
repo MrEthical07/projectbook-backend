@@ -32,6 +32,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermCalendarCreate),
 	)
 	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/calendar/{eventId}", httpx.Adapter(m.handler.GetCalendarEvent),
@@ -46,6 +47,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
 		policy.ResolvePermissions(resolver),
+		policy.RequireJSON(),
 		policy.RequirePermission(rbac.PermCalendarEdit),
 	)
 	r.Handle(http.MethodDelete, "/api/v1/projects/{projectId}/calendar/{eventId}", httpx.Adapter(m.handler.DeleteCalendarEvent),
