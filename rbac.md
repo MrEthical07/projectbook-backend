@@ -221,7 +221,7 @@ These are computed from the canonical default role-mask policy used by the app.
 | Role | Decimal mask | Hex mask |
 | --- | ---: | ---: |
 | Owner | 1152921504606846975 | 0xFFFFFFFFFFFFFFF |
-| Admin | 864691128455135221 | 0xBFFFFFFFFFFFFF5 |
+| Admin | 864691128455135229 | 0xBFFFFFFFFFFFFFD |
 | Editor | 20016033248999873 | 0x471C79E79E79C1 |
 | Member | 875734824153537 | 0x31C79E71C71C1 |
 | Viewer | 18300341342965825 | 0x41041041041041 |
