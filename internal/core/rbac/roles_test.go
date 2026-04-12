@@ -9,7 +9,7 @@ func TestDefaultRoleMask(t *testing.T) {
 		ok   bool
 	}{
 		{role: RoleOwner, want: 1152921504606846975, ok: true},
-		{role: RoleAdmin, want: 864691128455135221, ok: true},
+		{role: RoleAdmin, want: 864691128455135229, ok: true},
 		{role: RoleEditor, want: 20016033248999873, ok: true},
 		{role: RoleMember, want: 875734824153537, ok: true},
 		{role: RoleViewer, want: 18300341342965825, ok: true},

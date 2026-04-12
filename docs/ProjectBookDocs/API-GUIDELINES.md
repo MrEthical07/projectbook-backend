@@ -1576,10 +1576,12 @@ Archive a project. Sets status to "Archived".
 
 #### DELETE `/api/v1/projects/{projectId}`
 
-Permanently delete a project. All artifacts within the project are orphaned.
+Permanently delete a project and all project-scoped data.
 
 **Auth:** Required
 **Permissions:** `project.delete`
+
+Only `Owner` or `Admin` role holders may execute this endpoint.
 
 **Path parameters:**
 | Parameter | Description |
@@ -1605,7 +1607,7 @@ Permanently delete a project. All artifacts within the project are orphaned.
 | 404 | `NOT_FOUND` | Project not found |
 
 **Side effects:**
-- All artifacts (stories, journeys, problems, ideas, tasks, feedback, resources, pages, calendar events) are marked as orphaned
+- All artifacts (stories, journeys, problems, ideas, tasks, feedback, resources, pages, calendar events) are hard-deleted through project-scoped cascade
 - Project is removed from home project list
 - Project dashboard data is cleared
 
@@ -1695,7 +1697,7 @@ Get project role permission masks and member-level RBAC mask state.
   "data": {
     "rolePermissionMasks": {
       "Owner": "1152921504606846975",
-      "Admin": "864691128455135221",
+      "Admin": "864691128455135229",
       "Editor": "20016033248999873",
       "Member": "875734824153537",
       "Viewer": "18300341342965825",

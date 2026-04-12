@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/rbac"
 )
 
 // Handler contains HTTP transport handlers for project routes.
@@ -89,8 +90,13 @@ func (h *Handler) Archive(ctx *httpx.Context, _ httpx.NoBody) (projectArchiveRes
 }
 
 func (h *Handler) Delete(ctx *httpx.Context, _ httpx.NoBody) (projectDeleteResponse, error) {
-	if _, err := requireAuthenticatedPrincipal(ctx); err != nil {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
 		return projectDeleteResponse{}, err
+	}
+	role := strings.TrimSpace(principal.Role)
+	if !strings.EqualFold(role, rbac.RoleOwner) && !strings.EqualFold(role, rbac.RoleAdmin) {
+		return projectDeleteResponse{}, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "only Owner or Admin can delete project")
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {

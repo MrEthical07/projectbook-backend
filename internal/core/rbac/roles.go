@@ -22,7 +22,7 @@ var canonicalRoles = []string{
 
 var defaultRoleMasks = map[string]uint64{
 	RoleOwner:         1152921504606846975,
-	RoleAdmin:         864691128455135221,
+	RoleAdmin:         864691128455135229,
 	RoleEditor:        20016033248999873,
 	RoleMember:        875734824153537,
 	RoleViewer:        18300341342965825,
