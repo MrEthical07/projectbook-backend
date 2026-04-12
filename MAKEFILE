@@ -18,7 +18,7 @@ PERF_REFRESH_BUFFER_SECONDS ?= 30
 PERF_SUSTAIN_RPS_RATIO ?= 0.95
 PERF_OUTPUT_DIR ?= performance/results
 
-.PHONY: fmt vet test tidy run db-sync sqlc-generate migrate-create migrate-up migrate-down migrate-version module auth auth-config perf-token load-k6-10k load-vegeta-10k bench-hotpath verify
+.PHONY: fmt vet test tidy run db-sync sqlc-generate migrate-create migrate-up migrate-down migrate-version module auth auth-config perf-token load-k6-10k load-vegeta-10k bench-hotpath verify route-details
 
 fmt:
 	$(GO) fmt ./...
@@ -85,3 +85,6 @@ bench-hotpath:
 
 verify:
 	$(GO) run ./cmd/superapi-verify ./...
+
+route-details:
+	$(GO) run ./cmd/routedocgen
