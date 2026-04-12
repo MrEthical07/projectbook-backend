@@ -68,16 +68,16 @@ ProjectBook Backend uses **goAuth** as its authentication engine.
 go run ./cmd/api
 ```
 
-Default configuration enables Postgres, Redis, auth, cache, rate-limit, and permissions.
-Ensure Postgres and Redis are running locally before using default startup.
+Default configuration enables Postgres, Redis, Mongo, auth, cache, rate-limit, and permissions.
+Ensure Postgres, Redis, and Mongo are running locally before using default startup.
 
 After startup:
 - Liveness: GET /healthz
 - Readiness: GET /readyz
 
-### Minimal mode (no external dependencies)
+### Minimal profile (lean features, core stores still required)
 
-Use the profile that disables Postgres, Redis, auth, cache, and rate limiting:
+Use the profile that keeps Postgres/Redis/Mongo active but disables auth/cache/rate-limit/permissions:
 
 ```bash
 cp .env.example .env
@@ -87,7 +87,7 @@ cp .env.example .env
 go run ./cmd/api
 ```
 
-### Full mode (Postgres + Redis + auth)
+### Full mode (Postgres + Redis + Mongo + auth)
 
 Use default settings (or .env.example full-mode values), then run:
 
@@ -98,6 +98,7 @@ go run ./cmd/api
 Equivalent explicit full-mode toggles are shown in .env.example:
 - POSTGRES_ENABLED=true with valid POSTGRES_URL
 - REDIS_ENABLED=true with valid REDIS_ADDR
+- MONGO_ENABLED=true with valid MONGO_URL
 - AUTH_ENABLED=true
 - RATELIMIT_ENABLED=true
 - CACHE_ENABLED=true

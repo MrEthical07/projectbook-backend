@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/joho/godotenv"
 
 	"github.com/MrEthical07/superapi/internal/core/app"
 	"github.com/MrEthical07/superapi/internal/core/config"
@@ -19,6 +23,10 @@ import (
 // - For module registration, see internal/modules/modules.go.
 
 func main() {
+	if err := godotenv.Load(".env"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("warning: failed to load .env: %v", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config load failed: %v", err)

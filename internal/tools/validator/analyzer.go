@@ -290,17 +290,17 @@ func parsePolicyMetadata(expr ast.Expr) (corepolicy.Metadata, error) {
 		meta.Type = corepolicy.PolicyTypeResolvePermissions
 	case "RateLimit", "RateLimitWithKeyer":
 		meta.Type = corepolicy.PolicyTypeRateLimit
-	case "CacheRead":
+	case "CacheRead", "CacheReadOptional":
 		meta.Type = corepolicy.PolicyTypeCacheRead
 		meta.CacheRead = parseCacheReadMetadata(call)
-	case "CacheInvalidate":
+	case "CacheInvalidate", "CacheInvalidateOptional":
 		meta.Type = corepolicy.PolicyTypeCacheInvalidate
 		meta.CacheInvalidate = parseCacheInvalidateMetadata(call)
 	case "RequireJSON":
 		meta.Type = corepolicy.PolicyTypeRequireJSON
 	case "WithHeader":
 		meta.Type = corepolicy.PolicyTypeWithHeader
-	case "CacheControl":
+	case "CacheControl", "CacheControlOptional":
 		meta.Type = corepolicy.PolicyTypeCacheControl
 	case "Noop":
 		meta.Type = corepolicy.PolicyTypeNoop

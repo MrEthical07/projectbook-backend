@@ -2,7 +2,6 @@ package artifacts
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Repo interface {
@@ -55,6 +56,7 @@ type Repo interface {
 
 type repo struct {
 	store storage.RelationalStore
+	docs  storage.DocumentStore
 }
 
 type projectIdentity struct {
@@ -62,8 +64,8 @@ type projectIdentity struct {
 	Slug string
 }
 
-func NewRepo(store storage.RelationalStore) Repo {
-	return &repo{store: store}
+func NewRepo(store storage.RelationalStore, docs storage.DocumentStore) Repo {
+	return &repo{store: store, docs: docs}
 }
 
 func (r *repo) ResolveProjectIdentity(ctx context.Context, projectID string) (projectIdentity, error) {
@@ -184,7 +186,7 @@ func (r *repo) CreateStory(ctx context.Context, projectID, actorUserID, title st
 	if content == nil {
 		content = defaultStoryContent(createdTitle)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "story", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "story", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 
@@ -283,6 +285,10 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 		 WHERE stories.project_id = $1::uuid
 		   AND (stories.id::text = $2 OR stories.slug = $2)
 		   AND u.id = stories.owner_user_id
+		   AND (
+		 	 stories.status NOT IN ('Locked'::story_status, 'Archived'::story_status)
+		 	 OR NULLIF($4, '')::story_status = 'Archived'::story_status
+		   )
 		 RETURNING stories.id::text, stories.slug, stories.title, COALESCE(stories.persona_name, ''), stories.pain_points_count,
 		 	 stories.problem_hypotheses_count, COALESCE(u.name, ''), COALESCE(to_char(stories.updated_at, 'YYYY-MM-DD'), ''),
 		 	 stories.status::text, stories.is_orphan, stories.document_revision`,
@@ -304,7 +310,7 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 		return nil, wrapRepoError("update story", err)
 	}
 
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "story", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "story", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 
@@ -410,7 +416,7 @@ func (r *repo) CreateJourney(ctx context.Context, projectID, actorUserID, title 
 	if content == nil {
 		content = defaultJourneyContent(createdTitle)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "journey", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "journey", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 
@@ -494,6 +500,10 @@ func (r *repo) UpdateJourney(ctx context.Context, projectID, journeyID, actorUse
 		 WHERE journeys.project_id = $1::uuid
 		   AND (journeys.id::text = $2 OR journeys.slug = $2)
 		   AND u.id = journeys.owner_user_id
+		   AND (
+		 	 journeys.status <> 'Archived'::journey_status
+		 	 OR NULLIF($4, '')::journey_status = 'Archived'::journey_status
+		   )
 		 RETURNING journeys.id::text, journeys.slug, journeys.title, COALESCE(u.name, ''), COALESCE(to_char(journeys.updated_at, 'YYYY-MM-DD'), ''), journeys.status::text, journeys.document_revision, journeys.is_orphan`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &slug, &outTitle, &outOwner, &outLastUpdated, &outStatus, &revision, &isOrphan)
@@ -510,7 +520,7 @@ func (r *repo) UpdateJourney(ctx context.Context, projectID, journeyID, actorUse
 		return nil, wrapRepoError("update journey", err)
 	}
 
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "journey", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "journey", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 
@@ -617,7 +627,7 @@ func (r *repo) CreateProblem(ctx context.Context, projectID, actorUserID, statem
 	if content == nil {
 		content = defaultProblemContent(outStatement)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "problem", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 
@@ -704,6 +714,10 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 		 WHERE problems.project_id = $1::uuid
 		   AND (problems.id::text = $2 OR problems.slug = $2)
 		   AND u.id = problems.owner_user_id
+		   AND (
+		 	 problems.status NOT IN ('Locked'::problem_status, 'Archived'::problem_status)
+		 	 OR NULLIF($4, '')::problem_status = 'Archived'::problem_status
+		   )
 		 RETURNING problems.id::text, problems.slug, problems.title, COALESCE(u.name, ''), COALESCE(to_char(problems.updated_at, 'YYYY-MM-DD'), ''), problems.status::text, problems.document_revision, problems.is_orphan`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &slug, &outStatement, &outOwner, &outLastUpdated, &outStatus, &revision, &isOrphan)
@@ -724,7 +738,7 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 		return nil, err
 	}
 
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "problem", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 
@@ -770,7 +784,7 @@ func (r *repo) LockProblem(ctx context.Context, projectID, problemID, actorUserI
 		}
 		return nil, wrapRepoError("lock problem", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": "Locked"}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": "Locked"}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"id": id, "status": status, "lastUpdated": lastUpdated}, nil
@@ -789,7 +803,12 @@ func (r *repo) UpdateProblemStatus(ctx context.Context, projectID, problemID, st
 		 	 is_locked = CASE WHEN $3::problem_status = 'Locked' THEN TRUE ELSE FALSE END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2)
+		 WHERE project_id = $1::uuid
+		   AND (id::text = $2 OR slug = $2)
+		   AND (
+		 	 status NOT IN ('Locked'::problem_status, 'Archived'::problem_status)
+		 	 OR $3::problem_status = 'Archived'::problem_status
+		   )
 		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &outStatus, &lastUpdated, &revision)
@@ -804,7 +823,7 @@ func (r *repo) UpdateProblemStatus(ctx context.Context, projectID, problemID, st
 		}
 		return nil, wrapRepoError("update problem status", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
@@ -901,7 +920,7 @@ func (r *repo) CreateIdea(ctx context.Context, projectID, actorUserID, title str
 	if content == nil {
 		content = defaultIdeaContent(outTitle)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "idea", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 	return map[string]any{
@@ -990,6 +1009,7 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		 FROM users u
 		 WHERE i.project_id = $1::uuid AND (i.id::text = $2 OR i.slug = $2)
 		   AND u.id = i.owner_user_id
+		   AND i.status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
 		 RETURNING i.id::text, i.slug, i.title, COALESCE(u.name, ''), COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''),
 		 	 i.status::text,
 		 	 COALESCE((SELECT p.title FROM problems p WHERE p.id = i.primary_problem_id), ''),
@@ -1016,7 +1036,7 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		}
 	}
 
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "idea", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 
@@ -1061,7 +1081,7 @@ func (r *repo) SelectIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		}
 		return nil, wrapRepoError("select idea", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": "Selected"}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": "Selected"}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"id": id, "status": status, "lastUpdated": lastUpdated}, nil
@@ -1077,7 +1097,12 @@ func (r *repo) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, status, 
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE ideas
 		 SET status = $3::idea_status, updated_at = NOW(), document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2)
+		 WHERE project_id = $1::uuid
+		   AND (id::text = $2 OR slug = $2)
+		   AND (
+		 	 status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
+		 	 OR $3::idea_status = 'Archived'::idea_status
+		   )
 		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &outStatus, &lastUpdated, &revision)
@@ -1092,7 +1117,7 @@ func (r *repo) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, status, 
 		}
 		return nil, wrapRepoError("update idea status", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
@@ -1193,7 +1218,7 @@ func (r *repo) CreateTask(ctx context.Context, projectID, actorUserID, title str
 	if content == nil {
 		content = defaultTaskContent(outTitle)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "task", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 	return map[string]any{
@@ -1292,6 +1317,7 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 		 FROM users u
 		 WHERE t.project_id = $1::uuid AND (t.id::text = $2 OR t.slug = $2)
 		   AND u.id = t.owner_user_id
+		   AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
 		 RETURNING t.id::text, t.slug, t.title,
 		 	 COALESCE((SELECT i.title FROM ideas i WHERE i.id = t.primary_idea_id), ''),
 		 	 COALESCE((SELECT p.title FROM ideas i JOIN problems p ON p.id = i.primary_problem_id WHERE i.id = t.primary_idea_id), ''),
@@ -1321,7 +1347,7 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 			return nil, linkErr
 		}
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "task", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 	return map[string]any{
@@ -1356,6 +1382,7 @@ func (r *repo) UpdateTaskStatus(ctx context.Context, projectID, taskID, status, 
 		 	 document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
 		   AND (id::text = $2 OR slug = $2)
+		   AND status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
 		   AND (
 			 $3::task_status <> 'In Progress'
 			 OR NOT EXISTS (
@@ -1388,7 +1415,7 @@ func (r *repo) UpdateTaskStatus(ctx context.Context, projectID, taskID, status, 
 		}
 		return nil, wrapRepoError("update task status", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "task", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
 		return nil, err
 	}
 	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
@@ -1507,7 +1534,7 @@ func (r *repo) CreateFeedback(ctx context.Context, projectID, actorUserID, title
 	if content == nil {
 		content = defaultFeedbackContent(outTitle)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "feedback", id, revision, actorUserID, content); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "feedback", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 	return map[string]any{
@@ -1610,7 +1637,7 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 	if err := r.replaceFeedbackLinks(ctx, identity.UUID, id, actorUserID, linkIDs); err != nil {
 		return nil, err
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, "feedback", id, revision, actorUserID, patch); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, "feedback", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 
@@ -1678,60 +1705,64 @@ func (r *repo) slugExists(ctx context.Context, table, projectUUID, slug string) 
 	return exists, nil
 }
 
-func (r *repo) enqueueUpsertOutbox(ctx context.Context, projectUUID, artifactType, artifactID string, revision int, actorUserID string, content map[string]any) error {
-	payload := map[string]any{
-		"content":            content,
-		"updated_by_user_id": strings.TrimSpace(actorUserID),
-	}
-	bytes, err := json.Marshal(payload)
+func (r *repo) upsertDocument(ctx context.Context, projectUUID, artifactType, artifactID string, revision int, actorUserID string, content map[string]any) error {
+	collection, err := documentCollectionByArtifactType(artifactType)
 	if err != nil {
-		return apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to encode document payload"), err)
+		return err
 	}
+
 	documentID := fmt.Sprintf("%s:%s", artifactType, artifactID)
-	if err := r.store.Execute(ctx, storage.RelationalExec(
-		`INSERT INTO document_sync_outbox (project_id, artifact_type, artifact_id, operation, document_id, document_revision, payload, status, next_attempt_at, updated_at)
-		 VALUES ($1::uuid, $2::artifact_type, $3::uuid, 'upsert', $4, $5, $6::jsonb, 'pending', NOW(), NOW())
-		 ON CONFLICT (project_id, artifact_type, artifact_id, document_revision, operation)
-		 DO UPDATE SET payload = EXCLUDED.payload, status = 'pending', next_attempt_at = NOW(), updated_at = NOW(), last_error = NULL`,
-		projectUUID,
-		artifactType,
-		artifactID,
-		documentID,
-		revision,
-		string(bytes),
-	)); err != nil {
-		return wrapRepoError("enqueue outbox", err)
+	doc := map[string]any{
+		"artifact_id":        artifactID,
+		"project_id":         projectUUID,
+		"document_id":        documentID,
+		"revision":           revision,
+		"updated_at":         time.Now().UTC(),
+		"updated_by_user_id": strings.TrimSpace(actorUserID),
+		"schema_version":     1,
+		"content":            cloneMap(content),
 	}
+
+	if err := r.docs.Execute(ctx, storage.DocumentRun(
+		collection+":update_one",
+		map[string]any{
+			"filter":  map[string]any{"artifact_id": artifactID},
+			"update":  map[string]any{"$set": doc},
+			"options": options.Update().SetUpsert(true),
+		},
+		nil,
+	)); err != nil {
+		return wrapRepoError("upsert artifact document", err)
+	}
+
 	return nil
 }
 
 func (r *repo) loadLatestContent(ctx context.Context, projectUUID, artifactType, artifactID string, fallback map[string]any) (map[string]any, error) {
 	content := cloneMap(fallback)
-	var payloadRaw []byte
-	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT payload
-		 FROM document_sync_outbox
-		 WHERE project_id = $1::uuid AND artifact_type = $2::artifact_type AND artifact_id = $3::uuid AND operation = 'upsert'
-		 ORDER BY document_revision DESC
-		 LIMIT 1`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&payloadRaw)
+	collection, err := documentCollectionByArtifactType(artifactType)
+	if err != nil {
+		return nil, err
+	}
+
+	var doc map[string]any
+	err = r.docs.Execute(ctx, storage.DocumentRun(
+		collection+":find_one",
+		map[string]any{
+			"filter": map[string]any{
+				"artifact_id": artifactID,
+				"project_id":  projectUUID,
+			},
 		},
-		projectUUID,
-		artifactType,
-		artifactID,
+		&doc,
 	))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return content, nil
 		}
 		return nil, wrapRepoError("load latest content", err)
 	}
-	payload := make(map[string]any)
-	if unmarshalErr := json.Unmarshal(payloadRaw, &payload); unmarshalErr != nil {
-		return content, nil
-	}
-	if payloadContent := toMap(payload["content"]); payloadContent != nil {
+	if payloadContent := toMap(doc["content"]); payloadContent != nil {
 		for k, v := range payloadContent {
 			content[k] = v
 		}
@@ -1772,6 +1803,25 @@ func tableByArtifactType(artifactType string) (string, error) {
 		return "tasks", nil
 	case "feedback":
 		return "feedback", nil
+	default:
+		return "", apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "unsupported artifact type")
+	}
+}
+
+func documentCollectionByArtifactType(artifactType string) (string, error) {
+	switch artifactType {
+	case "story":
+		return "story_documents", nil
+	case "journey":
+		return "journey_documents", nil
+	case "problem":
+		return "problem_documents", nil
+	case "idea":
+		return "idea_documents", nil
+	case "task":
+		return "task_documents", nil
+	case "feedback":
+		return "feedback_documents", nil
 	default:
 		return "", apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "unsupported artifact type")
 	}
@@ -1981,7 +2031,7 @@ func firstNonEmpty(values ...string) string {
 }
 
 func (r *repo) requireStore() error {
-	if r == nil || r.store == nil {
+	if r == nil || r.store == nil || r.docs == nil {
 		return apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "artifacts repository unavailable")
 	}
 	return nil

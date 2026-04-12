@@ -23,6 +23,6 @@ func (m *Module) Name() string { return "pages" }
 // BindDependencies wires runtime dependencies.
 func (m *Module) BindDependencies(deps *app.Dependencies) {
 	m.runtime = modulekit.New(deps)
-	repo := NewRepo(m.runtime.RelationalStore())
+	repo := NewRepo(m.runtime.RelationalStore(), m.runtime.DocumentStore())
 	m.handler = NewHandler(NewService(m.runtime.RelationalStore(), repo))
 }

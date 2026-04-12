@@ -8,8 +8,8 @@ Use it as a practical checklist during daily development.
 
 ### 1.1 Default run (dependency-on baseline)
 
-Default configuration enables Postgres, Redis, auth, cache, rate-limit, and permissions.
-Use this mode when local Postgres and Redis are available.
+Default configuration enables Postgres, Redis, Mongo, auth, cache, rate-limit, and permissions.
+Use this mode when local Postgres, Redis, and Mongo are available.
 
 ```bash
 go run ./cmd/api
@@ -21,9 +21,9 @@ What to expect:
 - health and readiness routes are available
 - auth, cache, rate-limit, and permissions features are active by default
 
-### 1.2 Minimal local run (no external dependencies)
+### 1.2 Minimal profile run (lean features)
 
-Use this when you only need process-level behavior and basic routes.
+Use this when you want fewer feature policies but still run with full data dependencies.
 
 ```bash
 APP_PROFILE=minimal go run ./cmd/api
@@ -33,12 +33,13 @@ What to expect:
 
 - API starts on configured HTTP_ADDR (default :8080)
 - health and readiness routes are available
-- Postgres, Redis, auth, cache, rate-limit, and permissions are disabled by profile defaults
+- auth, cache, rate-limit, and permissions are disabled by profile defaults
+- Postgres, Redis, and Mongo stay required and are initialized at startup
 
 ### 1.3 Full local run (explicit env form)
 
 ```bash
-POSTGRES_ENABLED=true POSTGRES_URL="postgres://user:pass@localhost:5432/mydb?sslmode=disable" REDIS_ENABLED=true REDIS_ADDR="127.0.0.1:6379" AUTH_ENABLED=true RATELIMIT_ENABLED=true CACHE_ENABLED=true PERMISSIONS_ENABLED=true go run ./cmd/api
+POSTGRES_ENABLED=true POSTGRES_URL="postgres://user:pass@localhost:5432/mydb?sslmode=disable" REDIS_ENABLED=true REDIS_ADDR="127.0.0.1:6379" MONGO_ENABLED=true MONGO_URL="mongodb://127.0.0.1:27017" AUTH_ENABLED=true RATELIMIT_ENABLED=true CACHE_ENABLED=true PERMISSIONS_ENABLED=true go run ./cmd/api
 ```
 
 Use this mode when testing realistic route behavior.

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// ProfileMinimal enables a single-process local API baseline.
+	// ProfileMinimal enables a lean feature profile while keeping core stores on.
 	ProfileMinimal = "minimal"
 	// ProfileDev enables a developer-friendly local stack.
 	ProfileDev = "dev"
@@ -23,9 +23,12 @@ var profileDefaults = map[string]map[string]string{
 		"CACHE_ENABLED":       "false",
 		"RATELIMIT_ENABLED":   "false",
 		"PERMISSIONS_ENABLED": "false",
-		"MONGO_ENABLED":       "false",
-		"POSTGRES_ENABLED":    "false",
-		"REDIS_ENABLED":       "false",
+		"MONGO_ENABLED":       "true",
+		"MONGO_URL":           "mongodb://127.0.0.1:27017",
+		"POSTGRES_ENABLED":    "true",
+		"POSTGRES_URL":        "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",
+		"REDIS_ENABLED":       "true",
+		"REDIS_ADDR":          "127.0.0.1:6379",
 	},
 	ProfileDev: {
 		"APP_ENV":                  "dev",
@@ -38,7 +41,8 @@ var profileDefaults = map[string]map[string]string{
 		"RATELIMIT_DEFAULT_LIMIT":  "1000",
 		"RATELIMIT_DEFAULT_WINDOW": "1m",
 		"PERMISSIONS_ENABLED":      "true",
-		"MONGO_ENABLED":            "false",
+		"MONGO_ENABLED":            "true",
+		"MONGO_URL":                "mongodb://127.0.0.1:27017",
 		"POSTGRES_ENABLED":         "true",
 		"POSTGRES_URL":             "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",
 		"REDIS_ENABLED":            "true",
@@ -55,7 +59,8 @@ var profileDefaults = map[string]map[string]string{
 		"RATELIMIT_DEFAULT_LIMIT":  "100",
 		"RATELIMIT_DEFAULT_WINDOW": "1m",
 		"PERMISSIONS_ENABLED":      "true",
-		"MONGO_ENABLED":            "false",
+		"MONGO_ENABLED":            "true",
+		"MONGO_URL":                "mongodb://127.0.0.1:27017",
 		"POSTGRES_ENABLED":         "true",
 		"POSTGRES_URL":             "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",
 		"REDIS_ENABLED":            "true",

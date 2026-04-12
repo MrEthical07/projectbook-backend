@@ -109,8 +109,8 @@ func MigrationSourceURL(path string) (string, error) {
 		return "", fmt.Errorf("resolve migration path: %w", err)
 	}
 	abs = filepath.ToSlash(abs)
-	if runtime.GOOS == "windows" && !strings.HasPrefix(abs, "/") {
-		abs = "/" + abs
+	if runtime.GOOS == "windows" {
+		return "file://" + abs, nil
 	}
 	u := url.URL{Scheme: "file", Path: abs}
 	return u.String(), nil

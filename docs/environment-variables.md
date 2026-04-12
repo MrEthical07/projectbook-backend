@@ -27,8 +27,8 @@ APP_PROFILE values:
 
 Preset effects (high-level):
 
-- minimal: disables auth/cache/rate-limit/permissions/postgres/redis
-- dev: enables local full stack defaults and jwt_only auth mode
+- minimal: disables auth/cache/rate-limit/permissions while keeping Postgres/Redis/Mongo required
+- dev: enables local full stack defaults (Postgres/Redis/Mongo) and jwt_only auth mode
 - prod: enables strict auth defaults and fail-closed cache/rate-limit behavior
 
 Explicit env vars override profile values.
@@ -199,9 +199,9 @@ Lint dependency rule:
 
 | Env var | Default | Notes |
 |---|---|---|
-| MONGO_ENABLED | false | enables Mongo dependency wiring |
-| MONGO_URL | empty | required when enabled |
-| MONGO_DB | projectbook | required when enabled |
+| MONGO_ENABLED | true | must remain true for startup |
+| MONGO_URL | mongodb://127.0.0.1:27017 | required for startup |
+| MONGO_DB | projectbook | required for startup |
 | MONGO_MAX_POOL_SIZE | 50 | must be > 0 |
 | MONGO_MIN_POOL_SIZE | 0 | must be >= 0 and <= max |
 | MONGO_CONNECT_TIMEOUT | 5s | must be > 0 |
@@ -212,8 +212,8 @@ Lint dependency rule:
 
 Runtime notes:
 
-- when enabled, startup initializes Mongo client/database, optionally bootstraps ProjectBook collections/indexes, and exposes Mongo-backed `DocumentStore`
-- when disabled, runtime keeps `storage.NoopDocumentStore` as the document backend contract
+- startup initializes Mongo client/database, optionally bootstraps ProjectBook collections/indexes, and exposes Mongo-backed `DocumentStore`
+- startup fails fast if Mongo connect/ping/bootstrap fails
 
 ## 14. Metrics Variables
 
@@ -254,7 +254,7 @@ If startup fails due to config:
 3. verify dependency combinations (auth/cache/rate-limit/permissions)
 4. verify prod-only constraints
 
-For dependency-light local development, set APP_PROFILE=minimal.
+All profiles require Postgres, Redis, and Mongo for startup.
 
 ## 18. Related Docs
 

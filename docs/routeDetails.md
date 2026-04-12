@@ -5380,7 +5380,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -5458,7 +5458,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -5535,7 +5535,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -6658,7 +6658,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: team.members[project_id], team.roles[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -6744,7 +6744,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: team.members[project_id], team.roles[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -6826,7 +6826,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: team.members[project_id], team.roles[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -6908,7 +6908,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: team.members[project_id], team.roles[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -6995,7 +6995,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation: none
+- Invalidation Tags: team.members[project_id], team.roles[project_id]
 
 #### Input Structure (JSON)
 ```json
@@ -7022,4 +7022,3 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
   }
 }
 ```
-

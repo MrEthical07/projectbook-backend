@@ -234,8 +234,8 @@ Concrete Mongo document-store execution is implemented in internal/core/storage/
 
 Runtime behavior:
 
-- when `MONGO_ENABLED=true`, dependency wiring initializes Mongo client/database, verifies startup bootstrap/indexes, and exposes Mongo-backed `DocumentStore`
-- when `MONGO_ENABLED=false`, dependency wiring keeps `storage.NoopDocumentStore` as the default document surface
+- startup requires `MONGO_ENABLED=true` and a valid Mongo connection string
+- dependency wiring initializes Mongo client/database, verifies startup bootstrap/indexes, and exposes Mongo-backed `DocumentStore`
 
 ### 6.3 Repository-owned operations
 

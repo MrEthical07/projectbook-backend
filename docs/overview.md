@@ -113,7 +113,7 @@ This means fewer hidden regressions as your codebase grows.
 
 If this is your first day with the repo, follow this sequence:
 
-1. Run the API in minimal mode.
+1. Run the API with Postgres, Redis, and Mongo configured.
 2. Hit health endpoints and one system endpoint.
 3. Read module author guide and inspect one existing module.
 4. Generate a new module with module scaffolder.
@@ -124,11 +124,12 @@ If this is your first day with the repo, follow this sequence:
 
 ### 8.1 Minimal mode
 
-Use this when you only want API process and no external dependencies yet.
+Use this when you want leaner feature behavior while still keeping the core data stack online.
 
-- Postgres disabled
-- Redis disabled
-- Auth/cache/rate-limit disabled
+- Auth/cache/rate-limit/permissions disabled by profile defaults
+- Postgres enabled
+- Redis enabled
+- Mongo enabled
 
 ### 8.2 Full mode
 
@@ -136,6 +137,7 @@ Use this when you want realistic behavior.
 
 - Postgres enabled
 - Redis enabled
+- Mongo enabled
 - Auth enabled
 - Rate-limit and cache enabled
 

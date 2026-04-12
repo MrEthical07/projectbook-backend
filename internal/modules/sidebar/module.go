@@ -25,9 +25,9 @@ func (m *Module) Name() string { return "sidebar" }
 // BindDependencies wires runtime dependencies.
 func (m *Module) BindDependencies(deps *app.Dependencies) {
 	m.runtime = modulekit.New(deps)
-	artifactsRepo := artifacts.NewRepo(m.runtime.RelationalStore())
-	pagesRepo := pages.NewRepo(m.runtime.RelationalStore())
+	artifactsRepo := artifacts.NewRepo(m.runtime.RelationalStore(), m.runtime.DocumentStore())
+	pagesRepo := pages.NewRepo(m.runtime.RelationalStore(), m.runtime.DocumentStore())
 	pagesSvc := pages.NewService(m.runtime.RelationalStore(), pagesRepo)
-	repo := NewRepo(m.runtime.RelationalStore(), artifactsRepo, pagesSvc)
+	repo := NewRepo(m.runtime.RelationalStore(), m.runtime.DocumentStore(), artifactsRepo, pagesSvc)
 	m.handler = NewHandler(NewService(m.runtime.RelationalStore(), repo))
 }

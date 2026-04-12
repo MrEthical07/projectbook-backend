@@ -20,7 +20,6 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/tracing"
 	infracache "github.com/MrEthical07/superapi/internal/infrastructure/cache"
 	infradb "github.com/MrEthical07/superapi/internal/infrastructure/db"
-	infdocsync "github.com/MrEthical07/superapi/internal/infrastructure/docsync"
 	infstore "github.com/MrEthical07/superapi/internal/infrastructure/store"
 )
 
@@ -46,8 +45,6 @@ type Dependencies struct {
 	Redis *redis.Client
 	// Mongo is the optional MongoDB client used by document store.
 	Mongo *mongo.Client
-	// DocumentSyncProcessor pushes document_sync_outbox operations into Mongo collections.
-	DocumentSyncProcessor *infdocsync.Processor
 	// Readiness aggregates health checks for readiness responses.
 	Readiness *readiness.Service
 	// Metrics is the Prometheus instrumentation service.
@@ -82,6 +79,16 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 		RateLimit:     cfg.RateLimit,
 		Cache:         cfg.Cache,
 		DocumentStore: storage.NoopDocumentStore{},
+	}
+
+	if !cfg.Postgres.Enabled {
+		return nil, fmt.Errorf("postgres must be enabled for api startup")
+	}
+	if !cfg.Redis.Enabled {
+		return nil, fmt.Errorf("redis must be enabled for api startup")
+	}
+	if !cfg.Mongo.Enabled {
+		return nil, fmt.Errorf("mongo must be enabled for api startup")
 	}
 
 	if cfg.Postgres.Enabled {
@@ -352,21 +359,6 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 		deps.Readiness.Add("mongo", true, cfg.Mongo.HealthCheckTimeout, func(checkCtx context.Context) error {
 			return infradb.CheckMongoHealth(checkCtx, mongoClient, cfg.Mongo.HealthCheckTimeout)
 		})
-
-		if deps.RelationalStore != nil {
-			documentSyncProcessor, err := infdocsync.NewProcessor(deps.RelationalStore, deps.DocumentStore, infdocsync.DefaultConfig())
-			if err != nil {
-				_ = mongoClient.Disconnect(context.Background())
-				if deps.Redis != nil {
-					_ = deps.Redis.Close()
-				}
-				if deps.Postgres != nil {
-					deps.Postgres.Close()
-				}
-				return nil, fmt.Errorf("init document sync processor: %w", err)
-			}
-			deps.DocumentSyncProcessor = documentSyncProcessor
-		}
 	} else {
 		deps.Readiness.Add("mongo", false, cfg.Mongo.HealthCheckTimeout, nil)
 	}

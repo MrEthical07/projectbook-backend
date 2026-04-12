@@ -23,6 +23,7 @@ type Repo interface {
 
 type repo struct {
 	store         storage.RelationalStore
+	docs          storage.DocumentStore
 	artifactsRepo artifacts.Repo
 	pagesSvc      pages.Service
 }
@@ -40,8 +41,8 @@ type artifactSpec struct {
 	Label        string
 }
 
-func NewRepo(store storage.RelationalStore, artifactsRepo artifacts.Repo, pagesSvc pages.Service) Repo {
-	return &repo{store: store, artifactsRepo: artifactsRepo, pagesSvc: pagesSvc}
+func NewRepo(store storage.RelationalStore, docs storage.DocumentStore, artifactsRepo artifacts.Repo, pagesSvc pages.Service) Repo {
+	return &repo{store: store, docs: docs, artifactsRepo: artifactsRepo, pagesSvc: pagesSvc}
 }
 
 func (r *repo) CreateSidebarArtifact(ctx context.Context, projectID, actorUserID, prefix, title string) (map[string]any, error) {
@@ -175,7 +176,7 @@ func (r *repo) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID,
 	if err != nil {
 		return nil, err
 	}
-	if err := r.enqueueDeleteOutbox(ctx, identity.UUID, spec.ArtifactType, id, actorUserID); err != nil {
+	if err := r.deleteDocument(ctx, identity.UUID, spec.ArtifactType, id, actorUserID); err != nil {
 		return nil, err
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, id, "deleted "+spec.Label, map[string]any{
@@ -204,25 +205,27 @@ func (r *repo) deleteArtifactRow(ctx context.Context, projectUUID, table, artifa
 	return id, strings.TrimSpace(title), nil
 }
 
-func (r *repo) enqueueDeleteOutbox(ctx context.Context, projectUUID, artifactType, artifactID, actorUserID string) error {
-	payloadBytes, err := json.Marshal(map[string]any{"deleted_by_user_id": strings.TrimSpace(actorUserID)})
+func (r *repo) deleteDocument(ctx context.Context, projectUUID, artifactType, artifactID, actorUserID string) error {
+	_ = actorUserID
+
+	collection, err := documentCollectionByArtifactType(artifactType)
 	if err != nil {
-		return apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to encode sidebar delete payload"), err)
+		return err
 	}
-	documentID := fmt.Sprintf("%s:%s", artifactType, artifactID)
-	if err := r.store.Execute(ctx, storage.RelationalExec(
-		`INSERT INTO document_sync_outbox (project_id, artifact_type, artifact_id, operation, document_id, document_revision, payload, status, next_attempt_at, updated_at)
-		 VALUES ($1::uuid, $2::artifact_type, $3::uuid, 'delete', $4, 1, $5::jsonb, 'pending', NOW(), NOW())
-		 ON CONFLICT (project_id, artifact_type, artifact_id, document_revision, operation)
-		 DO UPDATE SET payload = EXCLUDED.payload, status = 'pending', next_attempt_at = NOW(), updated_at = NOW(), last_error = NULL`,
-		projectUUID,
-		artifactType,
-		artifactID,
-		documentID,
-		string(payloadBytes),
+
+	if err := r.docs.Execute(ctx, storage.DocumentRun(
+		collection+":delete_one",
+		map[string]any{
+			"filter": map[string]any{
+				"artifact_id": artifactID,
+				"project_id":  projectUUID,
+			},
+		},
+		nil,
 	)); err != nil {
-		return wrapRepoError("enqueue sidebar delete outbox", err)
+		return wrapRepoError("delete sidebar artifact document", err)
 	}
+
 	return nil
 }
 
@@ -286,8 +289,31 @@ func specByPrefix(prefix string) (artifactSpec, error) {
 	}
 }
 
+func documentCollectionByArtifactType(artifactType string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(artifactType)) {
+	case "story":
+		return "story_documents", nil
+	case "journey":
+		return "journey_documents", nil
+	case "problem":
+		return "problem_documents", nil
+	case "idea":
+		return "idea_documents", nil
+	case "task":
+		return "task_documents", nil
+	case "feedback":
+		return "feedback_documents", nil
+	case "page":
+		return "page_documents", nil
+	case "resource":
+		return "resource_documents", nil
+	default:
+		return "", apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "unsupported artifact type")
+	}
+}
+
 func (r *repo) requireStore() error {
-	if r == nil || r.store == nil {
+	if r == nil || r.store == nil || r.docs == nil {
 		return apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "sidebar repository unavailable")
 	}
 	if r.artifactsRepo == nil || r.pagesSvc == nil {

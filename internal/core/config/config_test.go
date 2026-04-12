@@ -233,8 +233,14 @@ func TestLoadDefaultsEnableCoreDependencies(t *testing.T) {
 	if !cfg.Redis.Enabled {
 		t.Fatalf("expected redis enabled by default")
 	}
+	if !cfg.Mongo.Enabled {
+		t.Fatalf("expected mongo enabled by default")
+	}
 	if got, want := cfg.Postgres.URL, "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable"; got != want {
 		t.Fatalf("Postgres.URL=%q want=%q", got, want)
+	}
+	if got, want := cfg.Mongo.URL, "mongodb://127.0.0.1:27017"; got != want {
+		t.Fatalf("Mongo.URL=%q want=%q", got, want)
 	}
 }
 
@@ -509,6 +515,15 @@ func TestLoadAppliesMinimalProfileDefaults(t *testing.T) {
 	if cfg.RateLimit.Enabled {
 		t.Fatalf("expected ratelimit disabled in minimal profile")
 	}
+	if !cfg.Postgres.Enabled {
+		t.Fatalf("expected postgres enabled in minimal profile")
+	}
+	if !cfg.Redis.Enabled {
+		t.Fatalf("expected redis enabled in minimal profile")
+	}
+	if !cfg.Mongo.Enabled {
+		t.Fatalf("expected mongo enabled in minimal profile")
+	}
 }
 
 func TestLoadAppliesDevProfileDefaults(t *testing.T) {
@@ -563,9 +578,49 @@ func TestLintRejectsEnabledMongoWithoutURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
+	cfg.Mongo.URL = ""
 
 	if err := cfg.Lint(); err == nil {
 		t.Fatalf("expected lint error for enabled mongo without url")
+	}
+}
+
+func TestLintRejectsDisabledPostgres(t *testing.T) {
+	t.Setenv("POSTGRES_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for disabled postgres")
+	}
+}
+
+func TestLintRejectsDisabledRedis(t *testing.T) {
+	t.Setenv("REDIS_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for disabled redis")
+	}
+}
+
+func TestLintRejectsDisabledMongo(t *testing.T) {
+	t.Setenv("MONGO_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for disabled mongo")
 	}
 }
 

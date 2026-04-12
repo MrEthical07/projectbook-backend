@@ -50,6 +50,29 @@ type service struct {
 	repo  Repo
 }
 
+var (
+	storyImmutableStatuses = map[string]struct{}{
+		"Locked":   {},
+		"Archived": {},
+	}
+	journeyImmutableStatuses = map[string]struct{}{
+		"Archived": {},
+	}
+	problemImmutableStatuses = map[string]struct{}{
+		"Locked":   {},
+		"Archived": {},
+	}
+	ideaImmutableStatuses = map[string]struct{}{
+		"Selected": {},
+		"Rejected": {},
+		"Archived": {},
+	}
+	taskImmutableStatuses = map[string]struct{}{
+		"Completed": {},
+		"Abandoned": {},
+	}
+)
+
 func NewService(store storage.RelationalStore, repo Repo) Service {
 	return &service{store: store, repo: repo}
 }
@@ -96,12 +119,15 @@ func (s *service) UpdateStory(ctx context.Context, projectID, storyID, actorUser
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	current, err := s.repo.GetStory(ctx, projectID, storyID)
+	if err != nil {
+		return nil, mapServiceError("load story before update", err)
+	}
+	from := nestedString(current, "story", "status")
+	if err := enforceArchiveOnlyForImmutableUpdate("story", from, req.Story, storyImmutableStatuses); err != nil {
+		return nil, err
+	}
 	if status := toString(req.Story["status"]); status != "" {
-		current, err := s.repo.GetStory(ctx, projectID, storyID)
-		if err != nil {
-			return nil, mapServiceError("load story before update", err)
-		}
-		from := nestedString(current, "story", "status")
 		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
 			"Draft":    {"Draft": {}, "Locked": {}, "Archived": {}},
 			"Locked":   {"Locked": {}, "Archived": {}},
@@ -112,7 +138,7 @@ func (s *service) UpdateStory(ctx context.Context, projectID, storyID, actorUser
 	}
 
 	var updated map[string]any
-	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
+	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateStory(txCtx, projectID, storyID, actorUserID, req.Story)
 		if updateErr != nil {
 			return updateErr
@@ -168,8 +194,24 @@ func (s *service) UpdateJourney(ctx context.Context, projectID, journeyID, actor
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	current, err := s.repo.GetJourney(ctx, projectID, journeyID)
+	if err != nil {
+		return nil, mapServiceError("load journey before update", err)
+	}
+	from := nestedString(current, "journey", "status")
+	if err := enforceArchiveOnlyForImmutableUpdate("journey", from, req.Journey, journeyImmutableStatuses); err != nil {
+		return nil, err
+	}
+	if status := toString(req.Journey["status"]); status != "" {
+		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
+			"Draft":    {"Draft": {}, "Archived": {}},
+			"Archived": {"Archived": {}},
+		}) {
+			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid journey status transition")
+		}
+	}
 	var updated map[string]any
-	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
+	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateJourney(txCtx, projectID, journeyID, actorUserID, req.Journey)
 		if updateErr != nil {
 			return updateErr
@@ -222,13 +264,16 @@ func (s *service) UpdateProblem(ctx context.Context, projectID, problemID, actor
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	current, err := s.repo.GetProblem(ctx, projectID, problemID)
+	if err != nil {
+		return nil, mapServiceError("load problem before update", err)
+	}
+	from := nestedString(current, "problem", "status")
+	if err := enforceArchiveOnlyForImmutableUpdate("problem", from, req.State, problemImmutableStatuses); err != nil {
+		return nil, err
+	}
 	status := toString(req.State["status"])
 	if status != "" {
-		current, err := s.repo.GetProblem(ctx, projectID, problemID)
-		if err != nil {
-			return nil, mapServiceError("load problem before update", err)
-		}
-		from := nestedString(current, "problem", "status")
 		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
 			"Draft":    {"Draft": {}, "Locked": {}, "Archived": {}},
 			"Locked":   {"Locked": {}, "Archived": {}},
@@ -239,7 +284,7 @@ func (s *service) UpdateProblem(ctx context.Context, projectID, problemID, actor
 	}
 
 	var updated map[string]any
-	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
+	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateProblem(txCtx, projectID, problemID, actorUserID, req.State)
 		if updateErr != nil {
 			return updateErr
@@ -262,6 +307,9 @@ func (s *service) UpdateProblemStatus(ctx context.Context, projectID, problemID,
 		return nil, mapServiceError("load problem before status update", err)
 	}
 	from := nestedString(current, "problem", "status")
+	if err := enforceArchiveOnlyForImmutableStatusChange("problem", from, req.Status, problemImmutableStatuses); err != nil {
+		return nil, err
+	}
 	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
 		"Draft":    {"Draft": {}, "Locked": {}, "Archived": {}},
 		"Locked":   {"Locked": {}, "Archived": {}},
@@ -332,8 +380,16 @@ func (s *service) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	current, err := s.repo.GetIdea(ctx, projectID, ideaID)
+	if err != nil {
+		return nil, mapServiceError("load idea before update", err)
+	}
+	from := nestedString(current, "idea", "status")
+	if err := enforceArchiveOnlyForImmutableUpdate("idea", from, req.State, ideaImmutableStatuses); err != nil {
+		return nil, err
+	}
 	var updated map[string]any
-	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
+	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateIdea(txCtx, projectID, ideaID, actorUserID, req.State)
 		if updateErr != nil {
 			return updateErr
@@ -356,6 +412,9 @@ func (s *service) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, actor
 		return nil, mapServiceError("load idea before status update", err)
 	}
 	from := nestedString(current, "idea", "status")
+	if err := enforceArchiveOnlyForImmutableStatusChange("idea", from, req.Status, ideaImmutableStatuses); err != nil {
+		return nil, err
+	}
 	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
 		"Considered": {"Considered": {}, "Selected": {}, "Rejected": {}, "Archived": {}},
 		"Selected":   {"Selected": {}, "Rejected": {}, "Archived": {}},
@@ -427,8 +486,16 @@ func (s *service) UpdateTask(ctx context.Context, projectID, taskID, actorUserID
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	current, err := s.repo.GetTask(ctx, projectID, taskID)
+	if err != nil {
+		return nil, mapServiceError("load task before update", err)
+	}
+	from := nestedString(current, "task", "status")
+	if err := enforceArchiveOnlyForImmutableUpdate("task", from, req.State, taskImmutableStatuses); err != nil {
+		return nil, err
+	}
 	var updated map[string]any
-	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
+	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateTask(txCtx, projectID, taskID, actorUserID, req.State)
 		if updateErr != nil {
 			return updateErr
@@ -451,6 +518,9 @@ func (s *service) UpdateTaskStatus(ctx context.Context, projectID, taskID, actor
 		return nil, mapServiceError("load task before status update", err)
 	}
 	from := nestedString(current, "task", "status")
+	if err := enforceArchiveOnlyForImmutableStatusChange("task", from, req.Status, taskImmutableStatuses); err != nil {
+		return nil, err
+	}
 	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
 		"Planned":     {"Planned": {}, "In Progress": {}, "Abandoned": {}},
 		"In Progress": {"In Progress": {}, "Completed": {}, "Abandoned": {}},
@@ -566,4 +636,46 @@ func mapServiceError(action string, err error) error {
 		return ae
 	}
 	return apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to process artifacts request"), fmt.Errorf("%s: %w", action, err))
+}
+
+func enforceArchiveOnlyForImmutableUpdate(entity, from string, patch map[string]any, immutableStatuses map[string]struct{}) error {
+	if !isImmutableStatus(from, immutableStatuses) {
+		return nil
+	}
+	if isArchiveOnlyPatch(patch) {
+		return nil
+	}
+	return immutableStateError(entity, from)
+}
+
+func enforceArchiveOnlyForImmutableStatusChange(entity, from, to string, immutableStatuses map[string]struct{}) error {
+	if !isImmutableStatus(from, immutableStatuses) {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(to), "Archived") {
+		return nil
+	}
+	return immutableStateError(entity, from)
+}
+
+func isArchiveOnlyPatch(patch map[string]any) bool {
+	if len(patch) != 1 {
+		return false
+	}
+	status := strings.TrimSpace(toString(patch["status"]))
+	return strings.EqualFold(status, "Archived")
+}
+
+func isImmutableStatus(status string, immutableStatuses map[string]struct{}) bool {
+	trimmed := strings.TrimSpace(status)
+	if trimmed == "" {
+		return false
+	}
+	_, ok := immutableStatuses[trimmed]
+	return ok
+}
+
+func immutableStateError(entity, status string) error {
+	message := fmt.Sprintf("%s in status %q is immutable; only archive operation is allowed", strings.TrimSpace(entity), strings.TrimSpace(status))
+	return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, message)
 }

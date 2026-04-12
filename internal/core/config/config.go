@@ -381,8 +381,8 @@ func Load() (*Config, error) {
 			BackfillTimeout: getDuration("PERMISSIONS_BACKFILL_TIMEOUT", 500*time.Millisecond),
 		},
 		Mongo: MongoConfig{
-			Enabled:            getBool("MONGO_ENABLED", false),
-			URL:                getenv("MONGO_URL", ""),
+			Enabled:            getBool("MONGO_ENABLED", true),
+			URL:                getenv("MONGO_URL", "mongodb://127.0.0.1:27017"),
 			Database:           getenv("MONGO_DB", "projectbook"),
 			MaxPoolSize:        getInt("MONGO_MAX_POOL_SIZE", 50),
 			MinPoolSize:        getInt("MONGO_MIN_POOL_SIZE", 0),
@@ -530,6 +530,15 @@ func (c *Config) Lint() error {
 	default:
 		return fmt.Errorf("invalid auth mode: %q (valid: jwt_only, hybrid, strict)", c.Auth.Mode)
 	}
+	if !c.Postgres.Enabled {
+		return fmt.Errorf("postgres must be enabled for api startup")
+	}
+	if !c.Redis.Enabled {
+		return fmt.Errorf("redis must be enabled for api startup")
+	}
+	if !c.Mongo.Enabled {
+		return fmt.Errorf("mongo must be enabled for api startup")
+	}
 	if c.Auth.Enabled && !c.Redis.Enabled {
 		return fmt.Errorf("auth enabled requires redis enabled")
 	}
@@ -563,8 +572,8 @@ func (c *Config) Lint() error {
 	if c.Permissions.BackfillTimeout <= 0 {
 		return fmt.Errorf("permissions backfill timeout must be > 0")
 	}
-	if c.Mongo.Enabled && strings.TrimSpace(c.Mongo.URL) == "" {
-		return fmt.Errorf("mongo url cannot be empty when enabled")
+	if strings.TrimSpace(c.Mongo.URL) == "" {
+		return fmt.Errorf("mongo url cannot be empty")
 	}
 	if strings.TrimSpace(c.Mongo.Database) == "" {
 		return fmt.Errorf("mongo database cannot be empty")
@@ -608,8 +617,8 @@ func (c *Config) Lint() error {
 		}
 	}
 
-	if c.Postgres.Enabled && c.Postgres.URL == "" {
-		return fmt.Errorf("postgres url cannot be empty when enabled")
+	if strings.TrimSpace(c.Postgres.URL) == "" {
+		return fmt.Errorf("postgres url cannot be empty")
 	}
 	if c.Postgres.MaxConns <= 0 {
 		return fmt.Errorf("postgres max conns must be > 0")
@@ -633,8 +642,8 @@ func (c *Config) Lint() error {
 		return fmt.Errorf("postgres health check timeout must be > 0")
 	}
 
-	if c.Redis.Enabled && c.Redis.Addr == "" {
-		return fmt.Errorf("redis addr cannot be empty when enabled")
+	if strings.TrimSpace(c.Redis.Addr) == "" {
+		return fmt.Errorf("redis addr cannot be empty")
 	}
 	if c.Redis.DB < 0 {
 		return fmt.Errorf("redis db must be >= 0")

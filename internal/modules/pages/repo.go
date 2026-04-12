@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Repo interface {
@@ -27,6 +30,7 @@ type Repo interface {
 
 type repo struct {
 	store storage.RelationalStore
+	docs  storage.DocumentStore
 }
 
 type projectIdentity struct {
@@ -34,8 +38,8 @@ type projectIdentity struct {
 	Slug string
 }
 
-func NewRepo(store storage.RelationalStore) Repo {
-	return &repo{store: store}
+func NewRepo(store storage.RelationalStore, docs storage.DocumentStore) Repo {
+	return &repo{store: store, docs: docs}
 }
 
 func (r *repo) ListPages(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {
@@ -52,16 +56,7 @@ SELECT
 	p.title,
 	COALESCE(u.name, ''),
 	COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), ''),
-	COALESCE((
-		SELECT jsonb_array_length(COALESCE(o.payload->'content'->'linkedArtifacts', '[]'::jsonb))
-		FROM document_sync_outbox o
-		WHERE o.project_id = p.project_id
-		  AND o.artifact_type = 'page'::artifact_type
-		  AND o.artifact_id = p.id
-		  AND o.operation = 'upsert'
-		ORDER BY o.document_revision DESC
-		LIMIT 1
-	), 0),
+	(SELECT COUNT(1) FROM artifact_links l WHERE l.project_id = p.project_id AND l.source_type = 'page'::artifact_type AND l.source_id = p.id),
 	p.status::text,
 	p.is_orphan
 FROM pages p
@@ -131,7 +126,7 @@ func (r *repo) CreatePage(ctx context.Context, projectID, actorUserID, title str
 	if err != nil {
 		return nil, wrapRepoError("create page", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, id, revision, actorUserID, defaultPageContent(createdTitle)); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, id, revision, actorUserID, defaultPageContent(createdTitle)); err != nil {
 		return nil, err
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "created Page", map[string]any{
@@ -220,6 +215,10 @@ func (r *repo) UpdatePage(ctx context.Context, projectID, pageID, actorUserID st
 		 FROM users u
 		 WHERE p.project_id = $1::uuid AND (p.id::text = $2 OR p.slug = $2)
 		   AND u.id = p.owner_user_id
+		   AND (
+		 	 p.status <> 'Archived'::page_status
+		 	 OR NULLIF($3, '')::page_status = 'Archived'::page_status
+		   )
 		 RETURNING p.id::text, p.slug, p.title, COALESCE(u.name, ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), ''), p.status::text, p.is_orphan, p.document_revision`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &slug, &title, &owner, &lastEdited, &outStatus, &isOrphan, &revision)
@@ -236,7 +235,7 @@ func (r *repo) UpdatePage(ctx context.Context, projectID, pageID, actorUserID st
 		return nil, wrapRepoError("update page", err)
 	}
 
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, id, revision, actorUserID, state); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, id, revision, actorUserID, state); err != nil {
 		return nil, err
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "updated Page", map[string]any{
@@ -268,7 +267,9 @@ func (r *repo) RenamePage(ctx context.Context, projectID, pageID, title, actorUs
 		 SET title = $3,
 		     updated_at = NOW(),
 		     document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2)
+		 WHERE project_id = $1::uuid
+		   AND (id::text = $2 OR slug = $2)
+		   AND status <> 'Archived'::page_status
 		 RETURNING id::text, slug, title, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &slug, &outTitle, &lastEdited, &revision)
@@ -283,7 +284,7 @@ func (r *repo) RenamePage(ctx context.Context, projectID, pageID, title, actorUs
 		}
 		return nil, wrapRepoError("rename page", err)
 	}
-	if err := r.enqueueUpsertOutbox(ctx, identity.UUID, id, revision, actorUserID, map[string]any{"title": outTitle}); err != nil {
+	if err := r.upsertDocument(ctx, identity.UUID, id, revision, actorUserID, map[string]any{"title": outTitle}); err != nil {
 		return nil, err
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "renamed Page", map[string]any{
@@ -311,7 +312,9 @@ func (r *repo) DeletePageForSidebar(ctx context.Context, projectID, pageID, acto
 	var id, slug, title string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`DELETE FROM pages
-		 WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2)
+		 WHERE project_id = $1::uuid
+		   AND (id::text = $2 OR slug = $2)
+		   AND status <> 'Archived'::page_status
 		 RETURNING id::text, slug, title`,
 		func(row storage.RowScanner) error { return row.Scan(&id, &slug, &title) },
 		identity.UUID,
@@ -323,7 +326,7 @@ func (r *repo) DeletePageForSidebar(ctx context.Context, projectID, pageID, acto
 		}
 		return nil, wrapRepoError("delete page", err)
 	}
-	if err := r.enqueueDeleteOutbox(ctx, identity.UUID, id, actorUserID); err != nil {
+	if err := r.deleteDocument(ctx, identity.UUID, id, actorUserID); err != nil {
 		return nil, err
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "deleted Page", map[string]any{
@@ -398,78 +401,73 @@ func (r *repo) slugExists(ctx context.Context, table, projectUUID, slug string) 
 	return exists, nil
 }
 
-func (r *repo) enqueueUpsertOutbox(ctx context.Context, projectUUID, pageID string, revision int, actorUserID string, content map[string]any) error {
-	payload := map[string]any{
-		"content":            content,
-		"updated_by_user_id": strings.TrimSpace(actorUserID),
-	}
-	bytes, err := json.Marshal(payload)
-	if err != nil {
-		return apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to encode page payload"), err)
-	}
+func (r *repo) upsertDocument(ctx context.Context, projectUUID, pageID string, revision int, actorUserID string, content map[string]any) error {
 	documentID := fmt.Sprintf("page:%s", pageID)
-	if err := r.store.Execute(ctx, storage.RelationalExec(
-		`INSERT INTO document_sync_outbox (project_id, artifact_type, artifact_id, operation, document_id, document_revision, payload, status, next_attempt_at, updated_at)
-		 VALUES ($1::uuid, 'page'::artifact_type, $2::uuid, 'upsert', $3, $4, $5::jsonb, 'pending', NOW(), NOW())
-		 ON CONFLICT (project_id, artifact_type, artifact_id, document_revision, operation)
-		 DO UPDATE SET payload = EXCLUDED.payload, status = 'pending', next_attempt_at = NOW(), updated_at = NOW(), last_error = NULL`,
-		projectUUID,
-		pageID,
-		documentID,
-		revision,
-		string(bytes),
-	)); err != nil {
-		return wrapRepoError("enqueue page outbox", err)
+	doc := map[string]any{
+		"artifact_id":        pageID,
+		"project_id":         projectUUID,
+		"document_id":        documentID,
+		"revision":           revision,
+		"updated_at":         time.Now().UTC(),
+		"updated_by_user_id": strings.TrimSpace(actorUserID),
+		"schema_version":     1,
+		"content":            cloneMap(content),
 	}
+
+	if err := r.docs.Execute(ctx, storage.DocumentRun(
+		"page_documents:update_one",
+		map[string]any{
+			"filter":  map[string]any{"artifact_id": pageID},
+			"update":  map[string]any{"$set": doc},
+			"options": options.Update().SetUpsert(true),
+		},
+		nil,
+	)); err != nil {
+		return wrapRepoError("upsert page document", err)
+	}
+
 	return nil
 }
 
-func (r *repo) enqueueDeleteOutbox(ctx context.Context, projectUUID, pageID, actorUserID string) error {
-	payload := map[string]any{"deleted_by_user_id": strings.TrimSpace(actorUserID)}
-	bytes, err := json.Marshal(payload)
-	if err != nil {
-		return apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to encode page delete payload"), err)
-	}
-	documentID := fmt.Sprintf("page:%s", pageID)
-	if err := r.store.Execute(ctx, storage.RelationalExec(
-		`INSERT INTO document_sync_outbox (project_id, artifact_type, artifact_id, operation, document_id, document_revision, payload, status, next_attempt_at, updated_at)
-		 VALUES ($1::uuid, 'page'::artifact_type, $2::uuid, 'delete', $3, 1, $4::jsonb, 'pending', NOW(), NOW())
-		 ON CONFLICT (project_id, artifact_type, artifact_id, document_revision, operation)
-		 DO UPDATE SET payload = EXCLUDED.payload, status = 'pending', next_attempt_at = NOW(), updated_at = NOW(), last_error = NULL`,
-		projectUUID,
-		pageID,
-		documentID,
-		string(bytes),
+func (r *repo) deleteDocument(ctx context.Context, projectUUID, pageID, actorUserID string) error {
+	_ = actorUserID
+
+	if err := r.docs.Execute(ctx, storage.DocumentRun(
+		"page_documents:delete_one",
+		map[string]any{
+			"filter": map[string]any{
+				"artifact_id": pageID,
+				"project_id":  projectUUID,
+			},
+		},
+		nil,
 	)); err != nil {
-		return wrapRepoError("enqueue page delete", err)
+		return wrapRepoError("delete page document", err)
 	}
+
 	return nil
 }
 
 func (r *repo) loadLatestContent(ctx context.Context, projectUUID, pageID string, fallback map[string]any) (map[string]any, error) {
 	content := cloneMap(fallback)
-	var payloadRaw []byte
-	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT payload
-		 FROM document_sync_outbox
-		 WHERE project_id = $1::uuid AND artifact_type = 'page'::artifact_type AND artifact_id = $2::uuid AND operation = 'upsert'
-		 ORDER BY document_revision DESC
-		 LIMIT 1`,
-		func(row storage.RowScanner) error { return row.Scan(&payloadRaw) },
-		projectUUID,
-		pageID,
+	var doc map[string]any
+	err := r.docs.Execute(ctx, storage.DocumentRun(
+		"page_documents:find_one",
+		map[string]any{
+			"filter": map[string]any{
+				"artifact_id": pageID,
+				"project_id":  projectUUID,
+			},
+		},
+		&doc,
 	))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return content, nil
 		}
 		return nil, wrapRepoError("load page content", err)
 	}
-	payload := make(map[string]any)
-	if unmarshalErr := json.Unmarshal(payloadRaw, &payload); unmarshalErr != nil {
-		return content, nil
-	}
-	if payloadContent := toMap(payload["content"]); payloadContent != nil {
+	if payloadContent := toMap(doc["content"]); payloadContent != nil {
 		for k, v := range payloadContent {
 			content[k] = v
 		}
@@ -542,7 +540,7 @@ func slugOrID(slug, id string) string {
 }
 
 func (r *repo) requireStore() error {
-	if r == nil || r.store == nil {
+	if r == nil || r.store == nil || r.docs == nil {
 		return apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "pages repository unavailable")
 	}
 	return nil
