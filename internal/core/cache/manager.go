@@ -471,17 +471,25 @@ func normalizedNames(items []string) []string {
 	seen := make(map[string]struct{}, len(items))
 	out := make([]string, 0, len(items))
 	for _, item := range items {
-		trimmed := strings.TrimSpace(strings.ToLower(item))
+		trimmed := strings.TrimSpace(item)
 		if trimmed == "" {
 			continue
 		}
-		if _, exists := seen[trimmed]; exists {
+		canonical := strings.ToLower(trimmed)
+		if _, exists := seen[canonical]; exists {
 			continue
 		}
-		seen[trimmed] = struct{}{}
+		seen[canonical] = struct{}{}
 		out = append(out, trimmed)
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.ToLower(out[i])
+		right := strings.ToLower(out[j])
+		if left == right {
+			return out[i] < out[j]
+		}
+		return left < right
+	})
 	return out
 }
 
