@@ -551,6 +551,8 @@ func (h *integrationHarness) requestText(t *testing.T, method, path, bearerToken
 func (h *integrationHarness) createVerifiedSession(t *testing.T, prefix string) authSession {
 	t.Helper()
 
+	h.clearAuthSignupLimiterBucket(t)
+
 	email := fmt.Sprintf("%s_%d@example.com", sanitizeName(prefix), time.Now().UnixNano())
 	name := fmt.Sprintf("%s User", strings.TrimSpace(prefix))
 
@@ -586,6 +588,33 @@ func (h *integrationHarness) createVerifiedSession(t *testing.T, prefix string) 
 		Password:     defaultSignupPassword,
 		AccessToken:  mustString(t, loginData["access_token"], "login.access_token"),
 		RefreshToken: mustString(t, loginData["refresh_token"], "login.refresh_token"),
+	}
+}
+
+func (h *integrationHarness) clearAuthSignupLimiterBucket(t *testing.T) {
+	t.Helper()
+	if h.redisClient == nil {
+		return
+	}
+
+	ctx := context.Background()
+	for _, pattern := range []string{"rl:*:auth.signup:*", "rl:*:/api/v1/auth/signup:*"} {
+		var cursor uint64
+		for {
+			keys, next, err := h.redisClient.Scan(ctx, cursor, pattern, 100).Result()
+			if err != nil {
+				t.Fatalf("scan auth signup limiter bucket pattern=%s: %v", pattern, err)
+			}
+			if len(keys) > 0 {
+				if err := h.redisClient.Del(ctx, keys...).Err(); err != nil {
+					t.Fatalf("clear auth signup limiter bucket keys=%d: %v", len(keys), err)
+				}
+			}
+			cursor = next
+			if cursor == 0 {
+				break
+			}
+		}
 	}
 }
 
