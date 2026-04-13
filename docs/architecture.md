@@ -1,380 +1,265 @@
 # Architecture
 
-This document explains how ProjectBook Backend works internally, from process startup to request handling to data access.
+ProjectBook Backend is a production-grade modular Go API with strict layering and policy-validated routing.
 
-ProjectBook frontend reference: https://github.com/MrEthical07/projectbook
+This document is the canonical architecture reference for this repository.
 
-It is written for both:
+## 1. Core Contract
 
-- beginners who want a mental model of the system
-- contributors who need precise behavior before changing core code
+Enforced data flow:
 
-## 1. Architecture Principles
+`Handler -> Service -> Repository -> Store -> Backend`
 
-The enforced data flow is:
+Mandatory boundaries:
+- Handlers own HTTP transport only.
+- Services own business orchestration and write transaction boundaries.
+- Repositories own query logic and persistence mapping.
+- Stores own execution semantics only.
 
-Service -> Repository -> Store -> Backend
+Do not bypass this flow.
 
-Layer boundaries are strict:
+## 2. Runtime Entry And Wiring
 
-- Handler layer:
-	- transport concerns only
-	- no business or data-access logic
-- Service layer:
-	- business workflows and orchestration
-	- calls repositories only
-- Repository layer:
-	- query logic and storage mapping
-	- calls store interfaces only
-- Store layer:
-	- execution and transaction semantics
-	- no domain-level behavior
+Entrypoint:
+- `cmd/api/main.go`
 
-These boundaries are not style suggestions. They are the architecture contract for this repository.
+Core runtime composition:
+- `internal/core/app`
 
-## 2. Repository Layout
+Module registration surface:
+- `internal/modules/modules.go`
 
-High-impact paths:
+Current runtime module order:
+1. `auth`
+2. `home`
+3. `project`
+4. `artifacts`
+5. `resources`
+6. `pages`
+7. `calendar`
+8. `sidebar`
+9. `activity`
+10. `team`
+11. `health`
+12. `system`
 
-- cmd/api/main.go
-	- process entrypoint
-- internal/core/app
-	- runtime app container and dependency wiring
-- internal/core/httpx
-	- router integration and global middleware assembly
-- internal/core/policy
-	- route policy chain, metadata, and route validation
-- internal/core/storage
-	- store contracts and store implementations
-- internal/infrastructure
-	- infrastructure adapters for Postgres, Redis, and store bootstrap helpers
-- internal/core/auth
-	- goAuth integration, store-backed user provider, auth repository
-- internal/modules
-	- feature modules and route registration
+## 3. Startup Lifecycle
 
-## 3. Startup Sequence
+The API process performs fail-fast startup in this order:
 
-Startup begins in cmd/api/main.go.
+1. Load env configuration (`config.Load`).
+2. Run config lint (`Config.Lint`) including feature dependency checks.
+3. Initialize logging and app shell.
+4. Initialize dependencies in `initDependencies`:
+   - Postgres pool and relational store
+   - Redis client
+   - metrics service
+   - auth mode and goAuth engine
+   - rate limiter
+   - cache manager
+   - permissions resolver + permissions lifecycle startup sync
+   - Mongo client + database + bootstrap + Mongo document store
+   - tracing service
+5. Bind dependencies into modules.
+6. Register routes from all modules.
+7. Start HTTP server.
 
-Process flow:
+Startup constraints currently enforced:
+- Postgres must be enabled.
+- Redis must be enabled.
+- Mongo must be enabled.
+- Auth requires Redis + Postgres.
+- Cache/rate-limit require Redis.
+- Permissions require Postgres.
 
-1. Load config from environment.
-2. Lint config and fail fast on invalid combinations.
-3. Initialize logger.
-4. Build app via app.New(...).
-5. Register modules from internal/modules/modules.go.
-6. Start server and wait for shutdown signal.
+## 4. Global HTTP Pipeline
 
-### 3.1 app.New responsibilities
-
-app.New performs:
-
-- router initialization
-- dependency initialization via initDependencies
-- optional metrics route registration
-- global middleware assembly
-- module dependency binding
-- module route registration
-
-If any module registration fails, initialized dependencies are closed and startup aborts.
-
-### 3.2 Dependency initialization order
-
-Dependency wiring is in internal/core/app/deps.go.
-
-Order:
-
-1. Create readiness service.
-2. If Postgres enabled:
-	 - create pgx pool via internal/infrastructure/db
-	 - create PostgresRelationalStore via internal/infrastructure/store
-	 - set Dependencies.Postgres, Dependencies.RelationalStore, Dependencies.Store
-	 - register readiness probe
-3. If Redis enabled:
-	 - create redis client via internal/infrastructure/cache
-	 - register readiness probe
-4. Create metrics service.
-5. Parse auth mode.
-6. If auth enabled:
-	 - create auth user repository over relational store
-	 - create store-backed user provider
-	 - create goAuth engine
-7. If rate-limit enabled:
-	 - create redis limiter
-8. If cache enabled:
-	 - create cache manager
-9. Create tracing service.
-
-Failure model:
-
-- Any enabled critical dependency failing startup aborts the process.
-- Resources initialized earlier are closed before returning startup error.
-
-## 4. Request Lifecycle
-
-### 4.1 Global middleware pipeline
-
-Global middleware assembly is in internal/core/httpx/globalmiddleware.go.
+Global middleware is assembled in `internal/core/httpx/globalmiddleware.go`.
 
 Execution order (outermost to innermost):
-
-1. RequestID
-2. ClientIP
-3. Recoverer
+1. request id
+2. client ip
+3. recoverer
 4. CORS
-5. SecurityHeaders
-6. MaxBodyBytes
-7. RequestTimeout
-8. Tracing
-9. AccessLog
-10. Router dispatch
+5. security headers
+6. max body bytes
+7. request timeout
+8. tracing
+9. access log
+10. router dispatch
 
-Why this order matters:
+This order is intentional for diagnostics, safety, and policy correctness.
 
-- request id is available to downstream logs/errors
-- panic recovery wraps route execution safely
-- timeout/tracing/logging capture actual route execution behavior
+## 5. Route Policy System
 
-### 4.2 Route policy chain
+Policies are route-scoped middleware decorators under `internal/core/policy`.
 
-Route policies are composed using policy.Chain in internal/core/policy/policy.go.
+Each route is validated at registration with policy metadata rules.
 
-If route registers policies [P1, P2, P3], execution is:
+Required protected-route stage order:
+1. `AuthRequired`
+2. `ProjectRequired` / `ProjectMatchFromPath`
+3. `ResolvePermissions`
+4. RBAC (`RequirePermission`, `RequireAnyPermission`, `RequireAllPermissions`)
+5. `RateLimit`
+6. cache read/invalidate
+7. cache-control
 
-- request: P1 -> P2 -> P3 -> handler
-- response unwind: handler -> P3 -> P2 -> P1
+Validator-enforced safety rules include:
+- auth is required for project/resolver/RBAC policies
+- resolver is required before RBAC checks
+- project path routes must include project policies
+- authenticated cache reads must vary by user or project identity
 
-### 4.3 Route validation
+## 6. Module Runtime Pattern
 
-Before route behavior is finalized, policy validation enforces safe stacks.
+Every module follows:
+- `dto.go`: transport contracts and validation
+- `handler.go`: request extraction and response shaping
+- `service.go`: business workflows and transaction orchestration
+- `repo.go`: persistence operations and mappings
+- `routes.go`: route + policy registration
+- `module.go`: module constructor and dependency binding
 
-Validation code is in:
+Dependency access uses `modulekit.Runtime` surfaces:
+- auth engine + mode
+- relational store
+- document store
+- cache manager
+- limiter
+- permissions resolver
+- shared dependencies
 
-- internal/core/policy/validator.go
-- internal/core/policy/validator_rules.go
+## 7. Data Plane
 
-Key validations:
+### 7.1 Relational plane
 
-- policy stage ordering
-- auth prerequisites for project/RBAC policies
-- resolver prerequisite for RBAC policies
-- project path rules for routes with project_id path params
-- cache safety rules on authenticated routes (must vary by user or project)
+- Backend: Postgres
+- Store contract: `storage.RelationalStore`
+- Execution entrypoint: `store.Execute(...)`
+- Transaction entrypoint: `store.WithTx(...)`
 
-## 5. Handler, Adapter, and Response Model
+### 7.2 Document plane
 
-Handlers are typed and adapted through internal/core/httpx/adapter.go.
+- Backend: MongoDB
+- Store contract: `storage.DocumentStore`
+- Used by hybrid modules for rich document payloads and revisions
 
-Adapter behavior:
+### 7.3 Module storage model
 
-- decode JSON (for body-carrying request types)
-- run request validation
-- execute typed handler function
-- map errors through response.Error
-- wrap output in standard envelope
+Current module backend families:
+- Relational only: `auth`, `home`, `project`, `calendar`, `activity`, `team`, `system`, `health`
+- Relational + document: `artifacts`, `resources`, `pages`, `sidebar`
 
-Standard response envelope is defined in internal/core/response/response.go.
+## 8. Transaction Model
 
-Success shape:
+Write paths are service-owned transactions.
 
-- ok: true
-- data: payload
-- request_id
+Pattern:
+1. Service validates request and current state.
+2. Service opens `store.WithTx(ctx, fn)`.
+3. Service calls repository methods inside `fn`.
+4. Repository executes relational/document operations through store APIs.
+5. Store commits or rolls back.
 
-Error shape:
+Read paths do not require forced transaction wrapping.
 
-- ok: false
-- error.code
-- error.message
-- optional error.details
-- request_id
+## 9. Authentication And Authorization Architecture
 
-### 5.1 Error mapping summary
+### 9.1 Authentication
 
-response.Error maps:
+- Engine: goAuth
+- Integration location: `internal/core/auth`
+- Provider bridge: store-backed `StoreUserProvider`
+- User persistence: `UserRepository` over relational store
 
-- context deadline exceeded -> timeout response
-- typed AppError -> explicit status/code/message
-- unknown errors -> internal_error (sanitized)
+Auth mode surface:
+- `jwt_only`
+- `hybrid` (default)
+- `strict`
 
-## 6. Store Contracts And Data Layer
+### 9.2 Authorization
 
-Store contracts are in internal/core/storage/contracts.go.
+Authorization is not delegated to goAuth.
 
-Core contracts:
+ProjectBook authorization model:
+- request-scoped project isolation (`ProjectRequired`, `ProjectMatchFromPath`)
+- permission resolution (`ResolvePermissions`)
+- RBAC bitmask checks (`RequirePermission` family)
 
-- Store
-	- Kind() for backend family identity
-- TransactionalStore
-	- WithTx(ctx, fn)
-- RelationalStore
-	- Execute(ctx, RelationalOperation)
-- DocumentStore
-	- Execute(ctx, DocumentOperation)
+## 10. Cache Architecture
 
-Important design goal:
+Cache is Redis-backed and route-opt-in.
 
-- stores are execution-only contracts
-- repository owns query meaning and mapping semantics
+Core components:
+- manager: `internal/core/cache/manager.go`
+- policies: `CacheRead`, `CacheInvalidate`, `CacheControl`
+- optional wrappers: `CacheReadOptional`, `CacheInvalidateOptional`, `CacheControlOptional`
 
-### 6.1 Relational store implementation
+Design model:
+- key isolation via `VaryBy`
+- freshness/invalidation via `TagSpecs` version bumping
 
-Current relational implementation is in internal/core/storage/postgres_store.go.
+## 11. Rate-Limit Architecture
 
-Key behavior:
+Rate limiting is Redis-backed per-route policy.
 
-- Execute chooses transaction runner from context when present
-- otherwise uses pool runner
-- WithTx starts pgx transaction, injects tx runner in context, commits or rolls back
+Core policy:
+- `RateLimit`
+- `RateLimitWithKeyer`
 
-### 6.2 Document store implementation
+Typical scopes used in this API:
+- IP (public auth endpoints)
+- User (account-scoped operations)
+- Project (project mutation routes)
+- user/project/token-hash fallback (selected protected routes)
 
-Concrete Mongo document-store execution is implemented in internal/core/storage/mongo_store.go.
+## 12. Permissions Lifecycle
 
-Runtime behavior:
+On startup (when enabled), permissions lifecycle performs consistency tasks:
+- role permission seed/resync
+- project member permission mask resync for non-custom memberships
+- resolver cache invalidation for impacted users/projects
 
-- startup requires `MONGO_ENABLED=true` and a valid Mongo connection string
-- dependency wiring initializes Mongo client/database, verifies startup bootstrap/indexes, and exposes Mongo-backed `DocumentStore`
+This keeps RBAC enforcement deterministic across route checks.
 
-### 6.3 Repository-owned operations
+## 13. Observability, Health, And Readiness
 
-Operation helpers in internal/core/storage/operations.go provide wrappers like:
+Health routes:
+- `GET /healthz`: liveness
+- `GET /readyz`: dependency readiness report
 
-- RelationalExec
-- RelationalQueryOne
-- RelationalQueryMany
-- DocumentRun
+Metrics:
+- request/route instrumentation
+- cache and rate-limit outcome metrics
 
-Repositories use these helpers to describe operations while keeping domain logic in repository methods.
+Tracing:
+- OpenTelemetry lifecycle via core tracing service
 
-## 7. Transaction Model
+Readiness probes are registered per dependency during startup wiring.
 
-Transaction rule set:
+## 14. Failure Model
 
-- transaction API is mandatory at store layer
-- write paths should run inside store.WithTx
-- read paths are direct by default
-- services select transaction boundary; repositories execute operations
+- Startup is fail-fast for invalid config and dependency wiring failures.
+- Policy misconfiguration fails route registration immediately.
+- Runtime dependency errors are mapped to explicit API errors (for example dependency unavailable).
 
-Write path example:
+## 15. Change Rules For Contributors
 
-1. handler calls service.Create
-2. service starts store.WithTx
-3. repository executes write operations via store.Execute
-4. store commits or rolls back
-
-Read path example:
-
-1. handler calls service.Get/List
-2. service calls repository directly
-3. repository executes read operation via store.Execute
-
-## 8. Auth Architecture With goAuth
-
-Auth integration entrypoint: internal/core/auth/goauth_provider.go.
-
-goAuth boundary remains stable: it still receives a goauth.UserProvider.
-
-Current provider implementation: internal/core/auth/provider_sqlc.go.
-
-Provider path:
-
-StoreUserProvider -> UserRepository -> RelationalStore -> Postgres
-
-Auth repository implementation: internal/core/auth/user_repository.go.
-
-This preserves goAuth compatibility while removing direct query-object coupling from auth wiring.
-
-## 9. Route-Level Flow Examples
-
-### 9.1 POST /api/v1/auth/login
-
-Files involved:
-
-- internal/modules/system/routes.go
-- internal/core/auth/provider_sqlc.go
-- internal/core/auth/user_repository.go
-- internal/core/storage/postgres_store.go
-
-Runtime path:
-
-1. route handler receives login payload
-2. handler calls goAuth engine Login
-3. goAuth asks StoreUserProvider for user by identifier
-4. provider calls auth repository
-5. repository executes relational query operation via store
-6. store executes against pgx runner
-7. result maps back to goAuth user record
-8. goAuth issues tokens
-
-### 9.2 POST /api/v1/auth/refresh
-
-High-level path:
-
-- handler calls goAuth refresh
-- goAuth performs token/session validation
-- provider/repository/store path is used when user persistence reads are required
-
-### 9.3 GET /api/v1/system/whoami
-
-Path:
-
-1. AuthRequired validates request and injects auth context
-2. handler reads auth context and returns payload
-3. no repository/store call required for this endpoint
-
-## 10. Readiness, Health, And Shutdown
-
-### 10.1 Liveness vs readiness
-
-- /healthz:
-	- process-level liveness
-- /readyz:
-	- dependency readiness from readiness service checks
-
-### 10.2 Shutdown sequence
-
-During app shutdown:
-
-1. server shutdown with configured timeout
-2. close redis
-3. close postgres
-4. shutdown tracing
-5. close auth engine resources
-
-## 11. Behavioral Changes After Store-First Redesign
-
-What changed:
-
-- no service-level dependency on query helper wrappers
-- auth persistence now follows repository + store architecture
-- transaction orchestration unified at store layer
-- runtime exposes generic store surfaces to modules
-
-What did not change:
-
-- module registration model
-- route policy system
-- goAuth integration boundary
-- response envelope semantics
-
-## 12. Contributor Guardrails
-
-When changing architecture-sensitive code, keep these guardrails:
-
+When changing architecture-sensitive code:
+- keep module flow `handler -> service -> repository -> store`
+- keep write transaction boundaries in services only
+- do not expose db-driver/query objects in service contracts
 - do not bypass policy validation
-- do not move business logic into handlers
-- do not expose backend-specific driver/query objects in service/repository interfaces
-- do not mix relational and document backends in one module
-- do not manually edit generated files under internal/core/db/sqlcgen
+- do not bypass auth/project/resolver/RBAC order on protected routes
+- avoid global mutable state
 
-## 13. Related Docs
+## 16. Related Documents
 
-- [docs/overview.md](overview.md)
-- [docs/modules.md](modules.md)
-- [docs/module_guide.md](module_guide.md)
-- [docs/crud-examples.md](crud-examples.md)
-- [docs/auth-goauth.md](auth-goauth.md)
-- [docs/workflows.md](workflows.md)
-- [docs/environment-variables.md](environment-variables.md)
+- [auth.md](auth.md)
+- [policies.md](policies.md)
+- [cache-guide.md](cache-guide.md)
+- [environment-variables.md](environment-variables.md)
+- [routeDetails.md](routeDetails.md)
+- [workflows/README.md](workflows/README.md)
+- [test/README.md](test/README.md)

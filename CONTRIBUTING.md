@@ -18,7 +18,7 @@ This repository is published as a template for production-grade Go APIs.
 - Generate baseline module: `make module name=projects`
 - Optional DB scaffolding: `make module name=projects db=1`
 - Optional policy examples: `make module name=projects auth=1 ratelimit=1 cache=1`
-- Read module docs: `docs/modules.md` and `docs/crud-examples.md`
+- Read module docs: `docs/workflows/README.md` and module-specific files in `docs/workflows/`
 
 ## Testing Expectations
 - Run `go test ./...` before opening a PR.

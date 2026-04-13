@@ -1,7 +1,7 @@
 # Integration Test Plan
 
 ## Goal
-Implement exhaustive integration coverage for every registered API route (85 unique routes). Coverage is route-driven and policy-aware:
+Implement exhaustive integration coverage for every registered API route (87 unique routes). Coverage is route-driven and policy-aware:
 
 - auth and project isolation
 - permissions resolver and RBAC enforcement
@@ -50,12 +50,19 @@ For auth public endpoints:
 - token lifecycle checks (refresh, expiry behavior)
 - abuse baseline (rate-limit if configured)
 
+### Pack AUTH-PROTECTED
+For authenticated auth endpoint (`POST /api/v1/auth/logout`):
+- missing/invalid token -> 401
+- valid token -> success
+- rate-limit behavior when limiter enabled
+- session invalidation behavior validation
+
 ### Pack SYSTEM-UTILITY
-For /system/parse-duration:
-- valid input parsing
-- malformed units
-- overflow/negative edge cases
-- deterministic output schema
+For system utility endpoints:
+- `/system/parse-duration` valid input parsing
+- `/system/parse-duration` malformed units
+- `/system/parse-duration` overflow/negative edge cases
+- `/api/v1/system/whoami` auth context contract and unauthorized behavior
 
 ### Pack PROTECTED-READ
 For protected GET routes:
@@ -126,7 +133,7 @@ A route is complete only when all conditions hold:
 - cache semantics tested for mapped read/write routes
 
 Global pass criteria:
-- 100% route matrix coverage (85/85)
+- 100% route matrix coverage (87/87)
 - 0 flaky tests over 3 consecutive runs
 - no dirty migration state after test suite
 

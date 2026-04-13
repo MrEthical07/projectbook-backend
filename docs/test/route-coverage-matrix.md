@@ -1,6 +1,6 @@
 # Route Coverage Matrix
 
-Total unique routes: 85
+Total unique routes: 87
 
 Scenario packs are defined in docs/test/integration-test-plan.md.
 
@@ -38,6 +38,7 @@ Scenario packs are defined in docs/test/integration-test-plan.md.
 | artifacts | PUT | /api/v1/projects/{projectId}/tasks/{taskId}/status | PROTECTED-WRITE | 1 |
 | auth | POST | /api/v1/auth/forgot-password | AUTH-PUBLIC | 2 |
 | auth | POST | /api/v1/auth/login | AUTH-PUBLIC | 2 |
+| auth | POST | /api/v1/auth/logout | PROTECTED-WRITE | 2 |
 | auth | POST | /api/v1/auth/refresh | AUTH-PUBLIC | 2 |
 | auth | POST | /api/v1/auth/resend-verification | AUTH-PUBLIC | 2 |
 | auth | POST | /api/v1/auth/reset-password | AUTH-PUBLIC | 2 |
@@ -84,6 +85,7 @@ Scenario packs are defined in docs/test/integration-test-plan.md.
 | sidebar | DELETE | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId} | PROTECTED-WRITE | 1 |
 | sidebar | PUT | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename | PROTECTED-WRITE | 1 |
 | system | POST | /system/parse-duration | SYSTEM-UTILITY | 1 |
+| system | GET | /api/v1/system/whoami | PROTECTED-READ | 2 |
 | team | POST | /api/v1/projects/{projectId}/team/invites | PROTECTED-WRITE | 3 |
 | team | DELETE | /api/v1/projects/{projectId}/team/invites/{email} | PROTECTED-WRITE | 3 |
 | team | POST | /api/v1/projects/{projectId}/team/invites/batch | PROTECTED-WRITE | 3 |

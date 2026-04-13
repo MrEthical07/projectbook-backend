@@ -62,5 +62,5 @@ func main() {
 	fmt.Println("  2. Run: go build ./...")
 	fmt.Println("  3. Run migrations: make migrate-up DB_URL=\"your_postgres_url\"")
 	fmt.Println("  4. Enable auth: AUTH_ENABLED=true REDIS_ENABLED=true POSTGRES_ENABLED=true")
-	fmt.Println("  5. See docs/auth-bootstrap.md for full details")
+	fmt.Println("  5. See docs/auth.md and docs/authgen-bootstrap.md for full details")
 }

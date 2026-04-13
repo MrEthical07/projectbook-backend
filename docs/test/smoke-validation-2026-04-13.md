@@ -1,7 +1,7 @@
 # Smoke Validation Report (2026-04-13)
 
 ## Scope
-Validated baseline runtime behavior after Mongo-first document cutover, route cache tag wiring, and legacy outbox cleanup.
+Validated baseline runtime behavior and final backend handoff readiness after integration sweep completion.
 
 ## Environment
 - Host: Windows
@@ -41,6 +41,26 @@ Executed against running API at http://127.0.0.1:8080.
 ## Automated Validation
 - go test ./... -> pass (after clearing process env pollution from .env keys)
 - go run ./cmd/superapi-verify ./... -> verify: ok
+
+## Integration Sweep Validation
+
+Executed integration suite against real Postgres/Redis/Mongo harness:
+
+```powershell
+INTEGRATION_TESTS=1 go test ./internal/tests/integration -count=1 -v
+```
+
+Coverage highlights from final sweep:
+- artifacts lifecycle transitions, immutable guards, and lock/select preconditions
+- calendar event lifecycle (create/read/update/delete)
+- team invite/member workflows and role/member permission mutation checks
+- home/project lifecycle including project delete cascade assertions
+- harness-level auth signup rate-limit bucket cleanup to prevent cross-test 429 collisions
+
+Result:
+- integration package pass
+- full repo test pass
+- verifier pass
 
 ## Legacy Cleanup Included
 Removed legacy, unused outbox sync package files:

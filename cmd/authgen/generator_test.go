@@ -53,7 +53,7 @@ func TestGenerateAuth_Default(t *testing.T) {
 	}
 
 	// Verify docs
-	docsPath := filepath.Join(root, "docs", "auth-bootstrap.md")
+	docsPath := filepath.Join(root, "docs", "authgen-bootstrap.md")
 	if _, err := os.Stat(docsPath); err != nil {
 		t.Fatalf("docs file not found: %v", err)
 	}

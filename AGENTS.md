@@ -100,11 +100,13 @@ Never:
 ## 10. Where To Look
 
 - Architecture: docs/architecture.md
-- Modules: docs/modules.md, docs/module_guide.md, docs/crud-examples.md
+- Modules: docs/workflows/README.md, docs/workflows/
 - Policies: docs/policies.md
 - Cache: docs/cache-guide.md
-- Auth: docs/auth-goauth.md, docs/authDocs/
-- Runtime/config: docs/environment-variables.md, docs/workflows.md
+- Auth: docs/auth.md
+- Runtime/config: docs/environment-variables.md
+- Route surface snapshot: docs/routeDetails.md
+- Testing status: docs/test/README.md
 
 ## 11. How To Add A New Feature (Primary Workflow)
 

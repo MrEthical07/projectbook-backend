@@ -25,8 +25,8 @@ It provides:
 - a store-first data layer with strict boundaries
 
 Start here:
-- Overview: [docs/overview.md](docs/overview.md)
 - Architecture: [docs/architecture.md](docs/architecture.md)
+- Authentication: [docs/auth.md](docs/auth.md)
 
 ## Data Layer Architecture
 
@@ -135,22 +135,20 @@ go run ./cmd/api
 5. Add repositories that execute store operations and keep query logic inside repository.
 
 Guides:
-- Module guide: [docs/modules.md](docs/modules.md)
-- CRUD walkthrough: [docs/crud-examples.md](docs/crud-examples.md)
+- Module workflows: [docs/workflows/README.md](docs/workflows/README.md)
+- Route details snapshot: [docs/routeDetails.md](docs/routeDetails.md)
 - Contributor playbook: [AGENTS.md](AGENTS.md)
 
 ## Docs Navigation
 
-- Overview: [docs/overview.md](docs/overview.md)
 - Architecture: [docs/architecture.md](docs/architecture.md)
-- Modules: [docs/modules.md](docs/modules.md)
+- Auth: [docs/auth.md](docs/auth.md)
 - Policies: [docs/policies.md](docs/policies.md)
 - Cache guide: [docs/cache-guide.md](docs/cache-guide.md)
-- Auth integration: [docs/auth-goauth.md](docs/auth-goauth.md)
-- Auth bootstrap: [docs/auth-bootstrap.md](docs/auth-bootstrap.md)
 - Performance runbook: [docs/performance-testing.md](docs/performance-testing.md)
 - Environment variables: [docs/environment-variables.md](docs/environment-variables.md)
-- Workflows: [docs/workflows.md](docs/workflows.md)
+- Workflows: [docs/workflows/README.md](docs/workflows/README.md)
+- Test docs: [docs/test/README.md](docs/test/README.md)
 - Contributor playbook: [AGENTS.md](AGENTS.md)
 
 ## Philosophy

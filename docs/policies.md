@@ -1,229 +1,294 @@
-# Policy Reference
+# Policies
 
-Policies are per-route middleware functions applied during route registration.
+This document is the canonical reference for route policies in ProjectBook Backend.
 
-Type:
+Policy type:
 
 ```go
 type Policy func(http.Handler) http.Handler
 ```
 
-Core files:
-
+Core policy files:
 - `internal/core/policy/*.go`
+- `internal/core/policy/validator.go`
 - `internal/core/policy/validator_rules.go`
-- `internal/tools/validator/analyzer.go`
 
-## Strict guarantees
+Static verification tool:
+- `cmd/superapi-verify`
 
-ProjectBook backend enforces fail-fast policy invariants.
+## 1. Why Policies Exist
 
-- Every `r.Handle(...)` policy stack is validated at registration.
-- Invalid order/dependencies panic with `invalid route config: ...`.
-- Static verification (`go run ./cmd/superapi-verify ./...`) applies the same checks.
+Policies provide explicit, per-route behavioral guarantees for:
+- authentication
+- project isolation
+- permission resolution
+- RBAC enforcement
+- rate limiting
+- cache correctness
+- response cache directives
 
-## Required protected-route order
+Route behavior is declared where the route is registered, not hidden in global middleware.
 
-Use this order for project-protected routes:
+## 2. Enforced Ordering Model
+
+Protected route stage order is enforced:
 
 1. auth
-2. project
-3. resolve permissions
-4. rbac
+2. project scope
+3. permission resolver
+4. RBAC
 5. rate limit
-6. cache
-7. cache-control (optional)
+6. cache read/invalidate
+7. cache-control
 
-Example:
+If a route violates ordering/dependency rules, route registration fails with an invalid route config panic.
 
-```go
-r.Handle(http.MethodGet, "/api/v1/projects/{project_id}/tasks/{id}", handler,
-    policy.AuthRequired(authEngine, auth.ModeStrict),
-    policy.ProjectRequired(),
-    policy.ProjectMatchFromPath("project_id"),
-    policy.ResolvePermissions(permissionResolver),
-    policy.RequirePermission(rbac.PermProjectView),
-    policy.RateLimit(limiter, ratelimit.Rule{Limit: 60, Window: time.Minute, Scope: ratelimit.ScopeProject}),
-    policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-        TTL: 30 * time.Second,
-        TagSpecs: []cache.CacheTagSpec{{Name: "task", PathParams: []string{"id"}}},
-        VaryBy: cache.CacheVaryBy{ProjectID: true, PathParams: []string{"id"}},
-        AllowAuthenticated: true,
-    }),
-)
-```
+## 3. Validation Rules (Fail-Fast)
 
-## Auth and project policies
+Validator checks include:
+- policy stages cannot regress in order
+- RBAC/project/resolver stacks require `AuthRequired`
+- RBAC checks require `ResolvePermissions`
+- `ProjectMatchFromPath` requires `ProjectRequired`
+- routes with `{project_id}` or `{projectId}` must include project policies
+- authenticated `CacheRead` must vary by `UserID` or `ProjectID`
 
-### `AuthRequired(engine, mode)`
+These rules are applied:
+- at runtime route registration
+- by static verifier (`go run ./cmd/superapi-verify ./...`)
 
-Behavior:
+## 4. Policy Catalog
 
-- Missing/invalid bearer token -> `401 unauthorized`
-- Successful validation injects `auth.AuthContext`
+### 4.1 `AuthRequired(engine, mode)`
 
-Current auth context fields used by policies:
-
-- `UserID`
-- `ProjectID`
-- `Role`
-- `PermissionMask`
-- `Permissions`
-
-Project scope authority is request-derived (`project_id`/`projectId` path params), not auth provider tenant metadata.
-
-### `ProjectRequired()`
+Purpose:
+- enforce bearer authentication
+- inject `auth.AuthContext`
 
 Behavior:
+- missing/invalid auth -> `401`
+- mode-aware guard behavior (`jwt_only`, `hybrid`, `strict`)
 
-- Missing auth context -> `401 unauthorized`
-- Requires project scope from request path (`project_id` / `projectId`)
-- Missing scope -> `403 forbidden` (`project scope required`)
-- Path/auth conflict -> `403 forbidden` (`project scope mismatch`)
+Key implementation:
+- `internal/core/policy/auth.go`
 
-### `ProjectMatchFromPath(paramName)`
+### 4.2 `ProjectRequired()`
 
-Behavior:
-
-- Missing auth context -> `401 unauthorized`
-- Missing path param -> `400 bad_request`
-- Missing project scope -> `403 forbidden`
-- Project mismatch -> `403 forbidden` (`project scope mismatch`)
-
-## Permission resolver policy
-
-### `ResolvePermissions(resolver)`
-
-Resolves effective project permission state before RBAC checks.
+Purpose:
+- enforce project scope presence
 
 Behavior:
+- missing auth context -> `401`
+- missing project scope in request path -> `403`
+- scope mismatch -> `403`
 
-- Missing auth context -> `401 unauthorized`
-- Missing project scope -> `403 forbidden`
-- Membership missing -> `403 forbidden`
-- Membership exists but mask inconsistent -> `500 internal_error`
-- Resolver dependency failure -> `503 dependency_unavailable`
-- Success injects resolved `PermissionMask` (and role when present)
+### 4.3 `ProjectMatchFromPath(paramName)`
 
-Resolver contract:
+Purpose:
+- bind resolved principal project to a specific route path param
 
-```go
-type Resolver interface {
-    Resolve(ctx context.Context, userID, projectID string) (Resolution, error)
-}
-```
+Behavior:
+- missing path param -> `400`
+- mismatch -> `403`
 
-## RBAC policies
+Typical path param in this repo: `projectId`
 
-RBAC here is mask/bit based.
+### 4.4 `ResolvePermissions(resolver)`
 
-### `RequirePermission(perm uint64)`
+Purpose:
+- resolve effective permission mask for user + project before RBAC checks
 
-Requires one permission bit.
+Behavior:
+- no membership -> `403`
+- inconsistent mask -> `500`
+- resolver dependency failure -> `503`
 
-### `RequireAnyPermission(perms ...uint64)`
+### 4.5 RBAC policies
 
-Requires any one bit.
+- `RequirePermission(perm)`
+- `RequireAnyPermission(perms...)`
+- `RequireAllPermissions(perms...)`
 
-### `RequireAllPermissions(perms ...uint64)`
+Behavior:
+- missing required permission(s) -> `403`
 
-Requires every listed bit.
+### 4.6 Rate limit policies
 
-Shared behavior:
+- `RateLimit(limiter, rule)`
+- `RateLimitWithKeyer(limiter, name, rule, keyer)`
 
-- Missing permission -> `403 forbidden`
-- Constructors panic on invalid input (zero/empty permission sets)
+Behavior:
+- over budget -> `429` (+ `Retry-After` when available)
+- limiter dependency failure in fail-closed path -> `503`
 
-## Rate limit policy
+### 4.7 Cache policies
 
-### `RateLimit(limiter, rule)`
+- `CacheRead(manager, cfg)`
+- `CacheInvalidate(manager, cfg)`
+- `CacheControl(cfg)`
 
-Standard route-level limiting.
+Optional wrappers used in modules that tolerate cache manager absence:
+- `CacheReadOptional(...)`
+- `CacheInvalidateOptional(...)`
+- `CacheControlOptional(...)`
 
-### `RateLimitWithKeyer(limiter, name, rule, keyer)`
+### 4.8 Utility policies
 
-Custom keyer path for fine-grained identity shaping.
+- `RequireJSON()`
+- `WithHeader(key, value)`
+- `Noop()`
 
-Scopes:
+## 5. Policy Config Parameters
 
-- `ScopeAuto`
-- `ScopeAnon`
-- `ScopeIP`
-- `ScopeUser`
-- `ScopeProject`
-- `ScopeToken`
+### 5.1 Auth policy
 
-Useful built-in keyers:
+Inputs:
+- auth engine pointer
+- auth mode (`jwt_only`, `hybrid`, `strict`)
 
-- `ratelimit.KeyByIP()`
-- `ratelimit.KeyByUser()`
-- `ratelimit.KeyByProject()`
-- `ratelimit.KeyByTokenHash(prefixLen)`
-- `ratelimit.KeyByUserOrProjectOrTokenHash(prefixLen)`
+### 5.2 Rate limit policy
 
-## Cache policies
+`ratelimit.Rule` key fields:
+- `Limit`
+- `Window`
+- `Scope`
+- optional `Keyer`
 
-### `CacheRead(manager, cfg)`
+Common scopes in this API:
+- IP for public auth routes
+- User for user-account scoped routes
+- Project for project mutation routes
+- user/project/token-hash fallback for selected endpoints
 
-Read-through cache policy with dynamic tag-version token integration.
+### 5.3 Cache read config
 
-Authenticated safety rule (enforced by validator):
-
-- Authenticated routes must vary by identity via `VaryBy.UserID` or `VaryBy.ProjectID`.
-
-Important config surfaces:
-
+Important fields:
 - `TTL`
 - `TagSpecs`
 - `VaryBy`
 - `AllowAuthenticated`
 - `Methods`
 - `CacheStatuses`
+- optional `FailOpen`
 
-### `CacheInvalidate(manager, cfg)`
+### 5.4 Cache invalidate config
 
-Bumps tag versions after successful write responses (`2xx`) so matching reads miss and refresh.
+Important fields:
+- `TagSpecs`
 
-## Cache-Control policy
+Invalidation occurs only for successful write responses (`2xx`) after downstream handler execution.
 
-### `CacheControl(cfg)`
+## 6. Real Route Stack Patterns
 
-Adds explicit `Cache-Control` (and optional `Vary`) directives for browser/proxy behavior.
+### 6.1 Project-scoped read route (strict chain)
 
-Keep this after auth/project/resolver/rbac/rate-limit/cache policies.
+Typical chain:
+1. `AuthRequired`
+2. `ProjectRequired`
+3. `ProjectMatchFromPath("projectId")`
+4. `ResolvePermissions`
+5. `RequirePermission(...)`
+6. `CacheRead` or `CacheReadOptional`
+7. `CacheControl` or `CacheControlOptional`
 
-## Utility policies
+### 6.2 Project-scoped write route (strict chain)
 
-- `RequireJSON()`
-- `WithHeader(key, value)`
-- `Noop()`
+Typical chain:
+1. `AuthRequired`
+2. `ProjectRequired`
+3. `ProjectMatchFromPath("projectId")`
+4. `ResolvePermissions`
+5. `RequirePermission(...)` or `RequireAnyPermission(...)`
+6. `RequireJSON` (if body)
+7. `RateLimit` (when enabled)
+8. `CacheInvalidate` or `CacheInvalidateOptional`
 
-## Validator rules summary
+### 6.3 Public auth route chain
 
-Current enforced rules include:
+Typical chain:
+1. `RequireJSON`
+2. `RateLimitWithKeyer(..., KeyByIP())` when limiter exists
 
-- Policy order must be monotonic by stage.
-- `AuthRequired` is required when project/resolver/RBAC policies are present.
-- `ProjectMatchFromPath` requires `ProjectRequired`.
-- `ResolvePermissions` requires `ProjectRequired`.
-- RBAC policies require `ResolvePermissions`.
-- Routes containing `{project_id}` must include:
-  - `ProjectRequired`
-  - `ProjectMatchFromPath("project_id")`
-- Authenticated `CacheRead` must vary by user or project identity.
+No project/resolver/RBAC policies are applied to public auth entry routes.
 
-## Presets
+## 7. Where To Change Policy Behavior
 
-Prefer validated presets for common stacks:
+- Metadata and policy types:
+  - `internal/core/policy/metadata.go`
+- Validator rules and stage model:
+  - `internal/core/policy/validator_rules.go`
+- Auth/project policies:
+  - `internal/core/policy/auth.go`
+- Permission resolver policy:
+  - `internal/core/policy/permissions.go`
+- RBAC policies:
+  - `internal/core/policy/rbac.go`
+- Rate limit policy wrappers:
+  - `internal/core/policy/ratelimit.go`
+- Cache policies:
+  - `internal/core/policy/cache.go`
+  - `internal/core/policy/cache_optional.go`
+- Route stacks (module usage):
+  - `internal/modules/*/routes.go`
 
-- `policy.ProjectRead(...)`
-- `policy.ProjectWrite(...)`
-- `policy.PublicRead(...)`
+## 8. Troubleshooting Guide
 
-## Verification commands
+### 8.1 Panic: invalid route config during startup
+
+Check:
+1. policy order for the failing route
+2. missing required dependencies (auth, resolver, project matcher)
+3. authenticated cache route missing `VaryBy.UserID` or `VaryBy.ProjectID`
+
+### 8.2 Protected project route returns 401
+
+Check:
+1. bearer token parsing and auth mode
+2. auth engine wiring in app dependencies
+3. `AuthRequired` included in route chain
+
+### 8.3 Route returns 403 despite valid login
+
+Check:
+1. `ProjectRequired` / `ProjectMatchFromPath` path param alignment
+2. membership exists for `user + project`
+3. resolver output and effective permission mask
+4. RBAC permission bit required by route
+
+### 8.4 Route returns 503 for resolver/cache/rate-limit
+
+Check:
+1. Redis availability for cache/rate-limit/resolver hybrid path
+2. fail-open/fail-closed config
+3. dependency startup/health probes
+
+### 8.5 JSON endpoint returns 415
+
+Check:
+1. `Content-Type: application/json`
+2. route uses `RequireJSON`
+3. client payload type and method
+
+## 9. Operational Best Practices
+
+- Keep policy stacks explicit per route.
+- Favor canonical chain order even when optional components are disabled.
+- Do not move RBAC checks into handlers/services.
+- For authenticated cache routes, always vary by identity dimension.
+- Keep route policy changes paired with verifier + integration test runs.
+
+## 10. Verification Commands
 
 ```bash
 go test ./...
 go build ./...
 go run ./cmd/superapi-verify ./...
 ```
+
+## 11. Related Documents
+
+- [architecture.md](architecture.md)
+- [auth.md](auth.md)
+- [cache-guide.md](cache-guide.md)
+- [environment-variables.md](environment-variables.md)
+- [workflows/README.md](workflows/README.md)

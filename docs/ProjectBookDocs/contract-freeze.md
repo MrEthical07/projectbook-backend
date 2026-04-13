@@ -20,17 +20,17 @@ This document freezes the authoritative backend contract boundaries required bef
 Use these as source of truth for implementation behavior:
 
 1. docs/ProjectBookDocs/API-GUIDELINES.md
-2. docs/ProjectBookDocs/API_plan.md
-3. docs/ProjectBookDocs/database.md
-4. docs/ProjectBookDocs/rbac.md
+2. API_plan.md
+3. database.md
+4. rbac.md
 5. docs/ProjectBookDocs/endpoint-tracker.md
 6. docs/ProjectBookDocs/endpoint-tracker.json
 7. docs/ProjectBookDocs/endpoint-tracker.csv
 
 ## Legacy Documentation Policy
 
-1. docs/authDocs/* remains valid only for goAuth engine capabilities and integration mechanics.
-2. If docs/authDocs/* conflicts with docs/ProjectBookDocs/* for route shape, storage ownership, policy ordering, or RBAC rules, ProjectBookDocs wins.
+1. docs/auth.md is the canonical authentication document.
+2. If historical references conflict with docs/ProjectBookDocs/* for route shape, storage ownership, policy ordering, or RBAC rules, ProjectBookDocs wins.
 3. New backend feature work must reference the frozen ProjectBookDocs set first.
 
 ## Endpoint Tracker

@@ -9,7 +9,7 @@ This file is generated from module route registrations and handler contracts. It
 - Handler signatures: internal/modules/*/handler.go
 - Endpoint IDs: docs/ProjectBookDocs/endpoint-tracker.json
 - Output schema fallback: docs/ProjectBookDocs/API-GUIDELINES.md
-- Generated at: 2026-04-12T13:59:25Z
+- Generated at: 2026-04-13T19:07:14Z
 
 ## Module Endpoint Counts
 
@@ -147,6 +147,26 @@ policy.ResolvePermissions(resolver)
 ```go
 policy.RequirePermission(rbac.PermStoryView)
 ```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		storyReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
+```
 
 #### RBAC Permissions
 - rbac.PermStoryView
@@ -230,6 +250,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermStoryCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermStoryCreate
@@ -305,6 +330,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermStoryView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		storyReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -419,6 +463,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermStoryEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermStoryEdit
@@ -495,6 +544,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermStoryView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		journeyReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -579,6 +648,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermStoryCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermStoryCreate
@@ -654,6 +728,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermStoryView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		journeyReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -766,6 +859,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermStoryEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermStoryEdit
@@ -842,6 +940,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermProblemView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		problemReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -929,6 +1047,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermProblemCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermProblemCreate
@@ -1004,6 +1127,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermProblemView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		problemReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -1118,6 +1260,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermProblemEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermProblemEdit
@@ -1195,6 +1342,11 @@ policy.ResolvePermissions(resolver)
 ```go
 policy.RequirePermission(rbac.PermProblemStatusChange)
 ```
+6. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermProblemStatusChange
@@ -1270,6 +1422,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermProblemStatusChange)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermProblemStatusChange
@@ -1340,6 +1497,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermIdeaView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		ideaReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -1425,6 +1602,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermIdeaCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermIdeaCreate
@@ -1501,6 +1683,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermIdeaView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		ideaReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -1610,6 +1811,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermIdeaEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermIdeaEdit
@@ -1688,6 +1894,11 @@ policy.ResolvePermissions(resolver)
 ```go
 policy.RequirePermission(rbac.PermIdeaStatusChange)
 ```
+6. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermIdeaStatusChange
@@ -1762,6 +1973,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermIdeaStatusChange)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermIdeaStatusChange
@@ -1832,6 +2048,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermTaskView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		taskReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -1919,6 +2155,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermTaskCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermTaskCreate
@@ -1997,6 +2238,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermTaskView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		taskReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -2118,6 +2378,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermTaskEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermTaskEdit
@@ -2202,6 +2467,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermTaskStatusChange)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermTaskStatusChange
@@ -2272,6 +2542,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermFeedbackView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		feedbackReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"outcome", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -2356,6 +2646,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermFeedbackCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
+```
 
 #### RBAC Permissions
 - rbac.PermFeedbackCreate
@@ -2431,6 +2726,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermFeedbackView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			ttl,
+	TagSpecs:		feedbackReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, ttl)
 ```
 
 #### RBAC Permissions
@@ -2550,6 +2864,11 @@ policy.RequireJSON()
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermFeedbackEdit)
+```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 ```
 
 #### RBAC Permissions
@@ -4512,6 +4831,26 @@ policy.ResolvePermissions(resolver)
 ```go
 policy.RequirePermission(rbac.PermPageView)
 ```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			30 * time.Second,
+	TagSpecs:		pageReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, 30*time.Second)
+```
 
 #### RBAC Permissions
 - rbac.PermPageView
@@ -4591,6 +4930,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermPageCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
+```
 
 #### RBAC Permissions
 - rbac.PermPageCreate
@@ -4664,6 +5008,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermPageView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			30 * time.Second,
+	TagSpecs:		pageReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "slug"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, 30*time.Second)
 ```
 
 #### RBAC Permissions
@@ -4766,6 +5129,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermPageEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
+```
 
 #### RBAC Permissions
 - rbac.PermPageEdit
@@ -4845,6 +5213,11 @@ policy.RequireJSON()
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermPageEdit)
+```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
 ```
 
 #### RBAC Permissions
@@ -5380,7 +5753,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -5458,7 +5831,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -5535,7 +5908,7 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: project.dashboard[project_id], project.access[project_id], project.sidebar[project_id], project.settings[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -5597,6 +5970,26 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermResourceView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			30 * time.Second,
+	TagSpecs:		resourceReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId"},
+		QueryParams:	[]string{"status", "offset", "limit"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, 30*time.Second)
 ```
 
 #### RBAC Permissions
@@ -5687,6 +6080,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermResourceCreate)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate)
+```
 
 #### RBAC Permissions
 - rbac.PermResourceCreate
@@ -5762,6 +6160,25 @@ policy.ResolvePermissions(resolver)
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermResourceView)
+```
+6. CacheReadOptional
+- Applied Call:
+```go
+policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
+	TTL:			30 * time.Second,
+	TagSpecs:		resourceReadTags,
+	AllowAuthenticated:	true,
+	VaryBy: cache.CacheVaryBy{
+		ProjectID:	true,
+		UserID:		true,
+		PathParams:	[]string{"projectId", "resourceId"},
+	},
+})
+```
+7. CacheControlOptional
+- Applied Call:
+```go
+policy.CacheControlOptional(cacheMgr, 30*time.Second)
 ```
 
 #### RBAC Permissions
@@ -5878,6 +6295,11 @@ policy.RequireJSON()
 ```go
 policy.RequirePermission(rbac.PermResourceEdit)
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate)
+```
 
 #### RBAC Permissions
 - rbac.PermResourceEdit
@@ -5959,6 +6381,11 @@ policy.RequireJSON()
 - Applied Call:
 ```go
 policy.RequirePermission(rbac.PermResourceStatusChange)
+```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate)
 ```
 
 #### RBAC Permissions
@@ -6047,6 +6474,11 @@ policy.RequireAnyPermission(
 	rbac.PermPageCreate,
 )
 ```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
+```
 
 #### RBAC Permissions
 - rbac.PermFeedbackCreate
@@ -6132,6 +6564,11 @@ policy.RequireAnyPermission(
 	rbac.PermFeedbackEdit,
 	rbac.PermPageEdit,
 )
+```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
 ```
 
 #### RBAC Permissions
@@ -6219,6 +6656,11 @@ policy.RequireAnyPermission(
 	rbac.PermFeedbackDelete,
 	rbac.PermPageDelete,
 )
+```
+7. CacheInvalidateOptional
+- Applied Call:
+```go
+policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
 ```
 
 #### RBAC Permissions
@@ -6658,7 +7100,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: team.members[project_id], team.roles[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -6744,7 +7186,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: team.members[project_id], team.roles[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -6826,7 +7268,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: team.members[project_id], team.roles[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -6908,7 +7350,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: team.members[project_id], team.roles[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -6995,7 +7437,7 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 - Auth Status: true
 - Read Cache: none
 - Cache-Control: none
-- Invalidation Tags: team.members[project_id], team.roles[project_id]
+- Invalidation: none
 
 #### Input Structure (JSON)
 ```json
@@ -7022,3 +7464,4 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
   }
 }
 ```
+

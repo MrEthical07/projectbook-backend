@@ -335,7 +335,7 @@ func generateDocs(workspaceRoot string, cfg AuthGenConfig) error {
 		return err
 	}
 
-	docPath := filepath.Join(docsDir, "auth-bootstrap.md")
+	docPath := filepath.Join(docsDir, "authgen-bootstrap.md")
 
 	var b strings.Builder
 	b.WriteString("# Auth Bootstrap Reference\n\n")
