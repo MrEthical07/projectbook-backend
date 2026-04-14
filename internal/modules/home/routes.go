@@ -152,7 +152,7 @@ func (m *Module) Register(r httpx.Router) error {
 					{Name: "home.docs", UserID: true},
 				},
 				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{UserID: true},
+				VaryBy:             cache.CacheVaryBy{},
 			}),
 			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Minute, Vary: []string{"Authorization"}}),
 		)

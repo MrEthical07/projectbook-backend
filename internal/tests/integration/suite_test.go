@@ -20,7 +20,6 @@ import (
 	"time"
 
 	coredb "github.com/MrEthical07/superapi/internal/core/db"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
@@ -634,36 +633,6 @@ func (h *integrationHarness) markUserEmailVerified(t *testing.T, userID string) 
 	}
 }
 
-func (h *integrationHarness) mustLatestVerificationToken(t *testing.T, email string) string {
-	t.Helper()
-
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		var link string
-		err := h.pgPool.QueryRow(context.Background(),
-			`SELECT link FROM auth_email_log WHERE recipient_email = $1 AND kind = 'verify' ORDER BY sent_at DESC LIMIT 1`,
-			email,
-		).Scan(&link)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				time.Sleep(250 * time.Millisecond)
-				continue
-			}
-			t.Fatalf("query verification link: %v", err)
-		}
-
-		token := extractTokenFromLink(link)
-		if strings.TrimSpace(token) != "" {
-			return token
-		}
-
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	t.Fatalf("verification token not found for %s", email)
-	return ""
-}
-
 func (h *integrationHarness) createProject(t *testing.T, ownerToken, name string) projectFixture {
 	t.Helper()
 
@@ -951,45 +920,6 @@ func sanitizeName(raw string) string {
 		return "it"
 	}
 	return out
-}
-
-func extractTokenFromLink(link string) string {
-	trimmed := strings.TrimSpace(link)
-	if trimmed == "" {
-		return ""
-	}
-
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return ""
-	}
-
-	priorityKeys := []string{"token", "code", "verification_token", "verificationToken"}
-	query := parsed.Query()
-	for _, key := range priorityKeys {
-		if value := strings.TrimSpace(query.Get(key)); value != "" {
-			return value
-		}
-	}
-
-	for key, values := range query {
-		_ = key
-		for _, value := range values {
-			if strings.TrimSpace(value) != "" {
-				return strings.TrimSpace(value)
-			}
-		}
-	}
-
-	pathParts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-	if len(pathParts) > 0 {
-		candidate := strings.TrimSpace(pathParts[len(pathParts)-1])
-		if candidate != "" {
-			return candidate
-		}
-	}
-
-	return ""
 }
 
 func (h *integrationHarness) mustFindResourceDocument(t *testing.T, resourceUUID string) bson.M {

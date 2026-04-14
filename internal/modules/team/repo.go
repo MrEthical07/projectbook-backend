@@ -233,14 +233,6 @@ WHERE project_id = $1::uuid
 RETURNING id::text, role::text, is_custom, permission_mask, user_id::text
 `
 
-const queryEnsureRolePermissionsRow = `
-SELECT permission_mask
-FROM role_permissions
-WHERE project_id = $1::uuid
-	AND role = $2::project_role
-LIMIT 1
-`
-
 const queryUpdateRolePermissions = `
 UPDATE role_permissions
 SET

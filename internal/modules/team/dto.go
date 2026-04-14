@@ -214,26 +214,3 @@ func canonicalRoleFromSlug(raw string) (string, bool) {
 		return "", false
 	}
 }
-
-func roleSlug(role string) string {
-	canonical, ok := canonicalRole(role)
-	if !ok {
-		return ""
-	}
-	switch canonical {
-	case rbac.RoleOwner:
-		return "owner"
-	case rbac.RoleAdmin:
-		return "admin"
-	case rbac.RoleEditor:
-		return "editor"
-	case rbac.RoleMember:
-		return "member"
-	case rbac.RoleViewer:
-		return "viewer"
-	case rbac.RoleLimitedAccess:
-		return "limited-access"
-	default:
-		return ""
-	}
-}

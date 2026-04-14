@@ -9,7 +9,7 @@ This file is generated from module route registrations and handler contracts. It
 - Handler signatures: internal/modules/*/handler.go
 - Endpoint IDs: docs/ProjectBookDocs/endpoint-tracker.json
 - Output schema fallback: docs/ProjectBookDocs/API-GUIDELINES.md
-- Generated at: 2026-04-13T19:07:14Z
+- Generated at: 2026-04-14T06:09:01Z
 
 ## Module Endpoint Counts
 
@@ -156,7 +156,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -340,7 +339,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -554,7 +552,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -738,7 +735,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -950,7 +946,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -1137,7 +1132,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -1507,7 +1501,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -1693,7 +1686,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -2058,7 +2050,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -2248,7 +2239,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -2552,7 +2542,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"outcome", "offset", "limit"},
 	},
@@ -2736,7 +2725,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -4490,7 +4478,7 @@ policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 		{Name: "home.docs", UserID: true},
 	},
 	AllowAuthenticated:	true,
-	VaryBy:			cache.CacheVaryBy{UserID: true},
+	VaryBy:			cache.CacheVaryBy{},
 })
 ```
 3. CacheControl
@@ -4508,7 +4496,6 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Mi
   - TTL: 5 * time.Minute
   - AllowAuthenticated: true
   - TagSpecs: home.docs[user_id]
-  - VaryBy: userid
 - Cache-Control Directives: max-age=5 * time.Minute, private
 - Cache-Control Vary: Authorization
 - Invalidation: none
@@ -4840,7 +4827,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -5018,7 +5004,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "slug"},
 	},
 })
@@ -5980,7 +5965,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId"},
 		QueryParams:	[]string{"status", "offset", "limit"},
 	},
@@ -6170,7 +6154,6 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		UserID:		true,
 		PathParams:	[]string{"projectId", "resourceId"},
 	},
 })
@@ -6848,7 +6831,7 @@ policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 		{Name: "team.members", ProjectID: true},
 	},
 	AllowAuthenticated:	true,
-	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+	VaryBy:			cache.CacheVaryBy{ProjectID: true},
 })
 ```
 7. CacheControl
@@ -6866,7 +6849,7 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.S
   - TTL: 30 * time.Second
   - AllowAuthenticated: true
   - TagSpecs: team.members[project_id]
-  - VaryBy: projectid, userid
+  - VaryBy: projectid
 - Cache-Control Directives: max-age=30 * time.Second, private
 - Cache-Control Vary: Authorization
 - Invalidation: none
@@ -6969,7 +6952,7 @@ policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 		{Name: "team.roles", ProjectID: true},
 	},
 	AllowAuthenticated:	true,
-	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+	VaryBy:			cache.CacheVaryBy{ProjectID: true},
 })
 ```
 7. CacheControl
@@ -6987,7 +6970,7 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.S
   - TTL: 30 * time.Second
   - AllowAuthenticated: true
   - TagSpecs: team.roles[project_id]
-  - VaryBy: projectid, userid
+  - VaryBy: projectid
 - Cache-Control Directives: max-age=30 * time.Second, private
 - Cache-Control Vary: Authorization
 - Invalidation: none

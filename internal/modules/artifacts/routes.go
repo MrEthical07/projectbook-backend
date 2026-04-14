@@ -71,7 +71,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"status", "offset", "limit"},
 			},
@@ -99,7 +98,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),
@@ -128,7 +126,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"status", "offset", "limit"},
 			},
@@ -156,7 +153,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),
@@ -185,7 +181,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"status", "offset", "limit"},
 			},
@@ -213,7 +208,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),
@@ -259,7 +253,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"status", "offset", "limit"},
 			},
@@ -287,7 +280,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),
@@ -333,7 +325,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"status", "offset", "limit"},
 			},
@@ -361,7 +352,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),
@@ -399,7 +389,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
-				UserID:      true,
 				PathParams:  []string{"projectId"},
 				QueryParams: []string{"outcome", "offset", "limit"},
 			},
@@ -427,7 +416,6 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				UserID:     true,
 				PathParams: []string{"projectId", "slug"},
 			},
 		}),

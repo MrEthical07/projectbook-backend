@@ -43,7 +43,7 @@ func (m *Module) Register(r httpx.Router) error {
 					{Name: "team.members", ProjectID: true},
 				},
 				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
+				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
 			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)
@@ -62,7 +62,7 @@ func (m *Module) Register(r httpx.Router) error {
 					{Name: "team.roles", ProjectID: true},
 				},
 				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
+				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
 			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
 		)

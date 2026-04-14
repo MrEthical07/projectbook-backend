@@ -190,20 +190,3 @@ func mapAccountStatusToString(s goauth.AccountStatus) string {
 		return "active"
 	}
 }
-
-func parseAccountStatus(s string) goauth.AccountStatus {
-	switch s {
-	case "active":
-		return goauth.AccountActive
-	case "pending_verification":
-		return goauth.AccountPendingVerification
-	case "disabled":
-		return goauth.AccountDisabled
-	case "locked":
-		return goauth.AccountLocked
-	case "deleted":
-		return goauth.AccountDeleted
-	default:
-		return goauth.AccountActive
-	}
-}
