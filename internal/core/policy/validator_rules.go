@@ -143,8 +143,11 @@ func validateCacheSafety(metas []Metadata) error {
 
 	cacheReadPolicies := findPolicies(metas, PolicyTypeCacheRead)
 	for _, cacheRead := range cacheReadPolicies {
+		if cacheRead.CacheRead.SharedAuthenticated {
+			continue
+		}
 		if !cacheRead.CacheRead.VaryByUserID && !cacheRead.CacheRead.VaryByProjectID {
-			return fmt.Errorf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID", PolicyTypeCacheRead)
+			return fmt.Errorf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID unless SharedAuthenticated is true", PolicyTypeCacheRead)
 		}
 	}
 

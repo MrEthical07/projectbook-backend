@@ -51,7 +51,7 @@ Validator checks include:
 - RBAC checks require `ResolvePermissions`
 - `ProjectMatchFromPath` requires `ProjectRequired`
 - routes with `{project_id}` or `{projectId}` must include project policies
-- authenticated `CacheRead` must vary by `UserID` or `ProjectID`
+- authenticated `CacheRead` must vary by `UserID` or `ProjectID` unless `SharedAuthenticated` is explicitly enabled for invariant responses
 
 These rules are applied:
 - at runtime route registration
@@ -167,6 +167,7 @@ Important fields:
 - `TagSpecs`
 - `VaryBy`
 - `AllowAuthenticated`
+- `SharedAuthenticated` (only for authenticated responses that are invariant across callers)
 - `Methods`
 - `CacheStatuses`
 - optional `FailOpen`
@@ -238,7 +239,7 @@ No project/resolver/RBAC policies are applied to public auth entry routes.
 Check:
 1. policy order for the failing route
 2. missing required dependencies (auth, resolver, project matcher)
-3. authenticated cache route missing `VaryBy.UserID` or `VaryBy.ProjectID`
+3. authenticated cache route missing `VaryBy.UserID` or `VaryBy.ProjectID` without `SharedAuthenticated: true`
 
 ### 8.2 Protected project route returns 401
 

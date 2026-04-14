@@ -76,6 +76,24 @@ func TestMustValidateRoutePanicsOnUnsafeAuthenticatedCache(t *testing.T) {
 	})
 }
 
+func TestMustValidateRoutePassesOnSharedAuthenticatedCache(t *testing.T) {
+	mr := miniredis.RunT(t)
+	mgr := newCacheManagerForPolicyTests(t, mr.Addr(), true)
+
+	assertRouteConfigDoesNotPanic(t, func() {
+		MustValidateRoute(
+			http.MethodGet,
+			"/api/v1/home/docs",
+			AuthRequired(nil, auth.ModeHybrid),
+			CacheRead(mgr, cache.CacheReadConfig{
+				TTL:                 time.Minute,
+				AllowAuthenticated:  true,
+				SharedAuthenticated: true,
+			}),
+		)
+	})
+}
+
 func TestMustValidateRoutePanicsOnProjectPathWithoutMatchPolicy(t *testing.T) {
 	assertRouteConfigPanic(t, string(PolicyTypeProjectMatchFromPath), func() {
 		MustValidateRoute(

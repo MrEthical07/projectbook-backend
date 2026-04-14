@@ -94,7 +94,7 @@ func hintForDiagnostic(message string) string {
 	case strings.Contains(normalized, "requires projectrequired"):
 		return "route path includes {project_id}; add policy.ProjectRequired() and policy.ProjectMatchFromPath(\"project_id\"). See docs/policies.md"
 	case strings.Contains(normalized, "requires varyby.userid or varyby.projectid"):
-		return "CacheRead on authenticated routes must vary by identity. Add VaryBy.UserID or VaryBy.ProjectID. See docs/cache-guide.md"
+		return "CacheRead on authenticated routes must vary by identity, or explicitly set SharedAuthenticated: true for invariant authenticated responses. See docs/cache-guide.md"
 	case strings.Contains(normalized, "unsupported policy constructor"):
 		return "use supported policy constructors from internal/core/policy or extend static validator support first"
 	case strings.Contains(normalized, "variadic spread policies are not supported"):

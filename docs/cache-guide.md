@@ -239,7 +239,7 @@ Cache write is bypassed when:
 5. Response is streaming/hijacked
 
 Auth safety rule still applies:
-- authenticated route cache requires `VaryBy.UserID` or `VaryBy.ProjectID`.
+- authenticated route cache requires `VaryBy.UserID` or `VaryBy.ProjectID` unless `SharedAuthenticated` is set to true for invariant authenticated responses.
 
 ---
 

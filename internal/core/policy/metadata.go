@@ -53,6 +53,8 @@ const (
 type CacheReadMetadata struct {
 	// AllowAuthenticated indicates route opted into authenticated caching.
 	AllowAuthenticated bool
+	// SharedAuthenticated indicates route explicitly allows shared cache entries across authenticated callers.
+	SharedAuthenticated bool
 	// VaryByUserID indicates cache key varies by user ID.
 	VaryByUserID bool
 	// VaryByProjectID indicates cache key varies by project ID.

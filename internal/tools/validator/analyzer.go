@@ -332,6 +332,10 @@ func parseCacheReadMetadata(call *ast.CallExpr) corepolicy.CacheReadMetadata {
 			if value, ok := boolLiteral(kv.Value); ok {
 				meta.AllowAuthenticated = value
 			}
+		case "SharedAuthenticated":
+			if value, ok := boolLiteral(kv.Value); ok {
+				meta.SharedAuthenticated = value
+			}
 		case "VaryBy":
 			varyBy, ok := kv.Value.(*ast.CompositeLit)
 			if !ok {

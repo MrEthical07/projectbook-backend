@@ -149,10 +149,11 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 				TTL: 5 * time.Minute,
 				TagSpecs: []cache.CacheTagSpec{
-					{Name: "home.docs", UserID: true},
+					{Name: "home.docs"},
 				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{},
+				AllowAuthenticated:  true,
+				SharedAuthenticated: true,
+				VaryBy:              cache.CacheVaryBy{},
 			}),
 			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Minute, Vary: []string{"Authorization"}}),
 		)

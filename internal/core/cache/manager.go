@@ -81,6 +81,8 @@ type CacheReadConfig struct {
 	FailOpen *bool
 	// AllowAuthenticated marks authenticated responses as cache-eligible when safely varied.
 	AllowAuthenticated bool
+	// SharedAuthenticated allows authenticated caching without identity vary when response is invariant across authenticated callers.
+	SharedAuthenticated bool
 }
 
 // CacheInvalidateConfig defines route-level cache invalidation behavior.

@@ -48,7 +48,7 @@ func newCacheReadRuntime(manager *cache.Manager, cfg cache.CacheReadConfig) cach
 		allowedMethods:    buildMethodSet(cfg.Methods),
 		cacheStatuses:     buildCacheStatusSet(cfg.CacheStatuses),
 		maxBytes:          maxBytes,
-		requireAuthSafety: !template.UserID && !template.ProjectID,
+		requireAuthSafety: !cfg.SharedAuthenticated && !template.UserID && !template.ProjectID,
 	}
 }
 
@@ -146,7 +146,7 @@ func (c *cacheReadRuntime) routeLabel(route string) string {
 //
 // Notes:
 // - TTL must be > 0
-// - Authenticated cache usage requires VaryBy.UserID or VaryBy.ProjectID
+// - Authenticated cache usage requires VaryBy.UserID or VaryBy.ProjectID unless SharedAuthenticated is true
 func CacheRead(manager *cache.Manager, cfg cache.CacheReadConfig) Policy {
 	if manager == nil {
 		panicInvalidRouteConfigf("%s requires a non-nil cache manager", PolicyTypeCacheRead)
@@ -233,9 +233,10 @@ func CacheRead(manager *cache.Manager, cfg cache.CacheReadConfig) Policy {
 		Type: PolicyTypeCacheRead,
 		Name: "CacheRead",
 		CacheRead: CacheReadMetadata{
-			AllowAuthenticated: cfg.AllowAuthenticated,
-			VaryByUserID:       cfg.VaryBy.UserID,
-			VaryByProjectID:    cfg.VaryBy.ProjectID,
+			AllowAuthenticated:  cfg.AllowAuthenticated,
+			SharedAuthenticated: cfg.SharedAuthenticated,
+			VaryByUserID:        cfg.VaryBy.UserID,
+			VaryByProjectID:     cfg.VaryBy.ProjectID,
 		},
 	})
 }
@@ -407,7 +408,7 @@ func ensureAuthCacheSafety(r *http.Request) {
 	if !hasAuthPrincipal(r) {
 		return
 	}
-	panicInvalidRouteConfigf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID", PolicyTypeCacheRead)
+	panicInvalidRouteConfigf("%s on authenticated routes requires VaryBy.UserID or VaryBy.ProjectID unless SharedAuthenticated is true", PolicyTypeCacheRead)
 }
 
 func validateCacheTagSpecs(specs []cache.CacheTagSpec, requireAtLeastOne bool) error {

@@ -87,6 +87,83 @@ func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter rat
 	}
 }
 
+func TestAnalyzePathsPassesSharedAuthenticatedCacheWithoutIdentityVary(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "routes.go")
+	source := `package sample
+import (
+	"net/http"
+	"time"
+	goauth "github.com/MrEthical07/goAuth"
+	"github.com/MrEthical07/superapi/internal/core/cache"
+	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/policy"
+)
+
+func register(r httpx.Router, h http.Handler, engine *goauth.Engine, cacheManager *cache.Manager) {
+	r.Handle(http.MethodGet, "/api/v1/home/docs", h,
+		policy.AuthRequired(engine, "strict"),
+		policy.CacheRead(cacheManager, cache.CacheReadConfig{TTL: time.Minute, AllowAuthenticated: true, SharedAuthenticated: true}),
+	)
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	diagnostics, err := AnalyzePaths([]string{tempDir})
+	if err != nil {
+		t.Fatalf("AnalyzePaths() error = %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("unexpected diagnostics: %+v", diagnostics)
+	}
+}
+
+func TestAnalyzePathsDetectsUnsafeAuthenticatedCacheWithoutIdentityVary(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "routes.go")
+	source := `package sample
+import (
+	"net/http"
+	"time"
+	goauth "github.com/MrEthical07/goAuth"
+	"github.com/MrEthical07/superapi/internal/core/cache"
+	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/policy"
+)
+
+func register(r httpx.Router, h http.Handler, engine *goauth.Engine, cacheManager *cache.Manager) {
+	r.Handle(http.MethodGet, "/api/v1/home/docs", h,
+		policy.AuthRequired(engine, "strict"),
+		policy.CacheRead(cacheManager, cache.CacheReadConfig{TTL: time.Minute, AllowAuthenticated: true}),
+	)
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	diagnostics, err := AnalyzePaths([]string{tempDir})
+	if err != nil {
+		t.Fatalf("AnalyzePaths() error = %v", err)
+	}
+	if len(diagnostics) == 0 {
+		t.Fatalf("expected diagnostics")
+	}
+
+	found := false
+	for _, diagnostic := range diagnostics {
+		if strings.Contains(diagnostic.Message, "VaryBy.UserID or VaryBy.ProjectID") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected cache vary diagnostic, got: %+v", diagnostics)
+	}
+}
+
 func TestAnalyzePathsSkipsDynamicPatternWithoutPolicies(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "routes.go")

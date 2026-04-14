@@ -152,6 +152,44 @@ func TestCacheReadAuthSafetyPanicsWithoutUserOrTenantVary(t *testing.T) {
 	r.ServeHTTP(httptest.NewRecorder(), req1)
 }
 
+func TestCacheReadAuthSafetyAllowsSharedAuthenticatedCacheWithoutIdentityVary(t *testing.T) {
+	mr := miniredis.RunT(t)
+	mgr := newCacheManagerForPolicyTests(t, mr.Addr(), true)
+
+	calls := 0
+	r := chi.NewRouter()
+	r.Get("/api/v1/tenants/{id}", Chain(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"ok":true}`))
+		}),
+		CacheRead(mgr, cache.CacheReadConfig{
+			TTL:                 30 * time.Second,
+			AllowAuthenticated:  true,
+			SharedAuthenticated: true,
+			VaryBy:              cache.CacheVaryBy{PathParams: []string{"id"}},
+		}),
+	).ServeHTTP)
+
+	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t1", nil)
+	req1 = req1.WithContext(auth.WithContext(req1.Context(), auth.AuthContext{UserID: "u1", ProjectID: "t1"}))
+	rr1 := httptest.NewRecorder()
+	r.ServeHTTP(rr1, req1)
+
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t1", nil)
+	req2 = req2.WithContext(auth.WithContext(req2.Context(), auth.AuthContext{UserID: "u2", ProjectID: "t1"}))
+	rr2 := httptest.NewRecorder()
+	r.ServeHTTP(rr2, req2)
+
+	if calls != 1 {
+		t.Fatalf("handler calls=%d want=1", calls)
+	}
+	if rr1.Code != http.StatusOK || rr2.Code != http.StatusOK {
+		t.Fatalf("unexpected statuses first=%d second=%d", rr1.Code, rr2.Code)
+	}
+}
+
 func TestCacheReadAuthVaryByUserProducesDifferentEntries(t *testing.T) {
 	mr := miniredis.RunT(t)
 	mgr := newCacheManagerForPolicyTests(t, mr.Addr(), true)

@@ -9,7 +9,7 @@ This file is generated from module route registrations and handler contracts. It
 - Handler signatures: internal/modules/*/handler.go
 - Endpoint IDs: docs/ProjectBookDocs/endpoint-tracker.json
 - Output schema fallback: docs/ProjectBookDocs/API-GUIDELINES.md
-- Generated at: 2026-04-14T06:09:01Z
+- Generated at: 2026-04-14T14:13:13Z
 
 ## Module Endpoint Counts
 
@@ -4475,9 +4475,10 @@ policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
 policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 	TTL:	5 * time.Minute,
 	TagSpecs: []cache.CacheTagSpec{
-		{Name: "home.docs", UserID: true},
+		{Name: "home.docs"},
 	},
 	AllowAuthenticated:	true,
+	SharedAuthenticated:	true,
 	VaryBy:			cache.CacheVaryBy{},
 })
 ```
@@ -4495,7 +4496,7 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Mi
 - Read Cache:
   - TTL: 5 * time.Minute
   - AllowAuthenticated: true
-  - TagSpecs: home.docs[user_id]
+  - TagSpecs: home.docs
 - Cache-Control Directives: max-age=5 * time.Minute, private
 - Cache-Control Vary: Authorization
 - Invalidation: none
