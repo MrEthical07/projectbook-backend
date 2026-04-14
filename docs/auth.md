@@ -62,6 +62,10 @@ This context is consumed by:
   - long-lived session token
   - used by `/api/v1/auth/refresh`
   - revocation-aware via goAuth session subsystem
+- Permission context token:
+  - backend-issued signed token from `/api/v1/system/session-context`
+  - embeds user + project permission matrix snapshot for frontend server-side locals hydration
+  - 30-minute max TTL (aligned with session-context refresh cadence)
 
 ### 2.3 Data primitives
 
@@ -194,11 +198,22 @@ Auth routes are registered in `internal/modules/auth/routes.go`.
 | POST | `/api/v1/auth/resend-verification` | no | yes | `20/min` by IP |
 | POST | `/api/v1/auth/forgot-password` | no | yes | `15/min` by IP |
 | POST | `/api/v1/auth/reset-password` | no | yes | `15/min` by IP |
-| POST | `/api/v1/auth/refresh` | no | yes | `45/min` by IP |
+| POST | `/api/v1/auth/refresh` | no | yes | `45/min` by refresh token hash (IP fallback) |
 | POST | `/api/v1/auth/logout` | yes | no | `60/min` by user/project/token hash |
 
 Note:
 - `/api/v1/auth/refresh` exists as a compatibility endpoint and is intentionally retained.
+
+### 6.1 Session context endpoint for frontend permission hydration
+
+`GET /api/v1/system/session-context` returns:
+- authenticated `user_id`
+- backend role
+- per-project permission matrix
+- snapshot hash
+- backend-issued signed `context_token` (30-minute expiry)
+
+This endpoint is intended for frontend server boundaries to hydrate request locals with project-scoped permission mask state, without calling `whoami` on every request.
 
 ## 7. Policy Patterns For Auth Routes
 
@@ -239,6 +254,7 @@ Environment variables:
 - `AUTH_ENABLED` (default `true`)
 - `AUTH_MODE` (default `hybrid`)
 - `AUTH_TEST_SHARED_SECRET` (optional)
+- `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` (shared with frontend server, minimum 32 chars recommended)
 
 Startup lint constraints:
 - if auth enabled, Redis must be enabled

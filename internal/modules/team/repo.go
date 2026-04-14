@@ -22,6 +22,7 @@ var (
 	ErrTeamInviteNotFound     = errors.New("team invite not found")
 	ErrTeamInviteNotPending   = errors.New("team invite not pending")
 	ErrTeamMemberNotFound     = errors.New("team member not found")
+	ErrTeamUserNotFound       = errors.New("team user not found")
 	ErrTeamRoleNotFound       = errors.New("team role not found")
 	ErrTeamOwnerImmutable     = errors.New("team owner immutable")
 	ErrTeamMemberAlreadyExist = errors.New("team member already exists")
@@ -137,6 +138,14 @@ SELECT EXISTS(
 	JOIN users u ON u.id = pm.user_id
 	WHERE pm.project_id = $1::uuid
 		AND lower(u.email) = lower($2)
+)
+`
+
+const queryIsRegisteredUserEmailPresent = `
+SELECT EXISTS(
+	SELECT 1
+	FROM users u
+	WHERE lower(u.email) = lower($1)
 )
 `
 
@@ -422,6 +431,14 @@ func (r *repo) CreateInvite(ctx context.Context, input createInviteInput) (creat
 		return createInviteResponse{}, err
 	}
 
+	userExists, err := r.userEmailExists(ctx, input.Email)
+	if err != nil {
+		return createInviteResponse{}, err
+	}
+	if !userExists {
+		return createInviteResponse{}, ErrTeamUserNotFound
+	}
+
 	exists, err := r.memberEmailExists(ctx, identity.UUID, input.Email)
 	if err != nil {
 		return createInviteResponse{}, err
@@ -670,6 +687,21 @@ func (r *repo) memberEmailExists(ctx context.Context, projectUUID, email string)
 	))
 	if err != nil {
 		return false, wrapRepoError("check member email", err)
+	}
+	return exists, nil
+}
+
+func (r *repo) userEmailExists(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		queryIsRegisteredUserEmailPresent,
+		func(row storage.RowScanner) error {
+			return row.Scan(&exists)
+		},
+		normalizeEmail(email),
+	))
+	if err != nil {
+		return false, wrapRepoError("check registered user email", err)
 	}
 	return exists, nil
 }

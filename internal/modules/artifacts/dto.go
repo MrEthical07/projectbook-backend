@@ -147,9 +147,11 @@ func (r updateStoryRequest) Validate() error {
 		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "story payload is required")
 	}
 	if status := toString(r.Story["status"]); status != "" {
-		if !isAllowedStatus(storyStatuses, status) {
+		canonicalStatus, ok := normalizeAllowedStatus(storyStatuses, status)
+		if !ok {
 			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid story status")
 		}
+		r.Story["status"] = canonicalStatus
 	}
 	return nil
 }
@@ -163,9 +165,11 @@ func (r updateJourneyRequest) Validate() error {
 		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "journey payload is required")
 	}
 	if status := toString(r.Journey["status"]); status != "" {
-		if !isAllowedStatus(journeyStatuses, status) {
+		canonicalStatus, ok := normalizeAllowedStatus(journeyStatuses, status)
+		if !ok {
 			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid journey status")
 		}
+		r.Journey["status"] = canonicalStatus
 	}
 	return nil
 }
@@ -283,12 +287,24 @@ func normalizeLimit(limit int) int {
 }
 
 func isAllowedStatus(allowed map[string]struct{}, raw string) bool {
+	_, ok := normalizeAllowedStatus(allowed, raw)
+	return ok
+}
+
+func normalizeAllowedStatus(allowed map[string]struct{}, raw string) (string, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return false
+		return "", false
 	}
-	_, ok := allowed[trimmed]
-	return ok
+	if _, ok := allowed[trimmed]; ok {
+		return trimmed, true
+	}
+	for candidate := range allowed {
+		if strings.EqualFold(candidate, trimmed) {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 func normalizeArtifactType(raw string) (string, bool) {

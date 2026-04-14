@@ -172,6 +172,7 @@ Read paths do not require forced transaction wrapping.
 - Integration location: `internal/core/auth`
 - Provider bridge: store-backed `StoreUserProvider`
 - User persistence: `UserRepository` over relational store
+- System session-context route issues a backend-signed permission-context token for frontend server-side permission hydration (`internal/modules/system/routes.go`)
 
 Auth mode surface:
 - `jwt_only`

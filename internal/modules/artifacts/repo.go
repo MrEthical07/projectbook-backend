@@ -209,16 +209,16 @@ func (r *repo) GetStory(ctx context.Context, projectID, slug string) (map[string
 		return nil, err
 	}
 
-	var id, foundSlug, title, status, ownerName, lastUpdated string
+	var id, foundSlug, title, status, ownerName, createdAt, lastUpdated string
 	var isOrphan bool
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT s.id::text, s.slug, s.title, s.status::text, COALESCE(u.name, ''), COALESCE(to_char(s.updated_at, 'YYYY-MM-DD'), ''), s.is_orphan
+		`SELECT s.id::text, s.slug, s.title, s.status::text, COALESCE(u.name, ''), COALESCE(to_char(s.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(s.updated_at, 'YYYY-MM-DD'), ''), s.is_orphan
 		 FROM stories s
 		 JOIN users u ON u.id = s.owner_user_id
 		 WHERE s.project_id = $1::uuid AND (s.slug = $2 OR s.id::text = $2)
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &lastUpdated, &isOrphan)
+			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &createdAt, &lastUpdated, &isOrphan)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -234,6 +234,10 @@ func (r *repo) GetStory(ctx context.Context, projectID, slug string) (map[string
 	if err != nil {
 		return nil, err
 	}
+	addOnSections := toSlice(content["addOnSections"])
+	if addOnSections == nil {
+		addOnSections = []any{}
+	}
 
 	return map[string]any{
 		"story": map[string]any{
@@ -243,9 +247,17 @@ func (r *repo) GetStory(ctx context.Context, projectID, slug string) (map[string
 			"owner":       ownerName,
 			"lastUpdated": lastUpdated,
 		},
+		"metadata": map[string]any{
+			"owner":        ownerName,
+			"createdBy":    ownerName,
+			"createdAt":    createdAt,
+			"lastEditedBy": ownerName,
+			"lastEditedAt": lastUpdated,
+			"lastUpdated":  lastUpdated,
+		},
 		"detail":        content,
-		"addOnCatalog":  []any{},
-		"addOnSections": []any{},
+		"addOnCatalog":  storyAddOnCatalog(),
+		"addOnSections": addOnSections,
 		"reference": map[string]any{
 			"permissions": map[string]any{},
 		},
@@ -439,15 +451,15 @@ func (r *repo) GetJourney(ctx context.Context, projectID, slug string) (map[stri
 		return nil, err
 	}
 
-	var id, foundSlug, title, status, ownerName, lastUpdated string
+	var id, foundSlug, title, status, ownerName, createdAt, lastUpdated string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT j.id::text, j.slug, j.title, j.status::text, COALESCE(u.name, ''), COALESCE(to_char(j.updated_at, 'YYYY-MM-DD'), '')
+		`SELECT j.id::text, j.slug, j.title, j.status::text, COALESCE(u.name, ''), COALESCE(to_char(j.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(j.updated_at, 'YYYY-MM-DD'), '')
 		 FROM journeys j
 		 JOIN users u ON u.id = j.owner_user_id
 		 WHERE j.project_id = $1::uuid AND (j.slug = $2 OR j.id::text = $2)
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &lastUpdated)
+			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &createdAt, &lastUpdated)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -471,6 +483,14 @@ func (r *repo) GetJourney(ctx context.Context, projectID, slug string) (map[stri
 			"status":      status,
 			"owner":       ownerName,
 			"lastUpdated": lastUpdated,
+		},
+		"metadata": map[string]any{
+			"owner":        ownerName,
+			"createdBy":    ownerName,
+			"createdAt":    createdAt,
+			"lastEditedBy": ownerName,
+			"lastEditedAt": lastUpdated,
+			"lastUpdated":  lastUpdated,
 		},
 		"detail":         content,
 		"emotionOptions": []string{"Neutral", "Frustrated", "Anxious", "Relieved"},
@@ -649,15 +669,15 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 	if err != nil {
 		return nil, err
 	}
-	var id, foundSlug, statement, status, ownerName, lastUpdated string
+	var id, foundSlug, statement, status, ownerName, createdAt, lastUpdated string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT p.id::text, p.slug, p.title, p.status::text, COALESCE(u.name, ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), '')
+		`SELECT p.id::text, p.slug, p.title, p.status::text, COALESCE(u.name, ''), COALESCE(to_char(p.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), '')
 		 FROM problems p
 		 JOIN users u ON u.id = p.owner_user_id
 		 WHERE p.project_id = $1::uuid AND (p.slug = $2 OR p.id::text = $2)
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &statement, &status, &ownerName, &lastUpdated)
+			return row.Scan(&id, &foundSlug, &statement, &status, &ownerName, &createdAt, &lastUpdated)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -681,6 +701,14 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			"status":      status,
 			"owner":       ownerName,
 			"lastUpdated": lastUpdated,
+		},
+		"metadata": map[string]any{
+			"owner":        ownerName,
+			"createdBy":    ownerName,
+			"createdAt":    createdAt,
+			"lastEditedBy": ownerName,
+			"lastEditedAt": lastUpdated,
+			"lastUpdated":  lastUpdated,
 		},
 		"detail": content,
 		"reference": map[string]any{
@@ -1555,15 +1583,15 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	if err != nil {
 		return nil, err
 	}
-	var id, foundSlug, title, outcome, ownerName, createdDate string
+	var id, foundSlug, title, outcome, ownerName, createdDate, updatedDate string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), COALESCE(u.name, ''), COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), '')
+		`SELECT f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), COALESCE(u.name, ''), COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(f.updated_at, 'YYYY-MM-DD'), '')
 		 FROM feedback f
 		 JOIN users u ON u.id = f.owner_user_id
 		 WHERE f.project_id = $1::uuid AND (f.slug = $2 OR f.id::text = $2)
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &title, &outcome, &ownerName, &createdDate)
+			return row.Scan(&id, &foundSlug, &title, &outcome, &ownerName, &createdDate, &updatedDate)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -1585,6 +1613,15 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 			"outcome":     outcome,
 			"owner":       ownerName,
 			"createdDate": createdDate,
+			"lastUpdated": updatedDate,
+		},
+		"metadata": map[string]any{
+			"owner":        ownerName,
+			"createdBy":    ownerName,
+			"createdAt":    createdDate,
+			"lastEditedBy": ownerName,
+			"lastEditedAt": updatedDate,
+			"lastUpdated":  updatedDate,
 		},
 		"detail":    content,
 		"reference": map[string]any{"taskOptions": []any{}, "ideaOptions": []any{}, "problemOptions": []any{}, "permissions": map[string]any{}},
@@ -2059,7 +2096,55 @@ func defaultStoryContent(title string) map[string]any {
 		"empathyMap": map[string]any{"says": "", "thinks": "", "does": "", "feels": ""},
 		"painPoints": []any{},
 		"hypothesis": []any{},
+		"addOnSections": []any{},
 		"notes":      "",
+	}
+}
+
+func storyAddOnCatalog() []any {
+	return []any{
+		map[string]any{
+			"type":        "goals_success",
+			"name":        "Goals & Success Criteria",
+			"description": "Define what success looks like from the user's perspective.",
+			"tag":         "Recommended",
+		},
+		map[string]any{
+			"type":        "jtbd",
+			"name":        "Jobs To Be Done (JTBD)",
+			"description": "Capture functional, supporting, and emotional jobs.",
+			"tag":         "Recommended",
+		},
+		map[string]any{
+			"type":        "assumptions",
+			"name":        "Assumptions",
+			"description": "Make hidden assumptions explicit.",
+			"tag":         "Optional",
+		},
+		map[string]any{
+			"type":        "constraints",
+			"name":        "Constraints",
+			"description": "Capture environmental, technical, or behavioral limits.",
+			"tag":         "Optional",
+		},
+		map[string]any{
+			"type":        "risks_unknowns",
+			"name":        "Risks & Unknowns",
+			"description": "Identify uncertainty early.",
+			"tag":         "Recommended",
+		},
+		map[string]any{
+			"type":        "evidence",
+			"name":        "Evidence / Research References",
+			"description": "Ground the story in data and references.",
+			"tag":         "Optional",
+		},
+		map[string]any{
+			"type":        "scenarios",
+			"name":        "Scenarios / Edge Cases",
+			"description": "Capture non-happy paths and expectations.",
+			"tag":         "Optional",
+		},
 	}
 }
 

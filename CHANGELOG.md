@@ -2,6 +2,25 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.9 (2026-04-14)
+
+### Added
+- System session-context response now includes backend-issued signed permission-context token fields:
+	- `context_token`
+	- `context_token_expires_utc`
+	- `context_token_expires_unix`
+	- `context_token_version`
+- Added session-context token construction and signing helpers in `internal/modules/system/routes.go`.
+- Added system token tests in `internal/modules/system/routes_test.go` for claim payload and secret resolution behavior.
+
+### Changed
+- Auth refresh route rate-limit keying now uses refresh-token hash with IP fallback (`internal/modules/auth/routes.go`) to reduce cross-user coupling under shared IPs.
+- Added refresh keyer coverage in `internal/modules/auth/routes_test.go`.
+
+### Security
+- Introduced `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` for backend-issued permission-context token signing.
+- Updated auth and environment documentation for shared frontend/backend verification secret requirements.
+
 ## v0.7.8 (2026-04-11)
 
 ### Added

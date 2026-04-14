@@ -116,6 +116,7 @@ Explicit env values override profile defaults.
 | `AUTH_ENABLED` | `true` |
 | `AUTH_MODE` | `hybrid` |
 | `AUTH_TEST_SHARED_SECRET` | empty |
+| `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` | `projectbook-dev-permission-context-secret` |
 
 `AUTH_MODE` valid values:
 - `jwt_only`

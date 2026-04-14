@@ -1,7 +1,13 @@
 package auth
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MrEthical07/superapi/internal/core/httpx"
@@ -53,7 +59,7 @@ func (m *Module) Register(r httpx.Router) error {
 		// Compatibility endpoint kept for performance/load tooling during migration.
 		r.Handle(http.MethodPost, "/api/v1/auth/refresh", httpx.Adapter(m.handler.Refresh),
 			policy.RequireJSON(),
-			policy.RateLimitWithKeyer(limiter, "auth.refresh", refreshRule, ratelimit.KeyByIP()),
+			policy.RateLimitWithKeyer(limiter, "auth.refresh", refreshRule, refreshTokenRateLimitKeyer(16)),
 		)
 
 		r.Handle(
@@ -84,4 +90,45 @@ func (m *Module) Register(r httpx.Router) error {
 	)
 
 	return nil
+}
+
+func refreshTokenRateLimitKeyer(prefixLen int) ratelimit.Keyer {
+	if prefixLen <= 0 {
+		prefixLen = 16
+	}
+	fallback := ratelimit.KeyByIP()
+
+	return func(r *http.Request) (ratelimit.Scope, string) {
+		if r == nil || r.Body == nil {
+			return fallback(r)
+		}
+
+		payload, err := io.ReadAll(io.LimitReader(r.Body, 4096))
+		if err != nil {
+			return fallback(r)
+		}
+		_ = r.Body.Close()
+		r.Body = io.NopCloser(bytes.NewReader(payload))
+
+		var body struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := json.Unmarshal(payload, &body); err != nil {
+			return fallback(r)
+		}
+
+		token := strings.TrimSpace(body.RefreshToken)
+		if token == "" {
+			return fallback(r)
+		}
+
+		hash := sha256.Sum256([]byte(token))
+		hexHash := hex.EncodeToString(hash[:])
+		effectivePrefix := prefixLen
+		if effectivePrefix > len(hexHash) {
+			effectivePrefix = len(hexHash)
+		}
+
+		return ratelimit.ScopeToken, hexHash[:effectivePrefix]
+	}
 }

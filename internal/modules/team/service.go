@@ -21,6 +21,7 @@ const (
 	codeInviteExists      apperr.Code = "invite_exists"
 	codeInviteNotFound    apperr.Code = "invite_not_found"
 	codeMemberExists      apperr.Code = "member_exists"
+	codeUserNotFound      apperr.Code = "user_not_found"
 	codeRoleConfigMissing apperr.Code = "role_config_missing"
 	codeAlreadyCancelled  apperr.Code = "already_cancelled"
 )
@@ -386,6 +387,8 @@ func mapTeamRepoError(err error) error {
 		return apperr.New(codeAlreadyCancelled, http.StatusBadRequest, "only pending invites can be cancelled")
 	case errors.Is(err, ErrTeamMemberNotFound):
 		return apperr.New(apperr.CodeNotFound, http.StatusNotFound, "member not found")
+	case errors.Is(err, ErrTeamUserNotFound):
+		return apperr.New(codeUserNotFound, http.StatusNotFound, "user not found for invite email")
 	case errors.Is(err, ErrTeamRoleNotFound):
 		return apperr.New(codeRoleConfigMissing, http.StatusNotFound, "role permissions not configured for project")
 	case errors.Is(err, ErrTeamOwnerImmutable):
