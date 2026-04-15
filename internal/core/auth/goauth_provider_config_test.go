@@ -129,8 +129,23 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if !cfg.PasswordReset.Enabled {
 		t.Fatalf("PasswordReset.Enabled=false want=true")
 	}
-	if cfg.PasswordReset.ResetTTL != time.Hour {
-		t.Fatalf("PasswordReset.ResetTTL=%s want=%s", cfg.PasswordReset.ResetTTL, time.Hour)
+	if cfg.PasswordReset.Strategy != goauth.ResetOTP {
+		t.Fatalf("PasswordReset.Strategy=%v want=%v", cfg.PasswordReset.Strategy, goauth.ResetOTP)
+	}
+	if cfg.PasswordReset.ResetTTL != 15*time.Minute {
+		t.Fatalf("PasswordReset.ResetTTL=%s want=%s", cfg.PasswordReset.ResetTTL, 15*time.Minute)
+	}
+	if cfg.PasswordReset.MaxAttempts != 5 {
+		t.Fatalf("PasswordReset.MaxAttempts=%d want=5", cfg.PasswordReset.MaxAttempts)
+	}
+	if cfg.PasswordReset.OTPDigits != 6 {
+		t.Fatalf("PasswordReset.OTPDigits=%d want=6", cfg.PasswordReset.OTPDigits)
+	}
+	if !cfg.PasswordReset.EnableRequestLimiter {
+		t.Fatalf("PasswordReset.EnableRequestLimiter=false want=true")
+	}
+	if !cfg.PasswordReset.EnableConfirmFailureLimiter {
+		t.Fatalf("PasswordReset.EnableConfirmFailureLimiter=false want=true")
 	}
 	if !cfg.EmailVerification.Enabled {
 		t.Fatalf("EmailVerification.Enabled=false want=true")
@@ -138,8 +153,17 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if !cfg.EmailVerification.RequireForLogin {
 		t.Fatalf("EmailVerification.RequireForLogin=false want=true")
 	}
-	if cfg.EmailVerification.VerificationTTL != 24*time.Hour {
-		t.Fatalf("EmailVerification.VerificationTTL=%s want=%s", cfg.EmailVerification.VerificationTTL, 24*time.Hour)
+	if cfg.EmailVerification.Strategy != goauth.VerificationOTP {
+		t.Fatalf("EmailVerification.Strategy=%v want=%v", cfg.EmailVerification.Strategy, goauth.VerificationOTP)
+	}
+	if cfg.EmailVerification.VerificationTTL != 15*time.Minute {
+		t.Fatalf("EmailVerification.VerificationTTL=%s want=%s", cfg.EmailVerification.VerificationTTL, 15*time.Minute)
+	}
+	if cfg.EmailVerification.MaxAttempts != 5 {
+		t.Fatalf("EmailVerification.MaxAttempts=%d want=5", cfg.EmailVerification.MaxAttempts)
+	}
+	if cfg.EmailVerification.OTPDigits != 6 {
+		t.Fatalf("EmailVerification.OTPDigits=%d want=6", cfg.EmailVerification.OTPDigits)
 	}
 	if !cfg.Account.Enabled {
 		t.Fatalf("Account.Enabled=false want=true")

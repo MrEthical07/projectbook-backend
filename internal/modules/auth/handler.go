@@ -70,6 +70,24 @@ func (h *Handler) ResetPassword(ctx *httpx.Context, req resetPasswordRequest) (s
 	return h.svc.ResetPassword(ctx.Context(), req)
 }
 
+func (h *Handler) RequestChangePasswordOTP(ctx *httpx.Context, req changePasswordRequestOTPRequest) (statusResponse, error) {
+	principal, ok := ctx.Auth()
+	if !ok || strings.TrimSpace(principal.UserID) == "" {
+		return statusResponse{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+	}
+
+	return h.svc.RequestChangePasswordOTP(ctx.Context(), strings.TrimSpace(principal.UserID), req)
+}
+
+func (h *Handler) ConfirmChangePassword(ctx *httpx.Context, req changePasswordConfirmRequest) (statusResponse, error) {
+	principal, ok := ctx.Auth()
+	if !ok || strings.TrimSpace(principal.UserID) == "" {
+		return statusResponse{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+	}
+
+	return h.svc.ConfirmChangePassword(ctx.Context(), strings.TrimSpace(principal.UserID), req)
+}
+
 func bearerTokenFromHeader(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {

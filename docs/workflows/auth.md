@@ -10,8 +10,10 @@ Module path: `internal/modules/auth`
 4. `POST /api/v1/auth/resend-verification`
 5. `POST /api/v1/auth/forgot-password`
 6. `POST /api/v1/auth/reset-password`
-7. `POST /api/v1/auth/refresh`
-8. `POST /api/v1/auth/logout`
+7. `POST /api/v1/auth/change-password/request-otp`
+8. `POST /api/v1/auth/change-password/confirm`
+9. `POST /api/v1/auth/refresh`
+10. `POST /api/v1/auth/logout`
 
 ## Route Workflows
 
@@ -28,7 +30,8 @@ Flow:
 1. Handler `Signup` validates `signupRequest`.
 2. Service `Signup` calls `engine.CreateAccount(...)`.
 3. Service updates name with repo `UpdateUserName(...)`.
-4. Response returns user envelope.
+4. Service requests email verification challenge and sends OTP email (best-effort).
+5. Response returns user envelope.
 
 Transaction:
 - no explicit service transaction wrapper.
@@ -69,10 +72,11 @@ Policy chain:
 
 Flow:
 1. Handler `VerifyEmail` -> Service `VerifyEmail`.
-2. Service calls `engine.ConfirmEmailVerification(token)`.
+2. Service validates OTP payload (`verificationId` + `code`) or legacy token payload.
+3. Service calls `engine.ConfirmEmailVerificationCode(verificationId, code)` for OTP.
 
 Failures:
-- invalid token -> `400`
+- invalid/expired OTP or token -> `400`
 - rate-limited -> `429`
 
 ### `POST /api/v1/auth/resend-verification`
@@ -84,6 +88,7 @@ Policy chain:
 Flow:
 1. Handler `ResendVerification` -> Service `ResendVerification`.
 2. Service calls `engine.RequestEmailVerification(email)`.
+3. Service sends OTP email for pending accounts and returns generic status.
 
 ### `POST /api/v1/auth/forgot-password`
 
@@ -93,7 +98,9 @@ Policy chain:
 
 Flow:
 1. Handler `ForgotPassword` -> Service `ForgotPassword`.
-2. Service calls `engine.RequestPasswordReset(email)`.
+2. Service calls `engine.RequestPasswordReset(email)` with OTP strategy.
+3. Service splits the OTP challenge (`challengeId.code`) and emails the code.
+4. Response remains enumeration-safe and includes generic message (challenge may be present).
 
 ### `POST /api/v1/auth/reset-password`
 
@@ -103,7 +110,32 @@ Policy chain:
 
 Flow:
 1. Handler `ResetPassword` -> Service `ResetPassword`.
-2. Service calls `engine.ConfirmPasswordReset(token,password)`.
+2. Service accepts OTP challenge (`challengeId` + `code`) and joins it for goAuth confirm.
+3. Legacy `token` payload remains temporarily supported for migration compatibility.
+
+### `POST /api/v1/auth/change-password/request-otp`
+
+Policy chain:
+1. `RequireJSON`
+2. `AuthRequired(engine, mode)`
+3. `RateLimitWithKeyer(..., "auth.change_password_request", ScopeUser, KeyByUser())` when enabled
+
+Flow:
+1. Handler reads authenticated principal from context.
+2. Service validates current password using `engine.Login(email,currentPassword)`.
+3. Service calls `engine.RequestPasswordReset(email)` and sends password-change OTP email.
+
+### `POST /api/v1/auth/change-password/confirm`
+
+Policy chain:
+1. `RequireJSON`
+2. `AuthRequired(engine, mode)`
+3. `RateLimitWithKeyer(..., "auth.change_password_confirm", ScopeUser, KeyByUser())` when enabled
+
+Flow:
+1. Handler reads authenticated principal from context.
+2. Service re-validates current password.
+3. Service confirms OTP reset challenge and emits password-changed notification email.
 
 ### `POST /api/v1/auth/refresh`
 
@@ -139,7 +171,7 @@ Side effects:
 2. logout returns 401:
 - Check Authorization header format and token freshness.
 3. verify/reset loops failing:
-- Check token expiry and exact token string trimming.
+- Check OTP expiry, challengeId/code pairing, and 6-digit code formatting.
 
 ## What To Check During Changes
 

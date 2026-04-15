@@ -102,10 +102,20 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 
 	// Enable auth-contract flows exposed through module endpoints.
 	cfg.PasswordReset.Enabled = true
-	cfg.PasswordReset.ResetTTL = time.Hour
+	cfg.PasswordReset.Strategy = goauth.ResetOTP
+	cfg.PasswordReset.ResetTTL = 15 * time.Minute
+	cfg.PasswordReset.MaxAttempts = 5
+	cfg.PasswordReset.OTPDigits = 6
+	cfg.PasswordReset.EnableRequestLimiter = true
+	cfg.PasswordReset.EnableConfirmFailureLimiter = true
 	cfg.EmailVerification.Enabled = true
+	cfg.EmailVerification.Strategy = goauth.VerificationOTP
 	cfg.EmailVerification.RequireForLogin = true
-	cfg.EmailVerification.VerificationTTL = 24 * time.Hour
+	cfg.EmailVerification.VerificationTTL = 15 * time.Minute
+	cfg.EmailVerification.MaxAttempts = 5
+	cfg.EmailVerification.OTPDigits = 6
+	cfg.EmailVerification.EnableRequestLimiter = true
+	cfg.EmailVerification.EnableConfirmFailureLimiter = true
 	cfg.Account.Enabled = true
 	cfg.Account.DefaultRole = "user"
 

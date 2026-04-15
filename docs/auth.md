@@ -170,10 +170,20 @@ ProjectBook config is set in `projectBookGoAuthConfig(mode)`.
 ### 5.4 Auth flows enabled
 
 - `PasswordReset.Enabled = true`
-- `PasswordReset.ResetTTL = 1h`
+- `PasswordReset.Strategy = otp`
+- `PasswordReset.ResetTTL = 15m`
+- `PasswordReset.OTPDigits = 6`
+- `PasswordReset.MaxAttempts = 5`
+- `PasswordReset.EnableRequestLimiter = true`
+- `PasswordReset.EnableConfirmFailureLimiter = true`
 - `EmailVerification.Enabled = true`
+- `EmailVerification.Strategy = otp`
 - `EmailVerification.RequireForLogin = true`
-- `EmailVerification.VerificationTTL = 24h`
+- `EmailVerification.VerificationTTL = 15m`
+- `EmailVerification.OTPDigits = 6`
+- `EmailVerification.MaxAttempts = 5`
+- `EmailVerification.EnableRequestLimiter = true`
+- `EmailVerification.EnableConfirmFailureLimiter = true`
 - `Account.Enabled = true`
 - `Account.DefaultRole = user`
 
@@ -198,6 +208,8 @@ Auth routes are registered in `internal/modules/auth/routes.go`.
 | POST | `/api/v1/auth/resend-verification` | no | yes | `20/min` by IP |
 | POST | `/api/v1/auth/forgot-password` | no | yes | `15/min` by IP |
 | POST | `/api/v1/auth/reset-password` | no | yes | `15/min` by IP |
+| POST | `/api/v1/auth/change-password/request-otp` | yes | yes | `10/min` by user |
+| POST | `/api/v1/auth/change-password/confirm` | yes | yes | `10/min` by user |
 | POST | `/api/v1/auth/refresh` | no | yes | `45/min` by refresh token hash (IP fallback) |
 | POST | `/api/v1/auth/logout` | yes | no | `60/min` by user/project/token hash |
 
@@ -223,30 +235,38 @@ Pattern:
 1. `RequireJSON`
 2. `RateLimitWithKeyer(..., KeyByIP())` when limiter exists
 
-### 7.2 Protected auth route (`logout`)
+### 7.2 Protected auth routes
 
 Pattern:
 1. `AuthRequired(engine, mode)`
-2. `RateLimitWithKeyer(..., KeyByUserOrProjectOrTokenHash(16))` when limiter exists
+2. `RateLimitWithKeyer(..., KeyByUser())` for change-password OTP endpoints when limiter exists
+3. `RateLimitWithKeyer(..., KeyByUserOrProjectOrTokenHash(16))` for logout when limiter exists
 
 Why this differs:
 - Public entry routes need anti-abuse by client identity before authentication exists.
-- Logout is authenticated and keyed by user-scoped identity dimensions.
+- Password-change and logout routes are authenticated and keyed by user-scoped identity dimensions.
 
 ## 8. Service-Level Behavior
 
 Auth module service (`internal/modules/auth/service.go`) delegates to goAuth engine methods:
 
-- Signup -> `CreateAccount`
+- Signup -> `CreateAccount`, then `RequestEmailVerification` and email OTP delivery
 - Login -> `Login`
 - Refresh -> `Refresh`
 - Logout -> `LogoutByAccessToken`
-- VerifyEmail -> `ConfirmEmailVerification`
-- ResendVerification -> `RequestEmailVerification`
-- ForgotPassword -> `RequestPasswordReset`
-- ResetPassword -> `ConfirmPasswordReset`
+- VerifyEmail -> `ConfirmEmailVerificationCode` (OTP flow), legacy token verify remains compatible
+- ResendVerification -> `RequestEmailVerification`, then OTP email delivery when account is pending
+- ForgotPassword -> `RequestPasswordReset` (OTP challenge issuance, enumeration-safe response)
+- ResetPassword -> `ConfirmPasswordReset` (OTP challenge by default, legacy token accepted temporarily)
+- RequestChangePasswordOTP -> verify current password, then `RequestPasswordReset`
+- ConfirmChangePassword -> verify current password, then `ConfirmPasswordReset`
 
 Error mapping is normalized into API error codes and HTTP statuses using `map*Error(...)` helpers in service.
+
+Email sender behavior:
+- sender identity is flow-aware: transactional, verification, password reset, and password change
+- each flow-specific sender falls back to transactional sender identity when not configured
+- resend endpoint returns a generic success status for privacy, with optional `verificationId` for pending accounts
 
 ## 9. Config And Lint Requirements
 
@@ -255,10 +275,19 @@ Environment variables:
 - `AUTH_MODE` (default `hybrid`)
 - `AUTH_TEST_SHARED_SECRET` (optional)
 - `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` (shared with frontend server, minimum 32 chars recommended)
+- `EMAIL_ENABLED` (default `false`)
+- `RESEND_API_KEY` (required when email enabled)
+- `WEB_APP_BASE_URL` (absolute URL required when email enabled)
+- `TRANSACTIONAL_SENDER_EMAIL` / `TRANSACTIONAL_SENDER_NAME`
+- `VERIFICATION_SENDER_EMAIL` / `VERIFICATION_SENDER_NAME` (optional override)
+- `PASSWORD_RESET_SENDER_EMAIL` / `PASSWORD_RESET_SENDER_NAME` (optional override)
+- `PASSWORD_CHANGE_SENDER_EMAIL` / `PASSWORD_CHANGE_SENDER_NAME` (optional override)
 
 Startup lint constraints:
 - if auth enabled, Redis must be enabled
 - if auth enabled, Postgres must be enabled
+- if email enabled, required provider settings (`RESEND_API_KEY`, absolute `WEB_APP_BASE_URL`) must be present
+- sender email overrides (when set) must parse as valid email addresses
 
 These constraints are enforced at startup and fail fast.
 

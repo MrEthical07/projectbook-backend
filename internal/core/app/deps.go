@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	goauth "github.com/MrEthical07/goAuth"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,6 +13,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	corecache "github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/config"
+	coreemail "github.com/MrEthical07/superapi/internal/core/email"
 	"github.com/MrEthical07/superapi/internal/core/metrics"
 	"github.com/MrEthical07/superapi/internal/core/permissions"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
@@ -20,6 +22,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/tracing"
 	infracache "github.com/MrEthical07/superapi/internal/infrastructure/cache"
 	infradb "github.com/MrEthical07/superapi/internal/infrastructure/db"
+	infraemail "github.com/MrEthical07/superapi/internal/infrastructure/email"
 	infstore "github.com/MrEthical07/superapi/internal/infrastructure/store"
 )
 
@@ -59,13 +62,19 @@ type Dependencies struct {
 	RateLimit config.RateLimitConfig
 	// Cache is the resolved cache config snapshot.
 	Cache config.CacheConfig
+	// Tuning is the release-managed tuning profile snapshot.
+	Tuning config.TuningConfig
 	// Limiter is the optional route rate limiter.
 	Limiter ratelimit.Limiter
 	// CacheMgr is the optional response cache manager.
 	CacheMgr *corecache.Manager
 	// PermissionsResolver resolves effective project permission masks.
 	PermissionsResolver permissions.Resolver
-	authClose           func()
+	// EmailSender sends transactional emails.
+	EmailSender coreemail.Sender
+	// WebAppBaseURL is used to compose frontend links in outgoing auth emails.
+	WebAppBaseURL string
+	authClose     func()
 }
 
 // DependencyBinder allows modules to receive initialized Dependencies.
@@ -78,7 +87,10 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 		Readiness:     readiness.NewService(),
 		RateLimit:     cfg.RateLimit,
 		Cache:         cfg.Cache,
+		Tuning:        cfg.Tuning,
 		DocumentStore: storage.NoopDocumentStore{},
+		EmailSender:   coreemail.NoopSender{},
+		WebAppBaseURL: strings.TrimSpace(cfg.Email.WebAppBaseURL),
 	}
 
 	if !cfg.Postgres.Enabled {
@@ -188,6 +200,45 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 		}
 		deps.AuthEngine = engine
 		deps.authClose = closeFn
+	}
+
+	if cfg.Email.Enabled {
+		transactionalSender := coreemail.NormalizeSenderIdentity(coreemail.SenderIdentity{
+			Name:  cfg.Email.TransactionalSenderName,
+			Email: cfg.Email.TransactionalSenderEmail,
+		})
+		verificationSender := resolveFlowSenderIdentity(
+			cfg.Email.VerificationSenderName,
+			cfg.Email.VerificationSenderEmail,
+			transactionalSender,
+		)
+		passwordResetSender := resolveFlowSenderIdentity(
+			cfg.Email.PasswordResetSenderName,
+			cfg.Email.PasswordResetSenderEmail,
+			transactionalSender,
+		)
+		passwordChangeSender := resolveFlowSenderIdentity(
+			cfg.Email.PasswordChangeSenderName,
+			cfg.Email.PasswordChangeSenderEmail,
+			transactionalSender,
+		)
+
+		sender, err := infraemail.NewResendSender(cfg.Email.ResendAPIKey, infraemail.SenderProfiles{
+			Transactional:  transactionalSender,
+			Verification:   verificationSender,
+			PasswordReset:  passwordResetSender,
+			PasswordChange: passwordChangeSender,
+		})
+		if err != nil {
+			if deps.Redis != nil {
+				_ = deps.Redis.Close()
+			}
+			if deps.Postgres != nil {
+				deps.Postgres.Close()
+			}
+			return nil, fmt.Errorf("init resend sender: %w", err)
+		}
+		deps.EmailSender = sender
 	}
 
 	if cfg.RateLimit.Enabled {
@@ -379,6 +430,20 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, e
 	deps.Tracing = tracingSvc
 
 	return deps, nil
+}
+
+func resolveFlowSenderIdentity(name, email string, fallback coreemail.SenderIdentity) coreemail.SenderIdentity {
+	resolved := coreemail.NormalizeSenderIdentity(coreemail.SenderIdentity{
+		Name:  name,
+		Email: email,
+	})
+	if resolved.Email == "" {
+		return fallback
+	}
+	if resolved.Name == "" {
+		resolved.Name = fallback.Name
+	}
+	return resolved
 }
 
 func (a *App) closeDependencies() {

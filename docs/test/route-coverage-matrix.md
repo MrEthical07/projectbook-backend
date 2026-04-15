@@ -1,6 +1,6 @@
 # Route Coverage Matrix
 
-Total unique routes: 87
+Total unique routes: 89
 
 Scenario packs are defined in docs/test/integration-test-plan.md.
 
@@ -36,6 +36,8 @@ Scenario packs are defined in docs/test/integration-test-plan.md.
 | artifacts | GET | /api/v1/projects/{projectId}/tasks/{slug} | PROTECTED-READ | 1 |
 | artifacts | PUT | /api/v1/projects/{projectId}/tasks/{taskId} | PROTECTED-WRITE | 1 |
 | artifacts | PUT | /api/v1/projects/{projectId}/tasks/{taskId}/status | PROTECTED-WRITE | 1 |
+| auth | POST | /api/v1/auth/change-password/request-otp | PROTECTED-WRITE | 2 |
+| auth | POST | /api/v1/auth/change-password/confirm | PROTECTED-WRITE | 2 |
 | auth | POST | /api/v1/auth/forgot-password | AUTH-PUBLIC | 2 |
 | auth | POST | /api/v1/auth/login | AUTH-PUBLIC | 2 |
 | auth | POST | /api/v1/auth/logout | PROTECTED-WRITE | 2 |

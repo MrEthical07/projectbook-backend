@@ -2,6 +2,26 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.10 (2026-04-15)
+
+### Added
+- Added release-managed typed tuning block in runtime config (`Config.Tuning`) with:
+	- centralized auth route rate-limit profile values.
+	- centralized cache TTL profile defaults.
+- Added startup fallback warnings for sensitive configuration defaults via `config.SensitiveFallbackWarnings(...)` and bootstrap logging in `cmd/api/main.go`.
+- Added CI guardrail tests in `internal/core/config/config_test.go` covering insecure production profile defaults.
+
+### Changed
+- Auth route limiter defaults in `internal/modules/auth/routes.go` now consume the typed tuning block instead of per-route literals.
+- Module runtime/dependency wiring now carries tuning snapshot values (`internal/core/app/deps.go`, `internal/core/modulekit/runtime.go`).
+- System permission-context token signing now surfaces explicit errors when production secret policy is violated.
+
+### Security
+- Enforced production lint requirement for `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` with non-default 32+ char value.
+- Enforced production lint rejection for localhost `WEB_APP_BASE_URL` values.
+- Enforced strong `METRICS_AUTH_TOKEN` policy in production/profile-prod (non-placeholder, minimum length).
+- Rejected production fallback behavior for permission-context signing secret in system token generation path.
+
 ## v0.7.9 (2026-04-14)
 
 ### Added

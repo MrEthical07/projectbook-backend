@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -360,8 +361,10 @@ func TestLintRejectsCacheFailOpenInProd(t *testing.T) {
 
 func TestLintAllowsMetricsTokenInProd(t *testing.T) {
 	t.Setenv("APP_ENV", "prod")
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
 	t.Setenv("METRICS_ENABLED", "true")
-	t.Setenv("METRICS_AUTH_TOKEN", "super-secret-token")
+	t.Setenv("METRICS_AUTH_TOKEN", strings.Repeat("m", 32))
 
 	cfg, err := Load()
 	if err != nil {
@@ -370,6 +373,104 @@ func TestLintAllowsMetricsTokenInProd(t *testing.T) {
 
 	if err := cfg.Lint(); err != nil {
 		t.Fatalf("expected lint success, got: %v", err)
+	}
+}
+
+func TestLintRejectsMissingPermissionContextSecretInProd(t *testing.T) {
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
+	t.Setenv("METRICS_AUTH_TOKEN", strings.Repeat("m", 32))
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for missing permission context secret in prod")
+	}
+}
+
+func TestLintRejectsFallbackPermissionContextSecretInProd(t *testing.T) {
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
+	t.Setenv("METRICS_AUTH_TOKEN", strings.Repeat("m", 32))
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", "projectbook-dev-permission-context-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for fallback permission context secret in prod")
+	}
+}
+
+func TestLintRejectsLocalhostWebAppBaseURLInProdProfile(t *testing.T) {
+	t.Setenv("APP_PROFILE", "prod")
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
+	t.Setenv("METRICS_AUTH_TOKEN", strings.Repeat("m", 32))
+	t.Setenv("WEB_APP_BASE_URL", "http://localhost:5173")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for localhost web app base url in production profile")
+	}
+}
+
+func TestLintRejectsWeakMetricsAuthTokenInProdProfile(t *testing.T) {
+	t.Setenv("APP_PROFILE", "prod")
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
+	t.Setenv("METRICS_AUTH_TOKEN", "change-me")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for weak metrics token in production profile")
+	}
+}
+
+func TestLintRejectsProdProfilePlaceholderDefaults(t *testing.T) {
+	t.Setenv("APP_PROFILE", "prod")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for insecure production profile defaults")
+	}
+}
+
+func TestSensitiveFallbackWarningsIncludeMissingSecret(t *testing.T) {
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	warnings := SensitiveFallbackWarnings(cfg)
+	found := false
+	for _, warning := range warnings {
+		if strings.Contains(warning, "PROJECTBOOK_PERMISSION_CONTEXT_SECRET") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected warning for missing permission context secret")
 	}
 }
 

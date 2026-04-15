@@ -19,16 +19,51 @@ import (
 func (m *Module) Register(r httpx.Router) error {
 	if m.handler == nil {
 		repo := NewRepo(m.runtime.RelationalStore())
-		m.handler = NewHandler(NewService(m.runtime.AuthEngine(), repo))
+		m.handler = NewHandler(NewService(m.runtime.AuthEngine(), repo, m.runtime.EmailSender(), m.runtime.WebAppBaseURL()))
 	}
 
 	limiter := m.runtime.Limiter()
-	signupRule := ratelimit.Rule{Limit: 20, Window: time.Minute, Scope: ratelimit.ScopeIP}
-	loginRule := ratelimit.Rule{Limit: 30, Window: time.Minute, Scope: ratelimit.ScopeIP}
-	verifyRule := ratelimit.Rule{Limit: 20, Window: time.Minute, Scope: ratelimit.ScopeIP}
-	passwordRule := ratelimit.Rule{Limit: 15, Window: time.Minute, Scope: ratelimit.ScopeIP}
-	refreshRule := ratelimit.Rule{Limit: 45, Window: time.Minute, Scope: ratelimit.ScopeIP}
-	logoutRule := ratelimit.Rule{Limit: 60, Window: time.Minute, Scope: ratelimit.ScopeUser}
+	tuning := m.runtime.TuningConfig().AuthRateLimit
+	window := tuning.Window
+	if window <= 0 {
+		window = time.Minute
+	}
+	signupLimit := tuning.SignupPerWindow
+	if signupLimit <= 0 {
+		signupLimit = 20
+	}
+	loginLimit := tuning.LoginPerWindow
+	if loginLimit <= 0 {
+		loginLimit = 30
+	}
+	verifyLimit := tuning.VerifyPerWindow
+	if verifyLimit <= 0 {
+		verifyLimit = 20
+	}
+	passwordLimit := tuning.PasswordPerWindow
+	if passwordLimit <= 0 {
+		passwordLimit = 15
+	}
+	refreshLimit := tuning.RefreshPerWindow
+	if refreshLimit <= 0 {
+		refreshLimit = 45
+	}
+	changePasswordLimit := tuning.ChangePassPerWindow
+	if changePasswordLimit <= 0 {
+		changePasswordLimit = 10
+	}
+	logoutLimit := tuning.LogoutPerWindow
+	if logoutLimit <= 0 {
+		logoutLimit = 60
+	}
+
+	signupRule := ratelimit.Rule{Limit: signupLimit, Window: window, Scope: ratelimit.ScopeIP}
+	loginRule := ratelimit.Rule{Limit: loginLimit, Window: window, Scope: ratelimit.ScopeIP}
+	verifyRule := ratelimit.Rule{Limit: verifyLimit, Window: window, Scope: ratelimit.ScopeIP}
+	passwordRule := ratelimit.Rule{Limit: passwordLimit, Window: window, Scope: ratelimit.ScopeIP}
+	refreshRule := ratelimit.Rule{Limit: refreshLimit, Window: window, Scope: ratelimit.ScopeIP}
+	changePasswordRule := ratelimit.Rule{Limit: changePasswordLimit, Window: window, Scope: ratelimit.ScopeUser}
+	logoutRule := ratelimit.Rule{Limit: logoutLimit, Window: window, Scope: ratelimit.ScopeUser}
 
 	if limiter != nil {
 		r.Handle(http.MethodPost, "/api/v1/auth/signup", httpx.Adapter(m.handler.Signup),
@@ -55,6 +90,16 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.RequireJSON(),
 			policy.RateLimitWithKeyer(limiter, "auth.reset_password", passwordRule, ratelimit.KeyByIP()),
 		)
+		r.Handle(http.MethodPost, "/api/v1/auth/change-password/request-otp", httpx.Adapter(m.handler.RequestChangePasswordOTP),
+			policy.RequireJSON(),
+			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+			policy.RateLimitWithKeyer(limiter, "auth.change_password_request", changePasswordRule, ratelimit.KeyByUser()),
+		)
+		r.Handle(http.MethodPost, "/api/v1/auth/change-password/confirm", httpx.Adapter(m.handler.ConfirmChangePassword),
+			policy.RequireJSON(),
+			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+			policy.RateLimitWithKeyer(limiter, "auth.change_password_confirm", changePasswordRule, ratelimit.KeyByUser()),
+		)
 
 		// Compatibility endpoint kept for performance/load tooling during migration.
 		r.Handle(http.MethodPost, "/api/v1/auth/refresh", httpx.Adapter(m.handler.Refresh),
@@ -78,6 +123,16 @@ func (m *Module) Register(r httpx.Router) error {
 	r.Handle(http.MethodPost, "/api/v1/auth/resend-verification", httpx.Adapter(m.handler.ResendVerification), policy.RequireJSON())
 	r.Handle(http.MethodPost, "/api/v1/auth/forgot-password", httpx.Adapter(m.handler.ForgotPassword), policy.RequireJSON())
 	r.Handle(http.MethodPost, "/api/v1/auth/reset-password", httpx.Adapter(m.handler.ResetPassword), policy.RequireJSON())
+	r.Handle(http.MethodPost, "/api/v1/auth/change-password/request-otp",
+		httpx.Adapter(m.handler.RequestChangePasswordOTP),
+		policy.RequireJSON(),
+		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+	)
+	r.Handle(http.MethodPost, "/api/v1/auth/change-password/confirm",
+		httpx.Adapter(m.handler.ConfirmChangePassword),
+		policy.RequireJSON(),
+		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+	)
 
 	// Compatibility endpoint kept for performance/load tooling during migration.
 	r.Handle(http.MethodPost, "/api/v1/auth/refresh", httpx.Adapter(m.handler.Refresh), policy.RequireJSON())

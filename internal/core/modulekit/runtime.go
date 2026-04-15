@@ -8,6 +8,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	"github.com/MrEthical07/superapi/internal/core/cache"
 	"github.com/MrEthical07/superapi/internal/core/config"
+	coreemail "github.com/MrEthical07/superapi/internal/core/email"
 	"github.com/MrEthical07/superapi/internal/core/permissions"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 	"github.com/MrEthical07/superapi/internal/core/storage"
@@ -77,6 +78,14 @@ func (r Runtime) CacheConfig() config.CacheConfig {
 	return r.deps.Cache
 }
 
+// TuningConfig returns release-managed tuning defaults for modules.
+func (r Runtime) TuningConfig() config.TuningConfig {
+	if r.deps == nil {
+		return config.TuningConfig{}
+	}
+	return r.deps.Tuning
+}
+
 // AuthEngine returns configured goAuth engine when auth is enabled.
 func (r Runtime) AuthEngine() *goauth.Engine {
 	if r.deps == nil {
@@ -118,4 +127,20 @@ func (r Runtime) PermissionResolver() permissions.Resolver {
 		return nil
 	}
 	return r.deps.PermissionsResolver
+}
+
+// EmailSender returns configured transactional sender.
+func (r Runtime) EmailSender() coreemail.Sender {
+	if r.deps == nil {
+		return nil
+	}
+	return r.deps.EmailSender
+}
+
+// WebAppBaseURL returns the configured frontend base URL for auth email links.
+func (r Runtime) WebAppBaseURL() string {
+	if r.deps == nil {
+		return ""
+	}
+	return r.deps.WebAppBaseURL
 }

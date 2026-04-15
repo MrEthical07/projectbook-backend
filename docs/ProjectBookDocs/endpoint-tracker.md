@@ -2,9 +2,9 @@
 
 This tracker is generated from docs/ProjectBookDocs/API_plan.md and is the frozen implementation backlog for ProjectBook API routes.
 
-- Total parsed endpoints: 84
-- Unique endpoints: 82
-- Contract target: 82 unique endpoints
+- Total parsed endpoints: 86
+- Unique endpoints: 84
+- Contract target: 84 unique endpoints
 - Auth direction: goAuth auth-only
 
 ## Status Values
@@ -25,6 +25,8 @@ This tracker is generated from docs/ProjectBookDocs/API_plan.md and is the froze
 | EP-005 | Authentication | auth | POST | /api/v1/auth/resend-verification | `authService.resendVerificationEmail()` | tested | auth | `internal/modules/auth` |
 | EP-006 | Authentication | auth | POST | /api/v1/auth/forgot-password | `authService.requestPasswordReset()` | tested | auth | `internal/modules/auth` |
 | EP-007 | Authentication | auth | POST | /api/v1/auth/reset-password | `authService.resetPassword()` | tested | auth | `internal/modules/auth` |
+| EP-007A | Authentication | auth | POST | /api/v1/auth/change-password/request-otp | `authService.requestChangePasswordOtp()` | tested | auth | `internal/modules/auth` |
+| EP-007B | Authentication | auth | POST | /api/v1/auth/change-password/confirm | `authService.confirmChangePassword()` | tested | auth | `internal/modules/auth` |
 | EP-008 | Home | home | GET | /api/v1/home/dashboard | `getUserDashboard()` | tested | home | `internal/modules/home` |
 | EP-009 | Home | home | GET | /api/v1/home/projects | `getUserProjects()` | tested | home | `internal/modules/home` |
 | EP-010 | Home | home | POST | /api/v1/home/projects | `createProject()` | tested | home | `internal/modules/home` |

@@ -329,7 +329,7 @@ Rate limits are applied to authentication endpoints. Specific limits are configu
 | `DERIVED_READ_ONLY` | 400 | Derived calendar events cannot be edited or deleted | server |
 | `INVITE_EXPIRED` | 400 | Home invite has expired | server |
 | `INVITE_NOT_FOUND` | 404 | Invite does not exist | server |
-| `TOKEN_INVALID` | 400 | Verification or reset token is invalid or expired | server |
+| `TOKEN_INVALID` | 400 | Verification challenge/token or reset challenge is invalid or expired | server |
 | `RATE_LIMITED` | 429 | Too many requests | server |
 | `INTERNAL_ERROR` | 500 | Unexpected server error | server |
 | `ROLE_CONFIG_MISSING` | 500 | Role permissions not configured for project | server |
@@ -660,14 +660,22 @@ Invalidate the current session.
 
 #### POST `/api/v1/auth/verify-email`
 
-Verify a user's email address using the token sent via email.
+Verify a user's email with OTP (`verificationId` + `code`). Legacy token payload is still accepted for migration.
 
 **Auth:** None
 
 **Request body:**
 ```json
 {
-  "token": "aB3c...verification-token..."
+  "verificationId": "verif_abc123",
+  "code": "123456"
+}
+```
+
+Legacy compatibility payload:
+```json
+{
+  "token": "legacy-verification-token"
 }
 ```
 
@@ -676,8 +684,7 @@ Verify a user's email address using the token sent via email.
 {
   "success": true,
   "data": {
-    "status": "success",
-    "email": "ayush@example.com"
+    "status": "success"
   }
 }
 ```
@@ -686,15 +693,16 @@ Verify a user's email address using the token sent via email.
 
 | Status | Code | Condition |
 |--------|------|-----------|
-| 400 | `TOKEN_INVALID` | Token missing, expired (>24h), or already used |
+| 400 | `TOKEN_INVALID` | Verification challenge/token invalid or expired |
+| 429 | `RATE_LIMITED` | Too many verification attempts |
 
-**Status values:** `success`, `missing`, `failed`
+**Status values:** `success`
 
 ---
 
 #### POST `/api/v1/auth/resend-verification`
 
-Resend the email verification link. Invalidates any previous verification tokens.
+Request a new verification OTP for a pending account. Response is privacy-safe.
 
 **Auth:** None
 
@@ -715,7 +723,8 @@ Resend the email verification link. Invalidates any previous verification tokens
 {
   "success": true,
   "data": {
-    "status": "sent"
+    "status": "sent",
+    "verificationId": "verif_abc123"
   }
 }
 ```
@@ -725,16 +734,15 @@ Resend the email verification link. Invalidates any previous verification tokens
 | Status | Code | Condition |
 |--------|------|-----------|
 | 400 | `VALIDATION_ERROR` | Invalid email format |
-| 404 | `NOT_FOUND` | No account with this email |
-| 409 | `ALREADY_VERIFIED` | Email already verified |
+| 429 | `RATE_LIMITED` | Too many resend attempts |
 
-**Status values:** `sent`, `not_found`, `already_verified`
+**Status values:** `sent`
 
 ---
 
 #### POST `/api/v1/auth/forgot-password`
 
-Request a password reset email. For security, always returns success even if the email is not found.
+Request a password reset OTP challenge. For security, always returns success even if the email is not found.
 
 **Auth:** None
 
@@ -755,28 +763,39 @@ Request a password reset email. For security, always returns success even if the
 {
   "success": true,
   "data": {
-    "message": "If an account exists for this email, a reset link has been sent."
+    "status": "sent",
+    "challengeId": "rst_abc123",
+    "message": "If an account exists for this email, a reset code has been sent."
   }
 }
 ```
 
 **Behavior:**
-- If the email exists, a reset email is sent with a link containing a token (valid for 1 hour)
-- If the email does not exist, no email is sent but the response is identical (prevents email enumeration)
-- Previous reset tokens for this user are invalidated
+- If the email exists, a 6-digit OTP challenge is issued (15-minute expiry)
+- If the email does not exist, no user details are leaked and response shape remains generic
 
 ---
 
 #### POST `/api/v1/auth/reset-password`
 
-Reset a user's password using the token from the forgot-password email.
+Reset a user's password using OTP challenge (`challengeId` + `code`). Legacy token payload is still accepted for migration.
 
 **Auth:** None
 
-**Request body:**
+**Request body (OTP path):**
 ```json
 {
-  "token": "aB3c...reset-token...",
+  "challengeId": "rst_abc123",
+  "code": "123456",
+  "password": "NewStr0ng!Pass",
+  "confirmPassword": "NewStr0ng!Pass"
+}
+```
+
+Legacy compatibility payload:
+```json
+{
+  "token": "legacy-reset-token",
   "password": "NewStr0ng!Pass",
   "confirmPassword": "NewStr0ng!Pass"
 }
@@ -785,7 +804,9 @@ Reset a user's password using the token from the forgot-password email.
 **Validation rules:**
 | Field | Rules |
 |-------|-------|
-| `token` | Required |
+| `challengeId` | Required for OTP path |
+| `code` | Required for OTP path, exactly 6 digits |
+| `token` | Optional legacy fallback |
 | `password` | Required, min 10 chars, must include uppercase, lowercase, digit, and special character |
 | `confirmPassword` | Required, must match `password` |
 
@@ -803,12 +824,84 @@ Reset a user's password using the token from the forgot-password email.
 
 | Status | Code | Condition |
 |--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Password doesn't meet policy |
-| 400 | `TOKEN_INVALID` | Token missing, expired (>1h), or already used |
+| 400 | `VALIDATION_ERROR` | Password policy or payload validation failure |
+| 400 | `TOKEN_INVALID` | Reset challenge/token invalid or expired |
+| 429 | `RATE_LIMITED` | Too many reset attempts |
 
 **Side effects:**
 - All existing sessions for this user are revoked
-- The reset token is marked as used
+
+---
+
+#### POST `/api/v1/auth/change-password/request-otp`
+
+Request an OTP challenge for changing password while authenticated.
+
+**Auth:** Required
+
+**Request body:**
+```json
+{
+  "currentPassword": "Curr3nt!Pass"
+}
+```
+
+**Success response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "status": "sent",
+    "challengeId": "rst_abc123"
+  }
+}
+```
+
+**Error responses:**
+
+| Status | Code | Condition |
+|--------|------|-----------|
+| 400 | `VALIDATION_ERROR` | Missing current password |
+| 401 | `UNAUTHORIZED` | Not authenticated or current password invalid |
+| 429 | `RATE_LIMITED` | Too many OTP requests |
+
+---
+
+#### POST `/api/v1/auth/change-password/confirm`
+
+Confirm password change with OTP and current password.
+
+**Auth:** Required
+
+**Request body:**
+```json
+{
+  "challengeId": "rst_abc123",
+  "code": "123456",
+  "currentPassword": "Curr3nt!Pass",
+  "password": "NewStr0ng!Pass",
+  "confirmPassword": "NewStr0ng!Pass"
+}
+```
+
+**Success response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password changed successfully."
+  }
+}
+```
+
+**Error responses:**
+
+| Status | Code | Condition |
+|--------|------|-----------|
+| 400 | `VALIDATION_ERROR` | Invalid payload or OTP format |
+| 400 | `TOKEN_INVALID` | Reset challenge invalid or expired |
+| 401 | `UNAUTHORIZED` | Not authenticated or current password invalid |
+| 429 | `RATE_LIMITED` | Too many confirmation attempts |
 
 ---
 

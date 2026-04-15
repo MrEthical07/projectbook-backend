@@ -49,13 +49,28 @@ func (r loginRequest) Validate() error {
 }
 
 type verifyEmailRequest struct {
-	Token string `json:"token"`
+	VerificationID string `json:"verificationId,omitempty"`
+	Code           string `json:"code,omitempty"`
+	Token          string `json:"token,omitempty"`
 }
 
 func (r verifyEmailRequest) Validate() error {
-	if strings.TrimSpace(r.Token) == "" {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "token is required")
+	if strings.TrimSpace(r.Token) != "" {
+		return nil
 	}
+
+	if strings.TrimSpace(r.VerificationID) == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "verificationId is required")
+	}
+
+	code := strings.TrimSpace(r.Code)
+	if code == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code is required")
+	}
+	if len(code) != 6 || !isNumericCode(code) {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code must be a 6-digit otp")
+	}
+
 	return nil
 }
 
@@ -82,14 +97,67 @@ func (r forgotPasswordRequest) Validate() error {
 }
 
 type resetPasswordRequest struct {
-	Token           string `json:"token"`
+	Token           string `json:"token,omitempty"`
+	ChallengeID     string `json:"challengeId,omitempty"`
+	Code            string `json:"code,omitempty"`
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirmPassword"`
 }
 
 func (r resetPasswordRequest) Validate() error {
 	if strings.TrimSpace(r.Token) == "" {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "token is required")
+		if strings.TrimSpace(r.ChallengeID) == "" {
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "challengeId is required")
+		}
+		code := strings.TrimSpace(r.Code)
+		if code == "" {
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code is required")
+		}
+		if len(code) != 6 || !isNumericCode(code) {
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code must be a 6-digit otp")
+		}
+	}
+	if err := validateStrongPassword(r.Password); err != nil {
+		return err
+	}
+	if r.Password != r.ConfirmPassword {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "confirmPassword must match password")
+	}
+	return nil
+}
+
+type changePasswordRequestOTPRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+}
+
+func (r changePasswordRequestOTPRequest) Validate() error {
+	if strings.TrimSpace(r.CurrentPassword) == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "currentPassword is required")
+	}
+	return nil
+}
+
+type changePasswordConfirmRequest struct {
+	ChallengeID     string `json:"challengeId"`
+	Code            string `json:"code"`
+	CurrentPassword string `json:"currentPassword"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirmPassword"`
+}
+
+func (r changePasswordConfirmRequest) Validate() error {
+	if strings.TrimSpace(r.ChallengeID) == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "challengeId is required")
+	}
+	code := strings.TrimSpace(r.Code)
+	if code == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code is required")
+	}
+	if len(code) != 6 || !isNumericCode(code) {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "code must be a 6-digit otp")
+	}
+	if strings.TrimSpace(r.CurrentPassword) == "" {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "currentPassword is required")
 	}
 	if err := validateStrongPassword(r.Password); err != nil {
 		return err
@@ -130,8 +198,19 @@ type authTokenResponse struct {
 }
 
 type statusResponse struct {
-	Status  string `json:"status,omitempty"`
-	Message string `json:"message,omitempty"`
+	Status         string `json:"status,omitempty"`
+	Message        string `json:"message,omitempty"`
+	VerificationID string `json:"verificationId,omitempty"`
+	ChallengeID    string `json:"challengeId,omitempty"`
+}
+
+func isNumericCode(value string) bool {
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeEmail(value string) string {

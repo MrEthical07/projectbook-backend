@@ -127,20 +127,41 @@ func TestBuildSessionContextTokenEmbedsExpectedClaims(t *testing.T) {
 	}
 
 	unsigned := parts[0] + "." + parts[1]
-	if got, want := parts[2], signSessionContextToken(unsigned); got != want {
+	signature, err := signSessionContextToken(unsigned)
+	if err != nil {
+		t.Fatalf("signSessionContextToken() error = %v", err)
+	}
+	if got, want := parts[2], signature; got != want {
 		t.Fatalf("token signature=%q want=%q", got, want)
 	}
 }
 
 func TestResolveSessionContextSigningSecret(t *testing.T) {
 	t.Setenv(sessionContextSecretEnv, "short")
-	if got, want := resolveSessionContextSigningSecret(), sessionContextFallbackSecret; got != want {
+	got, err := resolveSessionContextSigningSecret()
+	if err != nil {
+		t.Fatalf("resolveSessionContextSigningSecret() error = %v", err)
+	}
+	if want := sessionContextFallbackSecret; got != want {
 		t.Fatalf("fallback secret=%q want=%q", got, want)
 	}
 
 	configured := strings.Repeat("z", sessionContextSecretMinLength)
 	t.Setenv(sessionContextSecretEnv, configured)
-	if got, want := resolveSessionContextSigningSecret(), configured; got != want {
+	got, err = resolveSessionContextSigningSecret()
+	if err != nil {
+		t.Fatalf("resolveSessionContextSigningSecret() error = %v", err)
+	}
+	if want := configured; got != want {
 		t.Fatalf("configured secret=%q want=%q", got, want)
+	}
+}
+
+func TestResolveSessionContextSigningSecretRejectsFallbackInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv(sessionContextSecretEnv, "")
+
+	if _, err := resolveSessionContextSigningSecret(); err == nil {
+		t.Fatalf("expected production fallback rejection error")
 	}
 }

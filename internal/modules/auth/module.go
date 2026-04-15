@@ -24,5 +24,5 @@ func (m *Module) Name() string { return "auth" }
 func (m *Module) BindDependencies(deps *app.Dependencies) {
 	m.runtime = modulekit.New(deps)
 	repo := NewRepo(m.runtime.RelationalStore())
-	m.handler = NewHandler(NewService(m.runtime.AuthEngine(), repo))
+	m.handler = NewHandler(NewService(m.runtime.AuthEngine(), repo, m.runtime.EmailSender(), m.runtime.WebAppBaseURL()))
 }

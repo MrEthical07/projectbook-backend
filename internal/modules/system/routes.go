@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -225,22 +226,41 @@ func buildSessionContextToken(response sessionContextResponse, now time.Time) (s
 	encodedHeader := base64.RawURLEncoding.EncodeToString(headerBytes)
 	encodedClaims := base64.RawURLEncoding.EncodeToString(claimsBytes)
 	unsigned := encodedHeader + "." + encodedClaims
-	signature := signSessionContextToken(unsigned)
+	signature, err := signSessionContextToken(unsigned)
+	if err != nil {
+		return "", 0, err
+	}
 
 	return unsigned + "." + signature, expiresAtUnix, nil
 }
 
-func signSessionContextToken(unsignedToken string) string {
-	hash := sha256.Sum256([]byte(unsignedToken + "." + resolveSessionContextSigningSecret()))
-	return hex.EncodeToString(hash[:])
+func signSessionContextToken(unsignedToken string) (string, error) {
+	secret, err := resolveSessionContextSigningSecret()
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256([]byte(unsignedToken + "." + secret))
+	return hex.EncodeToString(hash[:]), nil
 }
 
-func resolveSessionContextSigningSecret() string {
+func resolveSessionContextSigningSecret() (string, error) {
 	configured := strings.TrimSpace(os.Getenv(sessionContextSecretEnv))
-	if len(configured) >= sessionContextSecretMinLength {
-		return configured
+	if len(configured) >= sessionContextSecretMinLength && configured != sessionContextFallbackSecret {
+		return configured, nil
 	}
-	return sessionContextFallbackSecret
+	if isProductionSessionContextRuntime() {
+		return "", fmt.Errorf("%s must be configured with a non-default secret in production", sessionContextSecretEnv)
+	}
+	return sessionContextFallbackSecret, nil
+}
+
+func isProductionSessionContextRuntime() bool {
+	env := strings.TrimSpace(os.Getenv("APP_ENV"))
+	if strings.EqualFold(env, "prod") || strings.EqualFold(env, "production") {
+		return true
+	}
+	profile := strings.TrimSpace(os.Getenv("APP_PROFILE"))
+	return strings.EqualFold(profile, "prod")
 }
 
 func (m *Module) listUserProjectPermissions(ctx context.Context, userID string) ([]sessionContextProjectPermission, error) {

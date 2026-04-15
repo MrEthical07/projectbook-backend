@@ -35,6 +35,9 @@ func main() {
 	if err := cfg.Lint(); err != nil {
 		log.Fatalf("config lint failed: %v", err)
 	}
+	for _, warning := range config.SensitiveFallbackWarnings(cfg) {
+		log.Printf("warning: %s", warning)
+	}
 
 	logger, err := logx.New(logx.Config{
 		Level:  cfg.Log.Level,

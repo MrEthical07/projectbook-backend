@@ -127,6 +127,27 @@ Auth lint dependencies:
 - auth enabled requires redis enabled
 - auth enabled requires postgres enabled
 
+### 7.1 Transactional email
+
+| Variable | Default |
+|---|---|
+| `EMAIL_ENABLED` | `false` |
+| `RESEND_API_KEY` | empty |
+| `WEB_APP_BASE_URL` | `http://localhost:5173` |
+| `TRANSACTIONAL_SENDER_EMAIL` | `no-reply@projectbook.dev` |
+| `TRANSACTIONAL_SENDER_NAME` | `no-reply` |
+| `VERIFICATION_SENDER_EMAIL` | empty |
+| `VERIFICATION_SENDER_NAME` | empty |
+| `PASSWORD_RESET_SENDER_EMAIL` | empty |
+| `PASSWORD_RESET_SENDER_NAME` | empty |
+| `PASSWORD_CHANGE_SENDER_EMAIL` | empty |
+| `PASSWORD_CHANGE_SENDER_NAME` | empty |
+
+Email lint dependency:
+- when `EMAIL_ENABLED=true`, `RESEND_API_KEY` must be non-empty
+- when `EMAIL_ENABLED=true`, `WEB_APP_BASE_URL` must be an absolute URL
+- when any sender email override is set, it must be a valid email address
+
 ## 8. Rate Limiting
 
 | Variable | Default |

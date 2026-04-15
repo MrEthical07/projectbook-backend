@@ -4,11 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	permissionContextSecretEnvKey        = "PROJECTBOOK_PERMISSION_CONTEXT_SECRET"
+	permissionContextDevFallbackSecret   = "projectbook-dev-permission-context-secret"
+	defaultWebAppBaseURL                 = "http://localhost:5173"
+	defaultMetricsAuthTokenPlaceholder   = "change-me"
+	minimumMetricsAuthTokenLength        = 24
+	minimumPermissionContextSecretLength = 32
 )
 
 // Config contains all runtime configuration used to bootstrap the API process.
@@ -28,6 +38,8 @@ type Config struct {
 	Log LogConfig
 	// Auth toggles authentication integration and route auth mode.
 	Auth AuthConfig
+	// Email configures transactional email sender integration.
+	Email EmailConfig
 	// RateLimit configures default route-level throttling behavior.
 	RateLimit RateLimitConfig
 	// Cache configures default route-level response caching behavior.
@@ -44,6 +56,8 @@ type Config struct {
 	Metrics MetricsConfig
 	// Tracing controls OpenTelemetry exporter setup.
 	Tracing TracingConfig
+	// Tuning contains release-managed route/cache tuning defaults.
+	Tuning TuningConfig
 }
 
 // AuthConfig configures route authentication behavior.
@@ -52,6 +66,63 @@ type AuthConfig struct {
 	Enabled bool
 	// Mode selects validation strategy: jwt_only, hybrid, or strict.
 	Mode string
+}
+
+// EmailConfig configures transactional email delivery behavior.
+type EmailConfig struct {
+	// Enabled enables transactional email sending for auth flows.
+	Enabled bool
+	// ResendAPIKey authenticates requests to the Resend API.
+	ResendAPIKey string
+	// WebAppBaseURL is the base frontend URL used to compose fixed auth links.
+	WebAppBaseURL string
+	// TransactionalSenderEmail is the default sender address used for auth emails.
+	TransactionalSenderEmail string
+	// TransactionalSenderName is the default sender display name used for auth emails.
+	TransactionalSenderName string
+	// VerificationSenderEmail overrides sender email for verification flow.
+	VerificationSenderEmail string
+	// VerificationSenderName overrides sender name for verification flow.
+	VerificationSenderName string
+	// PasswordResetSenderEmail overrides sender email for password reset flow.
+	PasswordResetSenderEmail string
+	// PasswordResetSenderName overrides sender name for password reset flow.
+	PasswordResetSenderName string
+	// PasswordChangeSenderEmail overrides sender email for password change flow.
+	PasswordChangeSenderEmail string
+	// PasswordChangeSenderName overrides sender name for password change flow.
+	PasswordChangeSenderName string
+}
+
+// TuningConfig defines release-managed runtime tuning profiles.
+//
+// Notes:
+// - This block is intentionally code-managed (not env-managed).
+// - Use release review to adjust these values.
+type TuningConfig struct {
+	// AuthRateLimit provides centralized auth route throttle defaults.
+	AuthRateLimit AuthRateLimitTuning
+	// CacheTTL provides centralized cache TTL defaults for route policies.
+	CacheTTL CacheTTLTuning
+}
+
+// AuthRateLimitTuning defines baseline route throttle rules for auth endpoints.
+type AuthRateLimitTuning struct {
+	Window              time.Duration
+	SignupPerWindow     int
+	LoginPerWindow      int
+	VerifyPerWindow     int
+	PasswordPerWindow   int
+	RefreshPerWindow    int
+	ChangePassPerWindow int
+	LogoutPerWindow     int
+}
+
+// CacheTTLTuning defines baseline cache profile durations.
+type CacheTTLTuning struct {
+	FastRead     time.Duration
+	StandardRead time.Duration
+	Dashboard    time.Duration
 }
 
 // RateLimitConfig defines default policy values for route rate limiting.
@@ -305,7 +376,7 @@ func Load() (*Config, error) {
 	defer restoreProfileDefaults()
 
 	env := getenv("APP_ENV", "dev")
-	isProdEnv := strings.EqualFold(strings.TrimSpace(env), "prod") || strings.EqualFold(strings.TrimSpace(env), "production")
+	isProdEnv := isProductionEnvironment(env)
 	securityHeadersDefault := isProdEnv
 	tracingInsecureDefault := !isProdEnv
 	rateLimitFailOpenDefault := !isProdEnv
@@ -361,6 +432,19 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			Enabled: getBool("AUTH_ENABLED", true),
 			Mode:    getenv("AUTH_MODE", "hybrid"),
+		},
+		Email: EmailConfig{
+			Enabled:                   getBool("EMAIL_ENABLED", false),
+			ResendAPIKey:              getenv("RESEND_API_KEY", ""),
+			WebAppBaseURL:             getenv("WEB_APP_BASE_URL", defaultWebAppBaseURL),
+			TransactionalSenderEmail:  getenv("TRANSACTIONAL_SENDER_EMAIL", "no-reply@projectbook.dev"),
+			TransactionalSenderName:   getenv("TRANSACTIONAL_SENDER_NAME", "no-reply"),
+			VerificationSenderEmail:   getenv("VERIFICATION_SENDER_EMAIL", ""),
+			VerificationSenderName:    getenv("VERIFICATION_SENDER_NAME", ""),
+			PasswordResetSenderEmail:  getenv("PASSWORD_RESET_SENDER_EMAIL", ""),
+			PasswordResetSenderName:   getenv("PASSWORD_RESET_SENDER_NAME", ""),
+			PasswordChangeSenderEmail: getenv("PASSWORD_CHANGE_SENDER_EMAIL", ""),
+			PasswordChangeSenderName:  getenv("PASSWORD_CHANGE_SENDER_NAME", ""),
 		},
 		RateLimit: RateLimitConfig{
 			Enabled:       getBool("RATELIMIT_ENABLED", true),
@@ -430,6 +514,23 @@ func Load() (*Config, error) {
 			SampleRatio:  getFloat64("TRACING_SAMPLE_RATIO", 0.05),
 			Insecure:     getBool("TRACING_INSECURE", tracingInsecureDefault),
 		},
+		Tuning: TuningConfig{
+			AuthRateLimit: AuthRateLimitTuning{
+				Window:              time.Minute,
+				SignupPerWindow:     20,
+				LoginPerWindow:      30,
+				VerifyPerWindow:     20,
+				PasswordPerWindow:   15,
+				RefreshPerWindow:    45,
+				ChangePassPerWindow: 10,
+				LogoutPerWindow:     60,
+			},
+			CacheTTL: CacheTTLTuning{
+				FastRead:     15 * time.Second,
+				StandardRead: 30 * time.Second,
+				Dashboard:    5 * time.Minute,
+			},
+		},
 	}
 
 	if cfg.Tracing.ServiceName == "" {
@@ -458,6 +559,11 @@ func (c *Config) Lint() error {
 	if strings.TrimSpace(c.HTTP.Addr) == "" {
 		return errors.New("http addr cannot be empty")
 	}
+
+	prodEnv := isProductionEnvironment(c.Env)
+	prodProfile := strings.EqualFold(strings.TrimSpace(c.Profile), ProfileProd)
+	requiresProductionHardening := prodEnv || prodProfile
+
 	if c.HTTP.ReadHeaderTimeout <= 0 {
 		return fmt.Errorf("http read header timeout must be > 0")
 	}
@@ -530,6 +636,46 @@ func (c *Config) Lint() error {
 	default:
 		return fmt.Errorf("invalid auth mode: %q (valid: jwt_only, hybrid, strict)", c.Auth.Mode)
 	}
+	if c.Email.Enabled {
+		if strings.TrimSpace(c.Email.ResendAPIKey) == "" {
+			return fmt.Errorf("resend api key cannot be empty when email is enabled")
+		}
+
+		baseURL := strings.TrimSpace(c.Email.WebAppBaseURL)
+		if baseURL == "" {
+			return fmt.Errorf("web app base url cannot be empty when email is enabled")
+		}
+		parsedBaseURL, err := url.Parse(baseURL)
+		if err != nil || parsedBaseURL.Scheme == "" || parsedBaseURL.Host == "" {
+			return fmt.Errorf("web app base url must be an absolute url when email is enabled")
+		}
+
+		if err := lintSenderIdentity(c.Email.TransactionalSenderName, c.Email.TransactionalSenderEmail, true); err != nil {
+			return fmt.Errorf("transactional sender invalid: %w", err)
+		}
+		if err := lintSenderIdentity(c.Email.VerificationSenderName, c.Email.VerificationSenderEmail, false); err != nil {
+			return fmt.Errorf("verification sender invalid: %w", err)
+		}
+		if err := lintSenderIdentity(c.Email.PasswordResetSenderName, c.Email.PasswordResetSenderEmail, false); err != nil {
+			return fmt.Errorf("password reset sender invalid: %w", err)
+		}
+		if err := lintSenderIdentity(c.Email.PasswordChangeSenderName, c.Email.PasswordChangeSenderEmail, false); err != nil {
+			return fmt.Errorf("password change sender invalid: %w", err)
+		}
+	}
+	if requiresProductionHardening {
+		if err := lintProductionPermissionContextSecret(); err != nil {
+			return err
+		}
+		if err := lintProductionWebAppBaseURL(c.Email.WebAppBaseURL); err != nil {
+			return err
+		}
+		if c.Metrics.Enabled {
+			if err := lintStrongMetricsAuthToken(c.Metrics.AuthToken); err != nil {
+				return err
+			}
+		}
+	}
 	if !c.Postgres.Enabled {
 		return fmt.Errorf("postgres must be enabled for api startup")
 	}
@@ -599,7 +745,7 @@ func (c *Config) Lint() error {
 	if c.Mongo.BootstrapTimeout <= 0 {
 		return fmt.Errorf("mongo bootstrap timeout must be > 0")
 	}
-	if strings.EqualFold(strings.TrimSpace(c.Env), "prod") || strings.EqualFold(strings.TrimSpace(c.Env), "production") {
+	if prodEnv {
 		if c.RateLimit.Enabled && c.RateLimit.FailOpen {
 			return fmt.Errorf("ratelimit fail-open cannot be enabled in prod")
 		}
@@ -686,10 +832,19 @@ func (c *Config) Lint() error {
 			return fmt.Errorf("metrics exclude path must start with '/': %q", p)
 		}
 	}
-	if strings.EqualFold(strings.TrimSpace(c.Env), "prod") || strings.EqualFold(strings.TrimSpace(c.Env), "production") {
+	if prodEnv {
 		if c.Metrics.Enabled && strings.TrimSpace(c.Metrics.AuthToken) == "" {
 			return fmt.Errorf("metrics auth token cannot be empty in prod when metrics is enabled")
 		}
+	}
+	if c.Tuning.AuthRateLimit.Window <= 0 {
+		return fmt.Errorf("tuning auth rate-limit window must be > 0")
+	}
+	if c.Tuning.AuthRateLimit.SignupPerWindow <= 0 || c.Tuning.AuthRateLimit.LoginPerWindow <= 0 || c.Tuning.AuthRateLimit.VerifyPerWindow <= 0 || c.Tuning.AuthRateLimit.PasswordPerWindow <= 0 || c.Tuning.AuthRateLimit.RefreshPerWindow <= 0 || c.Tuning.AuthRateLimit.ChangePassPerWindow <= 0 || c.Tuning.AuthRateLimit.LogoutPerWindow <= 0 {
+		return fmt.Errorf("tuning auth rate-limit values must be > 0")
+	}
+	if c.Tuning.CacheTTL.FastRead <= 0 || c.Tuning.CacheTTL.StandardRead <= 0 || c.Tuning.CacheTTL.Dashboard <= 0 {
+		return fmt.Errorf("tuning cache ttl values must be > 0")
 	}
 	if c.Tracing.Enabled {
 		if c.Tracing.ServiceName == "" {
@@ -755,6 +910,9 @@ func (c *Config) Lint() error {
 		return err
 	}
 	if err := lintBoolEnv("AUTH_ENABLED"); err != nil {
+		return err
+	}
+	if err := lintBoolEnv("EMAIL_ENABLED"); err != nil {
 		return err
 	}
 	if err := lintBoolEnv("RATELIMIT_ENABLED"); err != nil {
@@ -922,6 +1080,36 @@ func (c *Config) Lint() error {
 	}
 
 	return nil
+}
+
+// SensitiveFallbackWarnings returns startup warnings for sensitive keys that are
+// currently using default fallback behavior.
+func SensitiveFallbackWarnings(c *Config) []string {
+	if c == nil {
+		return nil
+	}
+
+	warnings := make([]string, 0, 4)
+	permissionSecret := strings.TrimSpace(os.Getenv(permissionContextSecretEnvKey))
+	if permissionSecret == "" {
+		warnings = append(warnings, "PROJECTBOOK_PERMISSION_CONTEXT_SECRET is unset; runtime is using development fallback signing behavior")
+	} else if permissionSecret == permissionContextDevFallbackSecret {
+		warnings = append(warnings, "PROJECTBOOK_PERMISSION_CONTEXT_SECRET is set to the known development fallback value")
+	}
+
+	if c.Metrics.Enabled {
+		if _, ok := os.LookupEnv("METRICS_AUTH_TOKEN"); !ok {
+			warnings = append(warnings, "METRICS_AUTH_TOKEN is unset; runtime is using default metrics token behavior")
+		}
+	}
+
+	if c.Email.Enabled {
+		if _, ok := os.LookupEnv("RESEND_API_KEY"); !ok {
+			warnings = append(warnings, "RESEND_API_KEY is unset; runtime is using default email provider key behavior")
+		}
+	}
+
+	return warnings
 }
 
 func getenv(key, fallback string) string {
@@ -1098,6 +1286,31 @@ func lintBoolEnv(key string) error {
 	return nil
 }
 
+func lintSenderIdentity(name, email string, required bool) error {
+	trimmedName := strings.TrimSpace(name)
+	trimmedEmail := strings.TrimSpace(email)
+
+	if required && trimmedEmail == "" {
+		return fmt.Errorf("email is required")
+	}
+	if required && trimmedName == "" {
+		return fmt.Errorf("name is required")
+	}
+	if trimmedEmail == "" {
+		return nil
+	}
+
+	parsed, err := mail.ParseAddress(trimmedEmail)
+	if err != nil {
+		return fmt.Errorf("email must be a valid address")
+	}
+	if !strings.EqualFold(parsed.Address, trimmedEmail) {
+		return fmt.Errorf("email must be a valid address")
+	}
+
+	return nil
+}
+
 func lintIntEnv(key string) error {
 	v, ok := os.LookupEnv(key)
 	if !ok {
@@ -1213,4 +1426,58 @@ func validateTrustedProxies(items []string) error {
 		}
 	}
 	return nil
+}
+
+func isProductionEnvironment(env string) bool {
+	trimmed := strings.TrimSpace(env)
+	return strings.EqualFold(trimmed, "prod") || strings.EqualFold(trimmed, "production")
+}
+
+func lintProductionPermissionContextSecret() error {
+	secret := strings.TrimSpace(os.Getenv(permissionContextSecretEnvKey))
+	if len(secret) < minimumPermissionContextSecretLength {
+		return fmt.Errorf("%s must be set to at least %d characters in production", permissionContextSecretEnvKey, minimumPermissionContextSecretLength)
+	}
+	if secret == permissionContextDevFallbackSecret {
+		return fmt.Errorf("%s must not use the development fallback secret in production", permissionContextSecretEnvKey)
+	}
+	return nil
+}
+
+func lintProductionWebAppBaseURL(raw string) error {
+	baseURL := strings.TrimSpace(raw)
+	if baseURL == "" {
+		return fmt.Errorf("web app base url cannot be empty in production")
+	}
+
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("web app base url must be an absolute url in production")
+	}
+
+	hostname := strings.TrimSpace(parsed.Hostname())
+	if isLocalhost(hostname) {
+		return fmt.Errorf("web app base url must not target localhost in production")
+	}
+
+	return nil
+}
+
+func lintStrongMetricsAuthToken(raw string) error {
+	token := strings.TrimSpace(raw)
+	if token == "" {
+		return fmt.Errorf("metrics auth token cannot be empty in production")
+	}
+	if strings.EqualFold(token, defaultMetricsAuthTokenPlaceholder) {
+		return fmt.Errorf("metrics auth token must not use placeholder values in production")
+	}
+	if len(token) < minimumMetricsAuthTokenLength {
+		return fmt.Errorf("metrics auth token must be at least %d characters in production", minimumMetricsAuthTokenLength)
+	}
+	return nil
+}
+
+func isLocalhost(host string) bool {
+	trimmed := strings.TrimSpace(host)
+	return strings.EqualFold(trimmed, "localhost") || trimmed == "127.0.0.1" || trimmed == "::1"
 }

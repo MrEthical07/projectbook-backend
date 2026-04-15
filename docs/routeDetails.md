@@ -3168,7 +3168,9 @@ policy.RateLimitWithKeyer(limiter, "auth.forgot_password", passwordRule, ratelim
 {
   "success": true,
   "data": {
-    "message": "If an account exists for this email, a reset link has been sent."
+    "status": "sent",
+    "challengeId": "rst_abc123",
+    "message": "If an account exists for this email, a reset code has been sent."
   }
 }
 ```
