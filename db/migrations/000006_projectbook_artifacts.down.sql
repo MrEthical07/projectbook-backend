@@ -1,14 +1,3 @@
-DROP TABLE IF EXISTS document_sync_outbox;
-DROP TABLE IF EXISTS notifications;
-DROP TABLE IF EXISTS activity_log;
-DROP TABLE IF EXISTS artifact_links;
-DROP TABLE IF EXISTS calendar_events;
-DROP TABLE IF EXISTS pages;
-DROP TABLE IF EXISTS resource_versions;
-DROP TABLE IF EXISTS resources;
-DROP TABLE IF EXISTS feedback;
-DROP TABLE IF EXISTS tasks;
-DROP TABLE IF EXISTS ideas;
-DROP TABLE IF EXISTS problems;
-DROP TABLE IF EXISTS journeys;
-DROP TABLE IF EXISTS stories;
+-- NOTE: Forward-only migration strategy is enforced for production safety.
+-- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
+SELECT 1;

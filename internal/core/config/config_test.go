@@ -361,6 +361,10 @@ func TestLintRejectsCacheFailOpenInProd(t *testing.T) {
 
 func TestLintAllowsMetricsTokenInProd(t *testing.T) {
 	t.Setenv("APP_ENV", "prod")
+	t.Setenv("POSTGRES_URL", "postgres://prod-user:prod-pass@db.internal:5432/projectbook?sslmode=require")
+	t.Setenv("REDIS_ADDR", "redis://default:secret@redis.internal:6379/0")
+	t.Setenv("MONGO_URL", "mongodb://mongo.internal:27017")
+	t.Setenv("MONGO_DB", "projectbook")
 	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
 	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
 	t.Setenv("METRICS_ENABLED", "true")
@@ -373,6 +377,49 @@ func TestLintAllowsMetricsTokenInProd(t *testing.T) {
 
 	if err := cfg.Lint(); err != nil {
 		t.Fatalf("expected lint success, got: %v", err)
+	}
+}
+
+func TestLintAllowsProdWithMetricsDisabledWithoutToken(t *testing.T) {
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv("POSTGRES_URL", "postgres://prod-user:prod-pass@db.internal:5432/projectbook?sslmode=require")
+	t.Setenv("REDIS_ADDR", "redis://default:secret@redis.internal:6379/0")
+	t.Setenv("MONGO_URL", "mongodb://mongo.internal:27017")
+	t.Setenv("MONGO_DB", "projectbook")
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
+	t.Setenv("METRICS_ENABLED", "false")
+	t.Setenv("METRICS_AUTH_TOKEN", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err != nil {
+		t.Fatalf("expected lint success with metrics disabled, got: %v", err)
+	}
+}
+
+func TestLintRejectsProdWhenDatabaseEnvNotExplicit(t *testing.T) {
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv("POSTGRES_URL", "")
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("REDIS_ADDR", "")
+	t.Setenv("REDIS_URL", "")
+	t.Setenv("MONGO_URL", "")
+	t.Setenv("MONGO_DB", "")
+	t.Setenv("PROJECTBOOK_PERMISSION_CONTEXT_SECRET", strings.Repeat("s", 40))
+	t.Setenv("WEB_APP_BASE_URL", "https://app.projectbook.dev")
+	t.Setenv("METRICS_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if err := cfg.Lint(); err == nil {
+		t.Fatalf("expected lint error for missing explicit production database env vars")
 	}
 }
 

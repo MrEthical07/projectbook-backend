@@ -1,11 +1,3 @@
-DROP TABLE IF EXISTS role_permissions;
-DROP TABLE IF EXISTS project_settings;
-DROP TABLE IF EXISTS project_invites;
-DROP TABLE IF EXISTS project_members;
-DROP TABLE IF EXISTS projects;
-DROP TABLE IF EXISTS auth_email_log;
-DROP TABLE IF EXISTS password_reset_tokens;
-DROP TABLE IF EXISTS email_verification_tokens;
-DROP TABLE IF EXISTS account_settings;
-DROP TABLE IF EXISTS auth_sessions;
-DROP TABLE IF EXISTS users;
+-- NOTE: Forward-only migration strategy is enforced for production safety.
+-- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
+SELECT 1;

@@ -1,17 +1,3 @@
-DROP TYPE IF EXISTS notification_source_type;
-DROP TYPE IF EXISTS artifact_type;
-DROP TYPE IF EXISTS member_status;
-DROP TYPE IF EXISTS invite_status;
-DROP TYPE IF EXISTS calendar_artifact_type;
-DROP TYPE IF EXISTS calendar_phase;
-DROP TYPE IF EXISTS calendar_event_type;
-DROP TYPE IF EXISTS page_status;
-DROP TYPE IF EXISTS resource_status;
-DROP TYPE IF EXISTS feedback_outcome;
-DROP TYPE IF EXISTS task_status;
-DROP TYPE IF EXISTS idea_status;
-DROP TYPE IF EXISTS problem_status;
-DROP TYPE IF EXISTS journey_status;
-DROP TYPE IF EXISTS story_status;
-DROP TYPE IF EXISTS project_role;
-DROP TYPE IF EXISTS project_status;
+-- NOTE: Forward-only migration strategy is enforced for production safety.
+-- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
+SELECT 1;

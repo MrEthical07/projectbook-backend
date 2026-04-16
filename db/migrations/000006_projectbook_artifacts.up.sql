@@ -1,19 +1,5 @@
-DROP TABLE IF EXISTS document_sync_outbox CASCADE;
-DROP TABLE IF EXISTS notifications CASCADE;
-DROP TABLE IF EXISTS activity_log CASCADE;
-DROP TABLE IF EXISTS artifact_links CASCADE;
-DROP TABLE IF EXISTS calendar_events CASCADE;
-DROP TABLE IF EXISTS pages CASCADE;
-DROP TABLE IF EXISTS resource_versions CASCADE;
-DROP TABLE IF EXISTS resources CASCADE;
-DROP TABLE IF EXISTS feedback CASCADE;
-DROP TABLE IF EXISTS tasks CASCADE;
-DROP TABLE IF EXISTS ideas CASCADE;
-DROP TABLE IF EXISTS problems CASCADE;
-DROP TABLE IF EXISTS journeys CASCADE;
-DROP TABLE IF EXISTS stories CASCADE;
-
-CREATE TABLE stories (
+-- SAFE: removed legacy destructive schema reset statements; migration is additive and idempotent where possible.
+CREATE TABLE IF NOT EXISTS stories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -32,7 +18,7 @@ CREATE TABLE stories (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE journeys (
+CREATE TABLE IF NOT EXISTS journeys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -47,7 +33,7 @@ CREATE TABLE journeys (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE problems (
+CREATE TABLE IF NOT EXISTS problems (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -63,7 +49,7 @@ CREATE TABLE problems (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE ideas (
+CREATE TABLE IF NOT EXISTS ideas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -79,7 +65,7 @@ CREATE TABLE ideas (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -97,7 +83,7 @@ CREATE TABLE tasks (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE feedback (
+CREATE TABLE IF NOT EXISTS feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -112,7 +98,7 @@ CREATE TABLE feedback (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE resources (
+CREATE TABLE IF NOT EXISTS resources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -127,7 +113,7 @@ CREATE TABLE resources (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE resource_versions (
+CREATE TABLE IF NOT EXISTS resource_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     resource_id UUID NOT NULL REFERENCES resources (id) ON DELETE CASCADE,
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
@@ -141,7 +127,7 @@ CREATE TABLE resource_versions (
     UNIQUE (resource_id, version)
 );
 
-CREATE TABLE pages (
+CREATE TABLE IF NOT EXISTS pages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
@@ -156,7 +142,7 @@ CREATE TABLE pages (
     UNIQUE (project_id, slug)
 );
 
-CREATE TABLE calendar_events (
+CREATE TABLE IF NOT EXISTS calendar_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -173,7 +159,7 @@ CREATE TABLE calendar_events (
     CHECK (ends_at >= starts_at)
 );
 
-CREATE TABLE artifact_links (
+CREATE TABLE IF NOT EXISTS artifact_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     source_type artifact_type NOT NULL,
@@ -187,7 +173,7 @@ CREATE TABLE artifact_links (
     CHECK (NOT (source_type = target_type AND source_id = target_id))
 );
 
-CREATE TABLE activity_log (
+CREATE TABLE IF NOT EXISTS activity_log (
     id BIGSERIAL PRIMARY KEY,
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     actor_user_id UUID NULL REFERENCES users (id) ON DELETE SET NULL,
@@ -198,7 +184,7 @@ CREATE TABLE activity_log (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     project_id UUID NULL REFERENCES projects (id) ON DELETE SET NULL,
@@ -211,7 +197,7 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE document_sync_outbox (
+CREATE TABLE IF NOT EXISTS document_sync_outbox (
     id BIGSERIAL PRIMARY KEY,
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     artifact_type artifact_type NOT NULL,
@@ -228,3 +214,4 @@ CREATE TABLE document_sync_outbox (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, artifact_type, artifact_id, document_revision, operation)
 );
+

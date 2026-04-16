@@ -675,6 +675,9 @@ func (c *Config) Lint() error {
 				return err
 			}
 		}
+		if err := lintRequiredProductionEnvironmentVariables(c); err != nil {
+			return err
+		}
 	}
 	if !c.Postgres.Enabled {
 		return fmt.Errorf("postgres must be enabled for api startup")
@@ -1426,6 +1429,56 @@ func validateTrustedProxies(items []string) error {
 		}
 	}
 	return nil
+}
+
+func lintRequiredProductionEnvironmentVariables(c *Config) error {
+	if c == nil {
+		return fmt.Errorf("config is required")
+	}
+
+	if !hasAnyNonEmptyEnv("POSTGRES_URL", "DATABASE_URL") {
+		return fmt.Errorf("POSTGRES_URL or DATABASE_URL must be explicitly set in production")
+	}
+	if !hasAnyNonEmptyEnv("REDIS_ADDR", "REDIS_URL") {
+		return fmt.Errorf("REDIS_ADDR or REDIS_URL must be explicitly set in production")
+	}
+	if !hasNonEmptyEnv("MONGO_URL") {
+		return fmt.Errorf("MONGO_URL must be explicitly set in production")
+	}
+	if !hasNonEmptyEnv("MONGO_DB") {
+		return fmt.Errorf("MONGO_DB must be explicitly set in production")
+	}
+	if !hasNonEmptyEnv(permissionContextSecretEnvKey) {
+		return fmt.Errorf("%s must be explicitly set in production", permissionContextSecretEnvKey)
+	}
+	if !hasNonEmptyEnv("WEB_APP_BASE_URL") {
+		return fmt.Errorf("WEB_APP_BASE_URL must be explicitly set in production")
+	}
+	if c.Email.Enabled && !hasNonEmptyEnv("RESEND_API_KEY") {
+		return fmt.Errorf("RESEND_API_KEY must be explicitly set when email is enabled in production")
+	}
+	if c.Metrics.Enabled && !hasNonEmptyEnv("METRICS_AUTH_TOKEN") {
+		return fmt.Errorf("METRICS_AUTH_TOKEN must be explicitly set when metrics is enabled in production")
+	}
+
+	return nil
+}
+
+func hasNonEmptyEnv(key string) bool {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return false
+	}
+	return strings.TrimSpace(value) != ""
+}
+
+func hasAnyNonEmptyEnv(keys ...string) bool {
+	for _, key := range keys {
+		if hasNonEmptyEnv(key) {
+			return true
+		}
+	}
+	return false
 }
 
 func isProductionEnvironment(env string) bool {

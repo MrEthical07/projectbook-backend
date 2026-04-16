@@ -1,25 +1,5 @@
-DROP TABLE IF EXISTS workspace_members CASCADE;
-DROP TABLE IF EXISTS workspaces CASCADE;
-DROP TABLE IF EXISTS tenants CASCADE;
-
-DROP TABLE IF EXISTS role_permissions_default CASCADE;
-DROP TABLE IF EXISTS project_role_permissions CASCADE;
-DROP TYPE IF EXISTS permission_domain;
-DROP TYPE IF EXISTS permission_action;
-
-DROP TABLE IF EXISTS role_permissions CASCADE;
-DROP TABLE IF EXISTS project_settings CASCADE;
-DROP TABLE IF EXISTS project_invites CASCADE;
-DROP TABLE IF EXISTS project_members CASCADE;
-DROP TABLE IF EXISTS projects CASCADE;
-DROP TABLE IF EXISTS auth_email_log CASCADE;
-DROP TABLE IF EXISTS password_reset_tokens CASCADE;
-DROP TABLE IF EXISTS email_verification_tokens CASCADE;
-DROP TABLE IF EXISTS account_settings CASCADE;
-DROP TABLE IF EXISTS auth_sessions CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-
-CREATE TABLE users (
+-- SAFE: removed legacy destructive schema reset statements; migration is additive and idempotent where possible.
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email CITEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -30,7 +10,7 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth_sessions (
+CREATE TABLE IF NOT EXISTS auth_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
@@ -42,7 +22,7 @@ CREATE TABLE auth_sessions (
     device_label TEXT NULL
 );
 
-CREATE TABLE email_verification_tokens (
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
@@ -51,7 +31,7 @@ CREATE TABLE email_verification_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
@@ -60,7 +40,7 @@ CREATE TABLE password_reset_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth_email_log (
+CREATE TABLE IF NOT EXISTS auth_email_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NULL REFERENCES users (id) ON DELETE SET NULL,
     kind TEXT NOT NULL CHECK (kind IN ('verify', 'reset')),
@@ -69,7 +49,7 @@ CREATE TABLE auth_email_log (
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE account_settings (
+CREATE TABLE IF NOT EXISTS account_settings (
     user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     display_name TEXT NOT NULL,
     bio TEXT NULL,
@@ -82,7 +62,7 @@ CREATE TABLE account_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -98,7 +78,7 @@ CREATE TABLE projects (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE project_members (
+CREATE TABLE IF NOT EXISTS project_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -112,7 +92,7 @@ CREATE TABLE project_members (
     UNIQUE (project_id, user_id)
 );
 
-CREATE TABLE project_invites (
+CREATE TABLE IF NOT EXISTS project_invites (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     email CITEXT NOT NULL,
@@ -130,7 +110,7 @@ CREATE TABLE project_invites (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE project_settings (
+CREATE TABLE IF NOT EXISTS project_settings (
     project_id UUID PRIMARY KEY REFERENCES projects (id) ON DELETE CASCADE,
     project_name TEXT NOT NULL,
     project_description TEXT NULL,
@@ -148,7 +128,7 @@ CREATE TABLE project_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE role_permissions (
+CREATE TABLE IF NOT EXISTS role_permissions (
     project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     role project_role NOT NULL,
     permission_mask BIGINT NOT NULL DEFAULT 0 CHECK (permission_mask >= 0),
@@ -156,3 +136,4 @@ CREATE TABLE role_permissions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (project_id, role)
 );
+

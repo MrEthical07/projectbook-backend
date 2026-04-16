@@ -1,1 +1,3 @@
-DROP INDEX IF EXISTS project_members_project_status_idx;
+-- NOTE: Forward-only migration strategy is enforced for production safety.
+-- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
+SELECT 1;
