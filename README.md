@@ -75,6 +75,35 @@ After startup:
 - Liveness: GET /healthz
 - Readiness: GET /readyz
 
+## Docker (Production)
+
+Build the production image from the backend repository root:
+
+```bash
+docker build -t projectbook-backend:prod .
+```
+
+Run the image with runtime-injected configuration:
+
+```bash
+docker run --rm -p 8080:8080 \
+	-e APP_ENV=prod \
+	-e HTTP_ADDR=:8080 \
+	-e POSTGRES_URL=postgres://user:pass@postgres:5432/projectbook?sslmode=disable \
+	-e REDIS_ADDR=redis:6379 \
+	-e MONGO_URL=mongodb://mongo:27017 \
+	-e MONGO_DB=projectbook \
+	-e PROJECTBOOK_PERMISSION_CONTEXT_SECRET=replace-with-strong-secret \
+	-e WEB_APP_BASE_URL=https://app.example.com \
+	-e METRICS_ENABLED=false \
+	projectbook-backend:prod
+```
+
+Container notes:
+- No secrets are baked into the image.
+- `.env` files are not required for image build.
+- Postgres, Redis, and MongoDB are external runtime dependencies and are not bundled in the image.
+
 ### Minimal profile (lean features, core stores still required)
 
 Use the profile that keeps Postgres/Redis/Mongo active but disables auth/cache/rate-limit/permissions:
