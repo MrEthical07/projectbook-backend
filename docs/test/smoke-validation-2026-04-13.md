@@ -36,7 +36,7 @@ Executed against running API at http://127.0.0.1:8080.
 - GET /api/v1/projects/atlas-2026/stories -> 401
 - GET /api/v1/projects/atlas-2026/pages -> 401
 - GET /api/v1/projects/atlas-2026/resources -> 401
-- POST /api/v1/projects/atlas-2026/sidebar/artifacts -> 401
+- GET /api/v1/projects/atlas-2026/navigation -> 401
 
 ## Automated Validation
 - go test ./... -> pass (after clearing process env pollution from .env keys)

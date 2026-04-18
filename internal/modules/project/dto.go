@@ -194,32 +194,22 @@ type permissionSet struct {
 	StatusChange bool `json:"statusChange"`
 }
 
-type projectSidebarResponse struct {
-	User      accessUser       `json:"user"`
-	Projects  []sidebarProject `json:"projects"`
-	Artifacts sidebarArtifacts `json:"artifacts"`
+type projectNavigationResponse struct {
+	CurrentProject currentProjectNavigation `json:"current_project"`
+	ProjectList    []projectNavigationItem  `json:"project_list"`
 }
 
-type sidebarProject struct {
+type currentProjectNavigation struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	Icon   string `json:"icon"`
 	Status string `json:"status"`
+	Role   string `json:"role"`
 }
 
-type sidebarArtifacts struct {
-	Stories  []sidebarArtifact `json:"stories"`
-	Journeys []sidebarArtifact `json:"journeys"`
-	Problems []sidebarArtifact `json:"problems"`
-	Ideas    []sidebarArtifact `json:"ideas"`
-	Tasks    []sidebarArtifact `json:"tasks"`
-	Feedback []sidebarArtifact `json:"feedback"`
-	Pages    []sidebarArtifact `json:"pages"`
-}
-
-type sidebarArtifact struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+type projectNavigationItem struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Icon string `json:"icon"`
 }
 
 type projectSettingsResponse struct {

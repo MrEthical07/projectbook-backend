@@ -246,8 +246,8 @@
         "category":  "Project",
         "module":  "project",
         "method":  "GET",
-        "path":  "/api/v1/projects/{projectId}/sidebar",
-        "sourceFunction":  "getProjectSidebarData()",
+        "path":  "/api/v1/projects/{projectId}/navigation",
+        "sourceFunction":  "getProjectNavigationData()",
         "status":  "tested",
         "owner":  "project",
         "implementation":  "internal/modules/project"
@@ -856,39 +856,6 @@
         "status":  "tested",
         "owner":  "calendar",
         "implementation":  "internal/modules/calendar"
-    },
-    {
-        "id":  "EP-079",
-        "category":  "Sidebar Artifacts",
-        "module":  "sidebar",
-        "method":  "POST",
-        "path":  "/api/v1/projects/{projectId}/sidebar/artifacts",
-        "sourceFunction":  "createSidebarArtifact()",
-        "status":  "tested",
-        "owner":  "sidebar",
-        "implementation":  "internal/modules/sidebar"
-    },
-    {
-        "id":  "EP-080",
-        "category":  "Sidebar Artifacts",
-        "module":  "sidebar",
-        "method":  "PUT",
-        "path":  "/api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename",
-        "sourceFunction":  "renameSidebarArtifact()",
-        "status":  "tested",
-        "owner":  "sidebar",
-        "implementation":  "internal/modules/sidebar"
-    },
-    {
-        "id":  "EP-081",
-        "category":  "Sidebar Artifacts",
-        "module":  "sidebar",
-        "method":  "DELETE",
-        "path":  "/api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}",
-        "sourceFunction":  "deleteSidebarArtifact()",
-        "status":  "tested",
-        "owner":  "sidebar",
-        "implementation":  "internal/modules/sidebar"
     },
     {
         "id":  "EP-082",

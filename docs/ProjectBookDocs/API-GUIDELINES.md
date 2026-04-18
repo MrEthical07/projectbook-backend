@@ -453,12 +453,20 @@ The Svelte remote layer is the canonical client/server boundary for the web app.
 - `archiveProject` -> `POST /api/v1/projects/{projectId}/archive`
 - `deleteProject` -> `DELETE /api/v1/projects/{projectId}`
 
+#### `project-navigation.remote`
+
+- `getProjectNavigationData` -> `GET /api/v1/projects/{projectId}/navigation`
+
 #### `sidebar.remote`
 
-- `getProjectSidebarData` -> `GET /api/v1/projects/{projectId}/sidebar`
-- `createSidebarArtifact` -> `POST /api/v1/projects/{projectId}/sidebar/artifacts`
-- `renameSidebarArtifact` -> `PUT /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename`
-- `deleteSidebarArtifact` -> `DELETE /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}`
+- `createSidebarArtifact` -> delegates to module create endpoints based on prefix:
+  - `stories` -> `POST /api/v1/projects/{projectId}/stories`
+  - `journeys` -> `POST /api/v1/projects/{projectId}/journeys`
+  - `problem-statement` -> `POST /api/v1/projects/{projectId}/problems`
+  - `ideas` -> `POST /api/v1/projects/{projectId}/ideas`
+  - `tasks` -> `POST /api/v1/projects/{projectId}/tasks`
+  - `feedback` -> `POST /api/v1/projects/{projectId}/feedback`
+  - `pages` -> `POST /api/v1/projects/{projectId}/pages`
 
 #### `story.remote`
 
@@ -1475,9 +1483,9 @@ Get the current user's role and effective permissions for this project.
 
 ---
 
-#### GET `/api/v1/projects/{projectId}/sidebar`
+#### GET `/api/v1/projects/{projectId}/navigation`
 
-Get sidebar navigation data including user info, project list, and artifact tree for the sidebar.
+Get project navigation data for the sidebar header and project switcher.
 
 **Auth:** Required
 
@@ -1491,28 +1499,19 @@ Get sidebar navigation data including user info, project list, and artifact tree
 {
   "success": true,
   "data": {
-    "user": {
-      "id": "u-1",
-      "name": "Ayush",
-      "email": "ayush@projectbook.dev"
+    "current_project": {
+      "id": "atlas-2026",
+      "name": "Atlas Research",
+      "status": "Active",
+      "role": "Owner"
     },
-    "projects": [
+    "project_list": [
       {
         "id": "atlas-2026",
         "name": "Atlas Research",
-        "icon": "rocket",
-        "status": "Active"
+        "icon": "rocket"
       }
-    ],
-    "artifacts": {
-      "stories": [{ "id": "streamline-checkout", "title": "Streamline checkout for first-time users" }],
-      "journeys": [{ "id": "student-assignment-journey", "title": "Student assignment journey" }],
-      "problems": [{ "id": "deadline-clarity-students", "title": "Students need a clear way to track..." }],
-      "ideas": [{ "id": "deadline-lane-view", "title": "Deadline lane view" }],
-      "tasks": [{ "id": "deadline-lane-prototype", "title": "Prototype deadline lane interaction" }],
-      "feedback": [{ "id": "deadline-lane-session-1", "title": "Deadline lane usability session" }],
-      "pages": [{ "id": "research-notes", "title": "Research notes" }]
-    }
+    ]
   }
 }
 ```
@@ -4663,155 +4662,23 @@ Delete a calendar event. Only Manual events can be deleted.
 
 ---
 
-### 6.14 Sidebar Artifacts
+### 6.14 Sidebar Interactions
 
-Sidebar endpoints provide quick creation, renaming, and deletion of artifacts directly from the navigation sidebar. These are convenience endpoints that delegate to the underlying artifact-specific logic.
+The sidebar UI does not call dedicated sidebar mutation endpoints. Instead, it dispatches create actions to the same artifact module endpoints used by primary artifact pages.
 
-All sidebar endpoints require authentication and project access.
+Prefix mapping used by `createSidebarArtifact`:
 
----
+| Prefix | Endpoint |
+|--------|----------|
+| `stories` | `POST /api/v1/projects/{projectId}/stories` |
+| `journeys` | `POST /api/v1/projects/{projectId}/journeys` |
+| `problem-statement` | `POST /api/v1/projects/{projectId}/problems` |
+| `ideas` | `POST /api/v1/projects/{projectId}/ideas` |
+| `tasks` | `POST /api/v1/projects/{projectId}/tasks` |
+| `feedback` | `POST /api/v1/projects/{projectId}/feedback` |
+| `pages` | `POST /api/v1/projects/{projectId}/pages` |
 
-#### POST `/api/v1/projects/{projectId}/sidebar/artifacts`
-
-Create a new artifact from the sidebar.
-
-**Auth:** Required
-**Permissions:** Varies by prefix (e.g., `story.create`, `problem.create`, `idea.create`, etc.)
-
-**Path parameters:**
-| Parameter | Description |
-|-----------|-------------|
-| `projectId` | Project identifier |
-
-**Request body:**
-```json
-{
-  "prefix": "stories",
-  "title": "New user story from sidebar"
-}
-```
-
-**Validation rules:**
-| Field | Rules |
-|-------|-------|
-| `prefix` | Required, one of: `stories`, `journeys`, `problem-statement`, `ideas`, `tasks`, `feedback`, `pages` |
-| `title` | Required, trimmed, min 1 char, must contain letters or numbers |
-
-**Success response:** `201 Created`
-```json
-{
-  "success": true,
-  "data": {
-    "id": "new-user-story-from-sidebar",
-    "title": "New user story from sidebar"
-  }
-}
-```
-
-**Error responses:**
-
-| Status | Code | Condition |
-|--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Invalid prefix or title |
-| 403 | `PERMISSION_DENIED` | Lacks create permission for this artifact type |
-| 404 | `NOT_FOUND` | Project not found |
-
-**Side effects:**
-- Creates the full artifact with default template
-- Logs project activity
-
----
-
-#### PUT `/api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename`
-
-Rename an artifact from the sidebar.
-
-**Auth:** Required
-**Permissions:** Varies by prefix (e.g., `story.edit`, `problem.edit`, etc.)
-
-**Path parameters:**
-| Parameter | Description |
-|-----------|-------------|
-| `projectId` | Project identifier |
-| `artifactId` | Artifact identifier |
-
-**Request body:**
-```json
-{
-  "prefix": "stories",
-  "title": "Renamed story title"
-}
-```
-
-**Validation rules:**
-| Field | Rules |
-|-------|-------|
-| `prefix` | Required, one of: `stories`, `journeys`, `problem-statement`, `ideas`, `tasks`, `feedback`, `pages` |
-| `title` | Required, trimmed, min 1 char, must contain letters or numbers |
-
-**Success response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "id": "streamline-checkout",
-    "title": "Renamed story title"
-  }
-}
-```
-
-**Error responses:**
-
-| Status | Code | Condition |
-|--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Invalid prefix or title |
-| 403 | `PERMISSION_DENIED` | Lacks edit permission for this artifact type |
-| 404 | `NOT_FOUND` | Artifact not found |
-
----
-
-#### DELETE `/api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}`
-
-Delete an artifact from the sidebar.
-
-**Auth:** Required
-**Permissions:** Varies by prefix (e.g., `story.delete`, `problem.delete`, etc.)
-
-**Path parameters:**
-| Parameter | Description |
-|-----------|-------------|
-| `projectId` | Project identifier |
-| `artifactId` | Artifact identifier |
-
-**Request body:**
-```json
-{
-  "prefix": "stories"
-}
-```
-
-**Validation rules:**
-| Field | Rules |
-|-------|-------|
-| `prefix` | Required, one of: `stories`, `journeys`, `problem-statement`, `ideas`, `tasks`, `feedback`, `pages` |
-
-**Success response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "id": "streamline-checkout"
-  }
-}
-```
-
-**Error responses:**
-
-| Status | Code | Condition |
-|--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Invalid prefix |
-| 403 | `PERMISSION_DENIED` | Lacks delete permission for this artifact type |
-| 404 | `NOT_FOUND` | Artifact not found |
+Rename and delete actions are not exposed via sidebar-specific routes in the current UI flow.
 
 ---
 

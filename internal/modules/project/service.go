@@ -19,7 +19,7 @@ type Service interface {
 	DashboardEvents(ctx context.Context, userID, projectID string) (projectDashboardEventsResponse, error)
 	DashboardActivity(ctx context.Context, userID, projectID string) (projectDashboardActivityResponse, error)
 	Access(ctx context.Context, userID, projectID, role string, mask uint64) (projectAccessResponse, error)
-	Sidebar(ctx context.Context, userID, projectID string) (projectSidebarResponse, error)
+	Navigation(ctx context.Context, userID, projectID string) (projectNavigationResponse, error)
 	GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error)
 	UpdateSettings(ctx context.Context, projectID string, req updateProjectSettingsRequest) (projectUpdateSettingsResponse, error)
 	Archive(ctx context.Context, projectID string) (projectArchiveResponse, error)
@@ -118,30 +118,45 @@ func (s *service) Access(ctx context.Context, userID, projectID, role string, ma
 	}, nil
 }
 
-func (s *service) Sidebar(ctx context.Context, userID, projectID string) (projectSidebarResponse, error) {
+func (s *service) Navigation(ctx context.Context, userID, projectID string) (projectNavigationResponse, error) {
 	if err := requireIdentity(userID, projectID); err != nil {
-		return projectSidebarResponse{}, err
+		return projectNavigationResponse{}, err
 	}
 
-	user, err := s.repo.GetUser(ctx, userID)
+	projects, err := s.repo.ListNavigationProjects(ctx, userID)
 	if err != nil {
-		return projectSidebarResponse{}, mapProjectRepoError(err)
+		return projectNavigationResponse{}, mapProjectRepoError(err)
 	}
 
-	projects, err := s.repo.ListUserProjects(ctx, userID)
-	if err != nil {
-		return projectSidebarResponse{}, mapProjectRepoError(err)
+	projectList := make([]projectNavigationItem, 0, len(projects))
+	var currentProject currentProjectNavigation
+	foundCurrentProject := false
+
+	for _, project := range projects {
+		projectList = append(projectList, projectNavigationItem{
+			ID:   project.ID,
+			Name: project.Name,
+			Icon: project.Icon,
+		})
+
+		if strings.EqualFold(strings.TrimSpace(project.ID), strings.TrimSpace(projectID)) {
+			currentProject = currentProjectNavigation{
+				ID:     project.ID,
+				Name:   project.Name,
+				Status: project.Status,
+				Role:   project.Role,
+			}
+			foundCurrentProject = true
+		}
 	}
 
-	artifacts, err := s.repo.ListSidebarArtifacts(ctx, projectID)
-	if err != nil {
-		return projectSidebarResponse{}, mapProjectRepoError(err)
+	if !foundCurrentProject {
+		return projectNavigationResponse{}, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "project not found")
 	}
 
-	return projectSidebarResponse{
-		User:      user,
-		Projects:  projects,
-		Artifacts: artifacts,
+	return projectNavigationResponse{
+		CurrentProject: currentProject,
+		ProjectList:    projectList,
 	}, nil
 }
 

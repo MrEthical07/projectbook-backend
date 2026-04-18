@@ -28,8 +28,7 @@ type Repo interface {
 	DashboardEvents(ctx context.Context, projectID, userID string) (projectDashboardEventsResponse, error)
 	DashboardActivity(ctx context.Context, projectID, userID string) (projectDashboardActivityResponse, error)
 	GetUser(ctx context.Context, userID string) (accessUser, error)
-	ListUserProjects(ctx context.Context, userID string) ([]sidebarProject, error)
-	ListSidebarArtifacts(ctx context.Context, projectID string) (sidebarArtifacts, error)
+	ListNavigationProjects(ctx context.Context, userID string) ([]navigationProjectRecord, error)
 	GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error)
 	UpdateSettings(ctx context.Context, projectID string, patch projectSettingsPatch) (projectUpdateSettingsResponse, error)
 	Archive(ctx context.Context, projectID string) (projectArchiveResponse, error)
@@ -38,6 +37,14 @@ type Repo interface {
 
 type repo struct {
 	store storage.RelationalStore
+}
+
+type navigationProjectRecord struct {
+	ID     string
+	Name   string
+	Icon   string
+	Status string
+	Role   string
 }
 
 type projectIdentity struct {
@@ -224,12 +231,13 @@ ORDER BY f.updated_at DESC
 LIMIT 5
 `
 
-const queryListSidebarProjects = `
+const queryListNavigationProjects = `
 SELECT
 	p.id::text,
 	p.name,
 	p.icon,
-	p.status::text
+	p.status::text,
+	pm.role::text
 FROM project_members pm
 JOIN projects p ON p.id = pm.project_id
 WHERE pm.user_id = $1::uuid
@@ -672,16 +680,16 @@ func (r *repo) GetUser(ctx context.Context, userID string) (accessUser, error) {
 	return user, nil
 }
 
-func (r *repo) ListUserProjects(ctx context.Context, userID string) ([]sidebarProject, error) {
+func (r *repo) ListNavigationProjects(ctx context.Context, userID string) ([]navigationProjectRecord, error) {
 	if err := r.requireStore(); err != nil {
 		return nil, err
 	}
 
-	projects := make([]sidebarProject, 0, 16)
-	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListSidebarProjects,
+	projects := make([]navigationProjectRecord, 0, 16)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListNavigationProjects,
 		func(row storage.RowScanner) error {
-			var item sidebarProject
-			if err := row.Scan(&item.ID, &item.Name, &item.Icon, &item.Status); err != nil {
+			var item navigationProjectRecord
+			if err := row.Scan(&item.ID, &item.Name, &item.Icon, &item.Status, &item.Role); err != nil {
 				return err
 			}
 			projects = append(projects, item)
@@ -690,75 +698,10 @@ func (r *repo) ListUserProjects(ctx context.Context, userID string) ([]sidebarPr
 		strings.TrimSpace(userID),
 	))
 	if err != nil {
-		return nil, wrapRepoError("list user projects", err)
+		return nil, wrapRepoError("list navigation projects", err)
 	}
 
 	return projects, nil
-}
-
-func (r *repo) ListSidebarArtifacts(ctx context.Context, projectID string) (sidebarArtifacts, error) {
-	if err := r.requireStore(); err != nil {
-		return sidebarArtifacts{}, err
-	}
-
-	identity, err := r.resolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-
-	artifacts := sidebarArtifacts{
-		Stories:  make([]sidebarArtifact, 0),
-		Journeys: make([]sidebarArtifact, 0),
-		Problems: make([]sidebarArtifact, 0),
-		Ideas:    make([]sidebarArtifact, 0),
-		Tasks:    make([]sidebarArtifact, 0),
-		Feedback: make([]sidebarArtifact, 0),
-		Pages:    make([]sidebarArtifact, 0),
-	}
-
-	stories, err := r.listArtifactsByTable(ctx, identity.UUID, "stories")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Stories = stories
-
-	journeys, err := r.listArtifactsByTable(ctx, identity.UUID, "journeys")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Journeys = journeys
-
-	problems, err := r.listArtifactsByTable(ctx, identity.UUID, "problems")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Problems = problems
-
-	ideas, err := r.listArtifactsByTable(ctx, identity.UUID, "ideas")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Ideas = ideas
-
-	tasks, err := r.listArtifactsByTable(ctx, identity.UUID, "tasks")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Tasks = tasks
-
-	feedback, err := r.listArtifactsByTable(ctx, identity.UUID, "feedback")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Feedback = feedback
-
-	pages, err := r.listArtifactsByTable(ctx, identity.UUID, "pages")
-	if err != nil {
-		return sidebarArtifacts{}, err
-	}
-	artifacts.Pages = pages
-
-	return artifacts, nil
 }
 
 func (r *repo) GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error) {
@@ -976,101 +919,6 @@ func (r *repo) getSettingsByProjectUUID(ctx context.Context, projectUUID string)
 	}
 
 	return settings, nil
-}
-
-func (r *repo) listArtifactsByTable(ctx context.Context, projectUUID, table string) ([]sidebarArtifact, error) {
-	query, err := sidebarArtifactsQuery(table)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]sidebarArtifact, 0, 32)
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(query,
-		func(row storage.RowScanner) error {
-			var item sidebarArtifact
-			if err := row.Scan(&item.ID, &item.Title); err != nil {
-				return err
-			}
-			items = append(items, item)
-			return nil
-		},
-		strings.TrimSpace(projectUUID),
-	))
-	if err != nil {
-		return nil, wrapRepoError("list "+table+" artifacts", err)
-	}
-
-	return items, nil
-}
-
-func sidebarArtifactsQuery(table string) (string, error) {
-	switch table {
-	case "stories":
-		return `
-SELECT id::text, title
-FROM stories
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::story_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "journeys":
-		return `
-SELECT id::text, title
-FROM journeys
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::journey_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "problems":
-		return `
-SELECT id::text, title
-FROM problems
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::problem_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "ideas":
-		return `
-SELECT id::text, title
-FROM ideas
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::idea_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "tasks":
-		return `
-SELECT id::text, title
-FROM tasks
-WHERE project_id = $1::uuid
-  AND status <> 'Abandoned'::task_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "feedback":
-		return `
-SELECT id::text, title
-FROM feedback
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::feedback_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	case "pages":
-		return `
-SELECT id::text, title
-FROM pages
-WHERE project_id = $1::uuid
-  AND status <> 'Archived'::page_status
-ORDER BY updated_at DESC
-LIMIT 100
-`, nil
-	default:
-		return "", apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "invalid artifact table")
-	}
 }
 
 func (r *repo) requireStore() error {

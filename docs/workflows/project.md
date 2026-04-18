@@ -6,7 +6,7 @@ Module path: `internal/modules/project`
 
 1. `GET /api/v1/projects/{projectId}/dashboard`
 2. `GET /api/v1/projects/{projectId}/access`
-3. `GET /api/v1/projects/{projectId}/sidebar`
+3. `GET /api/v1/projects/{projectId}/navigation`
 4. `GET /api/v1/projects/{projectId}/settings`
 5. `PUT /api/v1/projects/{projectId}/settings`
 6. `POST /api/v1/projects/{projectId}/archive`
@@ -42,14 +42,14 @@ Flow:
 1. Handler `Access` -> Service `Access`.
 2. Service reads principal access details.
 
-### `GET /api/v1/projects/{projectId}/sidebar`
+### `GET /api/v1/projects/{projectId}/navigation`
 
 - RBAC: `PermProjectView`
-- Cache read tag: `project.sidebar`
+- Cache read tag: `project.navigation`
 
 Flow:
-1. Handler `Sidebar` -> Service `Sidebar`.
-2. Service reads repo sidebar aggregate.
+1. Handler `Navigation` -> Service `Navigation`.
+2. Service reads repo navigation aggregate.
 
 ### `GET /api/v1/projects/{projectId}/settings`
 

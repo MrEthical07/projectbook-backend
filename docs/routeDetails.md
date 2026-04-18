@@ -9,24 +9,23 @@ This file is generated from module route registrations and handler contracts. It
 - Handler signatures: internal/modules/*/handler.go
 - Endpoint IDs: docs/ProjectBookDocs/endpoint-tracker.json
 - Output schema fallback: docs/ProjectBookDocs/API-GUIDELINES.md
-- Generated at: 2026-04-14T14:13:13Z
+- Generated at: 2026-04-18T16:15:08Z
 
 ## Module Endpoint Counts
 
 | Module | Total Endpoints | Tracked (EP) | Operational (OP) |
 | --- | ---: | ---: | ---: |
 | activity | 1 | 1 | 0 |
-| artifacts | 29 | 29 | 0 |
-| auth | 8 | 7 | 1 |
-| calendar | 5 | 5 | 0 |
+| artifacts | 29 | 14 | 15 |
+| auth | 10 | 7 | 3 |
+| calendar | 5 | 4 | 1 |
 | health | 2 | 0 | 2 |
-| home | 13 | 13 | 0 |
-| pages | 5 | 5 | 0 |
-| project | 7 | 7 | 0 |
-| resources | 5 | 5 | 0 |
-| sidebar | 3 | 3 | 0 |
-| system | 2 | 0 | 2 |
-| team | 7 | 7 | 0 |
+| home | 13 | 12 | 1 |
+| pages | 5 | 2 | 3 |
+| project | 11 | 5 | 6 |
+| resources | 5 | 3 | 2 |
+| system | 3 | 0 | 3 |
+| team | 7 | 5 | 2 |
 
 ## Module: activity
 
@@ -39,7 +38,7 @@ Total endpoints: 1
 - Handler: httpx.Adapter(m.handler.ListProjectActivity)
 - Business Logic Source: getProjectActivity()
 - Path Params: projectId
-- Query Params (inferred): limit
+- Query Params (inferred): none
 
 #### Policies
 1. AuthRequired
@@ -84,9 +83,7 @@ policy.RequirePermission(rbac.PermProjectView)
   "path_params": {
     "projectId": "string"
   },
-  "query_params": {
-    "limit": "string"
-  }
+  "query_params": {}
 }
 ```
 
@@ -157,7 +154,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -295,13 +292,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-037 - GET /api/v1/projects/{projectId}/stories/{slug}
+### OP-001 - GET /api/v1/projects/{projectId}/stories/{storyId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetStory
 - Handler: httpx.Adapter(m.handler.GetStory)
-- Business Logic Source: getStoryPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: projectId, storyId
 - Query Params (inferred): none
 
 #### Policies
@@ -339,7 +336,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "storyId"},
 	},
 })
 ```
@@ -364,7 +361,7 @@ policy.CacheControlOptional(cacheMgr, ttl)
   "body": {},
   "path_params": {
     "projectId": "string",
-    "slug": "string"
+    "storyId": "string"
   },
   "query_params": {}
 }
@@ -373,60 +370,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "story": {
-      "id": "streamline-checkout",
-      "title": "Streamline checkout for first-time users",
-      "status": "Locked",
-      "owner": "Avery Patel",
-      "lastUpdated": "2026-02-05"
-    },
-    "detail": {
-      "title": "Streamline checkout for first-time users",
-      "description": "",
-      "status": "draft",
-      "persona": {
-        "name": "Avery Patel",
-        "bio": "",
-        "role": "",
-        "age": 0,
-        "job": "",
-        "edu": ""
-      },
-      "context": "",
-      "empathyMap": {
-        "says": "",
-        "thinks": "",
-        "does": "",
-        "feels": ""
-      },
-      "painPoints": ["Point 1"],
-      "hypothesis": ["hypothesis 1", "hypothesis 2"],
-      "notes": ""
-    },
-    "addOnCatalog": [
-      {
-        "type": "goals_success",
-        "name": "Goals & Success Criteria",
-        "description": "Define what success looks like from the user's perspective.",
-        "tag": "Recommended"
-      }
-    ],
-    "addOnSections": [],
-    "reference": {
-      "permissions": { }
-    }
-  }
+    "_type": "StoryPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-038 - PUT /api/v1/projects/{projectId}/stories/{storyId}
+### OP-002 - PATCH /api/v1/projects/{projectId}/stories/{storyId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateStory
 - Handler: httpx.Adapter(m.handler.UpdateStory)
-- Business Logic Source: updateStory()
+- Business Logic Source: n/a
 - Path Params: projectId, storyId
 - Query Params (inferred): none
 
@@ -493,18 +450,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "streamline-checkout",
-    "title": "Streamline checkout for first-time users",
-    "personaName": "Updated Persona",
-    "painPointsCount": 2,
-    "problemHypothesesCount": 2,
-    "owner": "Avery Patel",
-    "lastUpdated": "2026-02-14",
-    "status": "Locked",
-    "isOrphan": false
-  }
+    "_type": "StoryListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -553,7 +503,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -691,13 +641,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-041 - GET /api/v1/projects/{projectId}/journeys/{slug}
+### OP-003 - GET /api/v1/projects/{projectId}/journeys/{journeyId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetJourney
 - Handler: httpx.Adapter(m.handler.GetJourney)
-- Business Logic Source: getJourneyPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: journeyId, projectId
 - Query Params (inferred): none
 
 #### Policies
@@ -735,7 +685,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "journeyId"},
 	},
 })
 ```
@@ -759,8 +709,8 @@ policy.CacheControlOptional(cacheMgr, ttl)
 {
   "body": {},
   "path_params": {
-    "projectId": "string",
-    "slug": "string"
+    "journeyId": "string",
+    "projectId": "string"
   },
   "query_params": {}
 }
@@ -769,58 +719,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "journey": {
-      "id": "student-assignment-journey",
-      "title": "Student assignment journey",
-      "status": "Draft",
-      "owner": "Avery Patel",
-      "lastUpdated": "2026-02-04"
-    },
-    "detail": {
-      "title": "Student assignment journey",
-      "description": "",
-      "status": "draft",
-      "persona": {
-        "name": "",
-        "bio": "",
-        "role": "",
-        "age": 0,
-        "job": "",
-        "edu": ""
-      },
-      "context": "",
-      "stages": [
-        {
-          "name": "Discovery",
-          "actions": ["Sees coffee shop", "Checks line"],
-          "emotion": "Neutral",
-          "painPoints": []
-        },
-        {
-          "name": "Ordering",
-          "actions": ["Waits in line", "Orders drink"],
-          "emotion": "Frustrated",
-          "painPoints": ["Line is slow"]
-        }
-      ],
-      "notes": ""
-    },
-    "emotionOptions": ["Neutral", "Frustrated", "Anxious", "Relieved"],
-    "reference": {
-      "permissions": { }
-    }
-  }
+    "_type": "JourneyPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-042 - PUT /api/v1/projects/{projectId}/journeys/{journeyId}
+### OP-004 - PATCH /api/v1/projects/{projectId}/journeys/{journeyId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateJourney
 - Handler: httpx.Adapter(m.handler.UpdateJourney)
-- Business Logic Source: updateJourney()
+- Business Logic Source: n/a
 - Path Params: journeyId, projectId
 - Query Params (inferred): none
 
@@ -887,18 +799,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "student-assignment-journey",
-    "title": "Student assignment journey",
-    "linkedPersonas": ["Avery Patel"],
-    "stagesCount": 1,
-    "painPointsCount": 0,
-    "owner": "Avery Patel",
-    "lastUpdated": "2026-02-14",
-    "status": "Draft",
-    "isOrphan": false
-  }
+    "_type": "JourneyListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -947,7 +852,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -1088,13 +993,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-045 - GET /api/v1/projects/{projectId}/problems/{slug}
+### OP-005 - GET /api/v1/projects/{projectId}/problems/{problemId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetProblem
 - Handler: httpx.Adapter(m.handler.GetProblem)
-- Business Logic Source: getProblemPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: problemId, projectId
 - Query Params (inferred): none
 
 #### Policies
@@ -1132,7 +1037,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "problemId"},
 	},
 })
 ```
@@ -1156,8 +1061,8 @@ policy.CacheControlOptional(cacheMgr, ttl)
 {
   "body": {},
   "path_params": {
-    "projectId": "string",
-    "slug": "string"
+    "problemId": "string",
+    "projectId": "string"
   },
   "query_params": {}
 }
@@ -1166,60 +1071,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "problem": {
-      "id": "deadline-clarity-students",
-      "statement": "Students need a clear way to track assignment deadlines...",
-      "status": "Locked",
-      "owner": "Avery Patel",
-      "lastUpdated": "2026-02-03"
-    },
-    "detail": {
-      "title": "",
-      "finalStatement": "",
-      "selectedPainPoints": [],
-      "linkedSources": [],
-      "activeModules": [],
-      "moduleContent": {},
-      "notes": ""
-    },
-    "reference": {
-      "storyOptions": [
-        {
-          "id": "story-1",
-          "title": "Streamline the checkout experience",
-          "phase": "Empathize",
-          "href": "/project/alpha/stories/streamline-checkout"
-        }
-      ],
-      "journeyOptions": [
-        {
-          "id": "journey-1",
-          "title": "Checkout journey map",
-          "phase": "Empathize",
-          "href": "/project/alpha/journeys/checkout-journey"
-        }
-      ],
-      "sourcePainPoints": [
-        {
-          "id": "pain-1",
-          "text": "Users abandon checkout when the form asks for repeated information.",
-          "sourceLabel": "User Story - Avery Patel"
-        }
-      ],
-      "permissions": { }
-    }
-  }
+    "_type": "ProblemPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-046 - PUT /api/v1/projects/{projectId}/problems/{problemId}
+### OP-006 - PATCH /api/v1/projects/{projectId}/problems/{problemId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateProblem
 - Handler: httpx.Adapter(m.handler.UpdateProblem)
-- Business Logic Source: updateProblem()
+- Business Logic Source: n/a
 - Path Params: problemId, projectId
 - Query Params (inferred): none
 
@@ -1286,18 +1151,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-clarity-students",
-    "statement": "Updated problem title",
-    "linkedSources": ["Story: ..."],
-    "painPointsCount": 2,
-    "ideasCount": 2,
-    "status": "Draft",
-    "owner": "Avery Patel",
-    "lastUpdated": "2026-02-14",
-    "isOrphan": false
-  }
+    "_type": "ProblemListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -1376,12 +1234,12 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-048 - PUT /api/v1/projects/{projectId}/problems/{problemId}/status
+### OP-007 - PATCH /api/v1/projects/{projectId}/problems/{problemId}/status
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateProblemStatus
 - Handler: httpx.Adapter(m.handler.UpdateProblemStatus)
-- Business Logic Source: updateProblemStatus()
+- Business Logic Source: n/a
 - Path Params: problemId, projectId
 - Query Params (inferred): none
 
@@ -1448,12 +1306,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-clarity-students",
-    "status": "Archived",
-    "lastUpdated": "2026-02-14"
-  }
+    "_type": "ArtifactStatusResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -1502,7 +1359,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -1642,13 +1499,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-051 - GET /api/v1/projects/{projectId}/ideas/{slug}
+### OP-008 - GET /api/v1/projects/{projectId}/ideas/{ideaId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetIdea
 - Handler: httpx.Adapter(m.handler.GetIdea)
-- Business Logic Source: getIdeaPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: ideaId, projectId
 - Query Params (inferred): none
 
 #### Policies
@@ -1686,7 +1543,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "ideaId"},
 	},
 })
 ```
@@ -1710,8 +1567,8 @@ policy.CacheControlOptional(cacheMgr, ttl)
 {
   "body": {},
   "path_params": {
-    "projectId": "string",
-    "slug": "string"
+    "ideaId": "string",
+    "projectId": "string"
   },
   "query_params": {}
 }
@@ -1720,55 +1577,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "idea": {
-      "id": "deadline-lane-view",
-      "title": "Deadline lane view",
-      "status": "Selected",
-      "owner": "Avery Patel",
-      "lastUpdated": "2026-02-06"
-    },
-    "detail": {
-      "description": "",
-      "status": "Selected",
-      "summary": "",
-      "notes": "",
-      "selectedProblemId": "",
-      "activeModules": [],
-      "moduleContent": {}
-    },
-    "reference": {
-      "problemOptions": [
-        {
-          "id": "problem-41",
-          "title": "Students miss assignment requirements",
-          "phase": "Define",
-          "href": "/project/alpha/problem-statement/missed-requirements",
-          "status": "Locked"
-        }
-      ],
-      "linkedStories": [
-        {
-          "id": "story-7",
-          "title": "Avery Patel - First-year student",
-          "phase": "Empathize",
-          "href": "/project/alpha/stories/avery-patel"
-        }
-      ],
-      "derivedPersonas": ["Avery Patel"],
-      "permissions": { }
-    }
-  }
+    "_type": "IdeaPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-052 - PUT /api/v1/projects/{projectId}/ideas/{ideaId}
+### OP-009 - PATCH /api/v1/projects/{projectId}/ideas/{ideaId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateIdea
 - Handler: httpx.Adapter(m.handler.UpdateIdea)
-- Business Logic Source: updateIdea()
+- Business Logic Source: n/a
 - Path Params: ideaId, projectId
 - Query Params (inferred): none
 
@@ -1835,19 +1657,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-lane-view",
-    "title": "Deadline lane view",
-    "linkedProblemStatement": "Students miss assignment requirements",
-    "persona": "Avery Patel",
-    "status": "Selected",
-    "tasksCount": 2,
-    "owner": "Avery Patel",
-    "lastUpdated": "2026-02-14",
-    "linkedProblemLocked": true,
-    "isOrphan": false
-  }
+    "_type": "IdeaListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -1925,12 +1739,12 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-054 - PUT /api/v1/projects/{projectId}/ideas/{ideaId}/status
+### OP-010 - PATCH /api/v1/projects/{projectId}/ideas/{ideaId}/status
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateIdeaStatus
 - Handler: httpx.Adapter(m.handler.UpdateIdeaStatus)
-- Business Logic Source: updateIdeaStatus()
+- Business Logic Source: n/a
 - Path Params: ideaId, projectId
 - Query Params (inferred): none
 
@@ -1997,12 +1811,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-lane-view",
-    "status": "Rejected",
-    "lastUpdated": "2026-02-14"
-  }
+    "_type": "ArtifactStatusResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -2051,7 +1864,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -2195,13 +2008,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-057 - GET /api/v1/projects/{projectId}/tasks/{slug}
+### OP-011 - GET /api/v1/projects/{projectId}/tasks/{taskId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetTask
 - Handler: httpx.Adapter(m.handler.GetTask)
-- Business Logic Source: getTaskPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: projectId, taskId
 - Query Params (inferred): none
 
 #### Policies
@@ -2239,7 +2052,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "taskId"},
 	},
 })
 ```
@@ -2264,7 +2077,7 @@ policy.CacheControlOptional(cacheMgr, ttl)
   "body": {},
   "path_params": {
     "projectId": "string",
-    "slug": "string"
+    "taskId": "string"
   },
   "query_params": {}
 }
@@ -2273,67 +2086,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "task": {
-      "id": "deadline-lane-prototype",
-      "title": "Prototype deadline lane interaction",
-      "status": "In Progress",
-      "owner": "Avery Patel",
-      "deadline": "2026-02-09"
-    },
-    "detail": {
-      "assignedToId": "",
-      "selectedIdeaId": "",
-      "deadline": "2026-02-09",
-      "hypothesis": "",
-      "planItems": [],
-      "executionLinks": [],
-      "notes": "",
-      "activeModules": [],
-      "abandonReason": ""
-    },
-    "reference": {
-      "assigneeOptions": [
-        { "id": "user-1", "name": "Nia Clark", "role": "Designer" },
-        { "id": "user-2", "name": "Dr. Ramos", "role": "Product" }
-      ],
-      "ideaOptions": [
-        {
-          "id": "idea-31",
-          "title": "Visual deadline timeline for assignments",
-          "phase": "Ideate",
-          "href": "/project/alpha/ideas/deadline-timeline",
-          "status": "Active",
-          "problem": {
-            "id": "problem-7",
-            "title": "Students miss assignment requirements",
-            "phase": "Define",
-            "href": "/project/alpha/problem-statement/missed-requirements",
-            "status": "Locked"
-          },
-          "context": {
-            "type": "Persona",
-            "title": "Nia Clark",
-            "detail": "First-year student balancing coursework and a part-time job.",
-            "phase": "Empathize",
-            "href": "/project/alpha/personas/nia-clark",
-            "status": "Active"
-          }
-        }
-      ],
-      "permissions": { }
-    }
-  }
+    "_type": "TaskPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-058 - PUT /api/v1/projects/{projectId}/tasks/{taskId}
+### OP-012 - PATCH /api/v1/projects/{projectId}/tasks/{taskId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateTask
 - Handler: httpx.Adapter(m.handler.UpdateTask)
-- Business Logic Source: updateTask()
+- Business Logic Source: n/a
 - Path Params: projectId, taskId
 - Query Params (inferred): none
 
@@ -2400,29 +2166,20 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-lane-prototype",
-    "title": "Prototype deadline lane interaction",
-    "linkedIdea": "Visual deadline timeline for assignments",
-    "linkedProblemStatement": "Students miss assignment requirements",
-    "persona": "Nia Clark",
-    "owner": "Avery Patel",
-    "deadline": "2026-02-20",
-    "status": "In Progress",
-    "ideaRejected": false,
-    "hasFeedback": false,
-    "isOrphan": false
-  }
+    "_type": "TaskListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-059 - PUT /api/v1/projects/{projectId}/tasks/{taskId}/status
+### OP-013 - PATCH /api/v1/projects/{projectId}/tasks/{taskId}/status
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateTaskStatus
 - Handler: httpx.Adapter(m.handler.UpdateTaskStatus)
-- Business Logic Source: updateTaskStatus()
+- Business Logic Source: n/a
 - Path Params: projectId, taskId
 - Query Params (inferred): none
 
@@ -2489,12 +2246,11 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-lane-prototype",
-    "status": "Completed",
-    "lastUpdated": "2026-02-14"
-  }
+    "_type": "ArtifactStatusResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -2505,7 +2261,7 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 - Handler: httpx.Adapter(m.handler.ListFeedback)
 - Business Logic Source: getFeedback()
 - Path Params: projectId
-- Query Params (inferred): outcome
+- Query Params (inferred): outcome, status
 
 #### Policies
 1. AuthRequired
@@ -2543,7 +2299,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"outcome", "offset", "limit"},
+		QueryParams:	[]string{"status", "outcome", "cursor", "limit"},
 	},
 })
 ```
@@ -2570,7 +2326,8 @@ policy.CacheControlOptional(cacheMgr, ttl)
     "projectId": "string"
   },
   "query_params": {
-    "outcome": "string"
+    "outcome": "string",
+    "status": "string"
   }
 }
 ```
@@ -2681,13 +2438,13 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 }
 ```
 
-### EP-062 - GET /api/v1/projects/{projectId}/feedback/{slug}
+### OP-014 - GET /api/v1/projects/{projectId}/feedback/{feedbackId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetFeedback
 - Handler: httpx.Adapter(m.handler.GetFeedback)
-- Business Logic Source: getFeedbackPageData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: feedbackId, projectId
 - Query Params (inferred): none
 
 #### Policies
@@ -2725,7 +2482,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "feedbackId"},
 	},
 })
 ```
@@ -2749,8 +2506,8 @@ policy.CacheControlOptional(cacheMgr, ttl)
 {
   "body": {},
   "path_params": {
-    "projectId": "string",
-    "slug": "string"
+    "feedbackId": "string",
+    "projectId": "string"
   },
   "query_params": {}
 }
@@ -2759,66 +2516,20 @@ policy.CacheControlOptional(cacheMgr, ttl)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "feedback": {
-      "id": "deadline-lane-session-1",
-      "title": "Deadline lane usability session",
-      "outcome": "Validated",
-      "owner": "Avery Patel",
-      "createdDate": "2026-02-06"
-    },
-    "detail": {
-      "description": "",
-      "outcome": "Validated",
-      "linkedArtifacts": [],
-      "activeModules": [],
-      "moduleContent": {},
-      "notes": ""
-    },
-    "reference": {
-      "taskOptions": [
-        {
-          "id": "task-21",
-          "title": "Prototype timeline for assignment deadlines",
-          "type": "Task",
-          "phase": "Prototype",
-          "href": "/project/alpha/tasks/deadline-timeline",
-          "status": "Active"
-        }
-      ],
-      "ideaOptions": [
-        {
-          "id": "idea-31",
-          "title": "Visual deadline timeline for assignments",
-          "type": "Idea",
-          "phase": "Ideate",
-          "href": "/project/alpha/ideas/deadline-timeline",
-          "status": "Active"
-        }
-      ],
-      "problemOptions": [
-        {
-          "id": "problem-7",
-          "title": "Students miss assignment requirements",
-          "type": "Problem Statement",
-          "phase": "Define",
-          "href": "/project/alpha/problem-statement/missed-requirements",
-          "status": "Archived"
-        }
-      ],
-      "permissions": { }
-    }
-  }
+    "_type": "FeedbackPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-063 - PUT /api/v1/projects/{projectId}/feedback/{feedbackId}
+### OP-015 - PATCH /api/v1/projects/{projectId}/feedback/{feedbackId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateFeedback
 - Handler: httpx.Adapter(m.handler.UpdateFeedback)
-- Business Logic Source: updateFeedback()
+- Business Logic Source: n/a
 - Path Params: feedbackId, projectId
 - Query Params (inferred): none
 
@@ -2885,24 +2596,17 @@ policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "deadline-lane-session-1",
-    "title": "Deadline lane usability session",
-    "linkedArtifacts": ["Task: Prototype timeline"],
-    "outcome": "Validated",
-    "linkedTaskOrIdea": "Task: Prototype timeline",
-    "owner": "Avery Patel",
-    "createdDate": "2026-02-06",
-    "hasTaskLink": true,
-    "isOrphan": false
-  }
+    "_type": "FeedbackListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
 ## Module: auth
 
-Total endpoints: 8
+Total endpoints: 10
 
 ### EP-001 - POST /api/v1/auth/signup
 
@@ -3065,8 +2769,7 @@ policy.RateLimitWithKeyer(limiter, "auth.verify_email", verifyRule, ratelimit.Ke
 {
   "success": true,
   "data": {
-    "status": "success",
-    "email": "ayush@example.com"
+    "status": "success"
   }
 }
 ```
@@ -3117,7 +2820,8 @@ policy.RateLimitWithKeyer(limiter, "auth.resend_verification", verifyRule, ratel
 {
   "success": true,
   "data": {
-    "status": "sent"
+    "status": "sent",
+    "verificationId": "verif_abc123"
   }
 }
 ```
@@ -3226,7 +2930,120 @@ policy.RateLimitWithKeyer(limiter, "auth.reset_password", passwordRule, ratelimi
 }
 ```
 
-### OP-001 - POST /api/v1/auth/refresh
+### OP-001 - POST /api/v1/auth/change-password/request-otp
+
+- Status: operational
+- Endpoint: RequestChangePasswordOTP
+- Handler: httpx.Adapter(m.handler.RequestChangePasswordOTP)
+- Business Logic Source: n/a
+- Path Params: none
+- Query Params (inferred): none
+
+#### Policies
+1. RequireJSON
+- Applied Call:
+```go
+policy.RequireJSON()
+```
+2. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+3. RateLimitWithKeyer
+- Applied Call:
+```go
+policy.RateLimitWithKeyer(limiter, "auth.change_password_request", changePasswordRule, ratelimit.KeyByUser())
+```
+
+#### RBAC Permissions
+- none
+
+#### Cache Details
+- Auth Status: true
+- Read Cache: none
+- Cache-Control: none
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {
+    "_type": "changePasswordRequestOTPRequest"
+  },
+  "path_params": {},
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "success": true,
+  "data": {
+    "status": "sent",
+    "challengeId": "rst_abc123"
+  }
+}
+```
+
+### OP-002 - POST /api/v1/auth/change-password/confirm
+
+- Status: operational
+- Endpoint: ConfirmChangePassword
+- Handler: httpx.Adapter(m.handler.ConfirmChangePassword)
+- Business Logic Source: n/a
+- Path Params: none
+- Query Params (inferred): none
+
+#### Policies
+1. RequireJSON
+- Applied Call:
+```go
+policy.RequireJSON()
+```
+2. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+3. RateLimitWithKeyer
+- Applied Call:
+```go
+policy.RateLimitWithKeyer(limiter, "auth.change_password_confirm", changePasswordRule, ratelimit.KeyByUser())
+```
+
+#### RBAC Permissions
+- none
+
+#### Cache Details
+- Auth Status: true
+- Read Cache: none
+- Cache-Control: none
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {
+    "_type": "changePasswordConfirmRequest"
+  },
+  "path_params": {},
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password changed successfully."
+  }
+}
+```
+
+### OP-003 - POST /api/v1/auth/refresh
 
 - Status: operational
 - Endpoint: Refresh
@@ -3244,7 +3061,7 @@ policy.RequireJSON()
 2. RateLimitWithKeyer
 - Applied Call:
 ```go
-policy.RateLimitWithKeyer(limiter, "auth.refresh", refreshRule, ratelimit.KeyByIP())
+policy.RateLimitWithKeyer(limiter, "auth.refresh", refreshRule, refreshTokenRateLimitKeyer(16))
 ```
 
 #### RBAC Permissions
@@ -3607,12 +3424,12 @@ policy.RequirePermission(rbac.PermCalendarView)
 }
 ```
 
-### EP-077 - PUT /api/v1/projects/{projectId}/calendar/{eventId}
+### OP-001 - PATCH /api/v1/projects/{projectId}/calendar/{eventId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateCalendarEvent
 - Handler: httpx.Adapter(m.handler.UpdateCalendarEvent)
-- Business Logic Source: updateCalendarEvent()
+- Business Logic Source: n/a
 - Path Params: eventId, projectId
 - Query Params (inferred): none
 
@@ -3674,12 +3491,11 @@ policy.RequirePermission(rbac.PermCalendarEdit)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "evt-3",
-    "title": "Updated review meeting",
-    "lastEdited": "2026-02-14"
-  }
+    "_type": "UpdateCalendarEventResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -4718,12 +4534,12 @@ policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.C
 }
 ```
 
-### EP-019 - PUT /api/v1/home/account
+### OP-001 - PATCH /api/v1/home/account
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateAccountSettings
 - Handler: httpx.Adapter(m.handler.UpdateAccountSettings)
-- Business Logic Source: updateUserAccountSettings()
+- Business Logic Source: n/a
 - Path Params: none
 - Query Params (inferred): none
 
@@ -4775,10 +4591,11 @@ policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.C
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "updatedAt": "2026-02-14T09:30:00.000Z"
-  }
+    "_type": "updateAccountResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -4831,7 +4648,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "cursor", "limit"},
 	},
 })
 ```
@@ -4963,13 +4780,13 @@ policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
 }
 ```
 
-### EP-071 - GET /api/v1/projects/{projectId}/pages/{slug}
+### OP-001 - GET /api/v1/projects/{projectId}/pages/{pageId}
 
-- Status: tested
+- Status: operational
 - Endpoint: GetPage
 - Handler: httpx.Adapter(m.handler.GetPage)
-- Business Logic Source: getPageEditorData()
-- Path Params: projectId, slug
+- Business Logic Source: n/a
+- Path Params: pageId, projectId
 - Query Params (inferred): none
 
 #### Policies
@@ -5007,7 +4824,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	AllowAuthenticated:	true,
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
-		PathParams:	[]string{"projectId", "slug"},
+		PathParams:	[]string{"projectId", "pageId"},
 	},
 })
 ```
@@ -5031,8 +4848,8 @@ policy.CacheControlOptional(cacheMgr, 30*time.Second)
 {
   "body": {},
   "path_params": {
-    "projectId": "string",
-    "slug": "string"
+    "pageId": "string",
+    "projectId": "string"
   },
   "query_params": {}
 }
@@ -5041,48 +4858,20 @@ policy.CacheControlOptional(cacheMgr, 30*time.Second)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "page": {
-      "id": "research-notes",
-      "title": "Research notes",
-      "status": "Draft",
-      "owner": "Avery Patel",
-      "lastEdited": "2026-02-06"
-    },
-    "detail": {
-      "description": "",
-      "tags": [],
-      "linkedArtifacts": [],
-      "docHeading": "",
-      "docBody": "",
-      "views": [
-        { "id": "view-doc", "name": "Document", "type": "Document" },
-        { "id": "view-table", "name": "Table", "type": "Table" },
-        { "id": "view-board", "name": "Board", "type": "Board" }
-      ],
-      "activeViewId": "view-doc",
-      "tableData": []
-    },
-    "reference": {
-      "tagOptions": ["Research", "Alignment", "Notes", "Strategy"],
-      "linkedArtifactOptions": [
-        "User Story - Streamline checkout",
-        "Problem Statement - Reduce abandonment",
-        "Idea - Timeline reminders"
-      ],
-      "permissions": { }
-    }
-  }
+    "_type": "GetPageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-072 - PUT /api/v1/projects/{projectId}/pages/{pageId}
+### OP-002 - PATCH /api/v1/projects/{projectId}/pages/{pageId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdatePage
 - Handler: httpx.Adapter(m.handler.UpdatePage)
-- Business Logic Source: updatePageEditor()
+- Business Logic Source: n/a
 - Path Params: pageId, projectId
 - Query Params (inferred): none
 
@@ -5149,25 +4938,20 @@ policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "research-notes",
-    "title": "Research notes",
-    "owner": "Avery Patel",
-    "lastEdited": "2026-02-14",
-    "linkedArtifactsCount": 1,
-    "status": "Draft",
-    "isOrphan": false
-  }
+    "_type": "PageListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-073 - PUT /api/v1/projects/{projectId}/pages/{pageId}/rename
+### OP-003 - PATCH /api/v1/projects/{projectId}/pages/{pageId}/rename
 
-- Status: tested
+- Status: operational
 - Endpoint: RenamePage
 - Handler: httpx.Adapter(m.handler.RenamePage)
-- Business Logic Source: renamePage()
+- Business Logic Source: n/a
 - Path Params: pageId, projectId
 - Query Params (inferred): none
 
@@ -5234,18 +5018,373 @@ policy.CacheInvalidateOptional(cacheMgr, pageInvalidate)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "research-notes",
-    "title": "Updated page title",
-    "lastEdited": "2026-02-14"
-  }
+    "_type": "RenamePageResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
 ## Module: project
 
-Total endpoints: 7
+Total endpoints: 11
+
+### OP-001 - GET /api/v1/projects/{projectId}/dashboard/summary
+
+- Status: operational
+- Endpoint: DashboardSummary
+- Handler: httpx.Adapter(m.handler.DashboardSummary)
+- Business Logic Source: n/a
+- Path Params: projectId
+- Query Params (inferred): none
+
+#### Policies
+1. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+2. ProjectRequired
+- Applied Call:
+```go
+policy.ProjectRequired()
+```
+3. ProjectMatchFromPath
+- Applied Call:
+```go
+policy.ProjectMatchFromPath("projectId")
+```
+4. ResolvePermissions
+- Applied Call:
+```go
+policy.ResolvePermissions(resolver)
+```
+5. RequirePermission
+- Applied Call:
+```go
+policy.RequirePermission(rbac.PermProjectView)
+```
+6. CacheRead
+- Applied Call:
+```go
+policy.CacheRead(cacheMgr, cache.CacheReadConfig{
+	TTL:	20 * time.Second,
+	TagSpecs: []cache.CacheTagSpec{
+		{Name: "project.dashboard.summary", ProjectID: true},
+	},
+	AllowAuthenticated:	true,
+	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+})
+```
+7. CacheControl
+- Applied Call:
+```go
+policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 20 * time.Second, Vary: []string{"Authorization"}})
+```
+
+#### RBAC Permissions
+- rbac.PermProjectView
+
+#### Cache Details
+- Auth Status: true
+- Read Cache:
+  - TTL: 20 * time.Second
+  - AllowAuthenticated: true
+  - TagSpecs: project.dashboard.summary[project_id]
+  - VaryBy: projectid, userid
+- Cache-Control Directives: max-age=20 * time.Second, private
+- Cache-Control Vary: Authorization
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {},
+  "path_params": {
+    "projectId": "string"
+  },
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "data": {
+    "_type": "projectDashboardSummaryResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
+}
+```
+
+### OP-002 - GET /api/v1/projects/{projectId}/dashboard/my-work
+
+- Status: operational
+- Endpoint: DashboardMyWork
+- Handler: httpx.Adapter(m.handler.DashboardMyWork)
+- Business Logic Source: n/a
+- Path Params: projectId
+- Query Params (inferred): none
+
+#### Policies
+1. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+2. ProjectRequired
+- Applied Call:
+```go
+policy.ProjectRequired()
+```
+3. ProjectMatchFromPath
+- Applied Call:
+```go
+policy.ProjectMatchFromPath("projectId")
+```
+4. ResolvePermissions
+- Applied Call:
+```go
+policy.ResolvePermissions(resolver)
+```
+5. RequirePermission
+- Applied Call:
+```go
+policy.RequirePermission(rbac.PermProjectView)
+```
+6. CacheRead
+- Applied Call:
+```go
+policy.CacheRead(cacheMgr, cache.CacheReadConfig{
+	TTL:	15 * time.Second,
+	TagSpecs: []cache.CacheTagSpec{
+		{Name: "project.dashboard.my_work", ProjectID: true},
+	},
+	AllowAuthenticated:	true,
+	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+})
+```
+7. CacheControl
+- Applied Call:
+```go
+policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}})
+```
+
+#### RBAC Permissions
+- rbac.PermProjectView
+
+#### Cache Details
+- Auth Status: true
+- Read Cache:
+  - TTL: 15 * time.Second
+  - AllowAuthenticated: true
+  - TagSpecs: project.dashboard.my_work[project_id]
+  - VaryBy: projectid, userid
+- Cache-Control Directives: max-age=15 * time.Second, private
+- Cache-Control Vary: Authorization
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {},
+  "path_params": {
+    "projectId": "string"
+  },
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "data": {
+    "_type": "projectDashboardMyWorkResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
+}
+```
+
+### OP-003 - GET /api/v1/projects/{projectId}/dashboard/events
+
+- Status: operational
+- Endpoint: DashboardEvents
+- Handler: httpx.Adapter(m.handler.DashboardEvents)
+- Business Logic Source: n/a
+- Path Params: projectId
+- Query Params (inferred): none
+
+#### Policies
+1. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+2. ProjectRequired
+- Applied Call:
+```go
+policy.ProjectRequired()
+```
+3. ProjectMatchFromPath
+- Applied Call:
+```go
+policy.ProjectMatchFromPath("projectId")
+```
+4. ResolvePermissions
+- Applied Call:
+```go
+policy.ResolvePermissions(resolver)
+```
+5. RequirePermission
+- Applied Call:
+```go
+policy.RequirePermission(rbac.PermProjectView)
+```
+6. CacheRead
+- Applied Call:
+```go
+policy.CacheRead(cacheMgr, cache.CacheReadConfig{
+	TTL:	15 * time.Second,
+	TagSpecs: []cache.CacheTagSpec{
+		{Name: "project.dashboard.events", ProjectID: true},
+	},
+	AllowAuthenticated:	true,
+	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+})
+```
+7. CacheControl
+- Applied Call:
+```go
+policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}})
+```
+
+#### RBAC Permissions
+- rbac.PermProjectView
+
+#### Cache Details
+- Auth Status: true
+- Read Cache:
+  - TTL: 15 * time.Second
+  - AllowAuthenticated: true
+  - TagSpecs: project.dashboard.events[project_id]
+  - VaryBy: projectid, userid
+- Cache-Control Directives: max-age=15 * time.Second, private
+- Cache-Control Vary: Authorization
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {},
+  "path_params": {
+    "projectId": "string"
+  },
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "data": {
+    "_type": "projectDashboardEventsResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
+}
+```
+
+### OP-004 - GET /api/v1/projects/{projectId}/dashboard/activity
+
+- Status: operational
+- Endpoint: DashboardActivity
+- Handler: httpx.Adapter(m.handler.DashboardActivity)
+- Business Logic Source: n/a
+- Path Params: projectId
+- Query Params (inferred): none
+
+#### Policies
+1. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+2. ProjectRequired
+- Applied Call:
+```go
+policy.ProjectRequired()
+```
+3. ProjectMatchFromPath
+- Applied Call:
+```go
+policy.ProjectMatchFromPath("projectId")
+```
+4. ResolvePermissions
+- Applied Call:
+```go
+policy.ResolvePermissions(resolver)
+```
+5. RequirePermission
+- Applied Call:
+```go
+policy.RequirePermission(rbac.PermProjectView)
+```
+6. CacheRead
+- Applied Call:
+```go
+policy.CacheRead(cacheMgr, cache.CacheReadConfig{
+	TTL:	15 * time.Second,
+	TagSpecs: []cache.CacheTagSpec{
+		{Name: "project.dashboard.activity", ProjectID: true},
+	},
+	AllowAuthenticated:	true,
+	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
+})
+```
+7. CacheControl
+- Applied Call:
+```go
+policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}})
+```
+
+#### RBAC Permissions
+- rbac.PermProjectView
+
+#### Cache Details
+- Auth Status: true
+- Read Cache:
+  - TTL: 15 * time.Second
+  - AllowAuthenticated: true
+  - TagSpecs: project.dashboard.activity[project_id]
+  - VaryBy: projectid, userid
+- Cache-Control Directives: max-age=15 * time.Second, private
+- Cache-Control Vary: Authorization
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {},
+  "path_params": {
+    "projectId": "string"
+  },
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "data": {
+    "_type": "projectDashboardActivityResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
+}
+```
 
 ### EP-021 - GET /api/v1/projects/{projectId}/dashboard
 
@@ -5474,12 +5613,12 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.S
 }
 ```
 
-### EP-023 - GET /api/v1/projects/{projectId}/sidebar
+### OP-005 - GET /api/v1/projects/{projectId}/navigation
 
-- Status: tested
-- Endpoint: Sidebar
-- Handler: httpx.Adapter(m.handler.Sidebar)
-- Business Logic Source: getProjectSidebarData()
+- Status: operational
+- Endpoint: Navigation
+- Handler: httpx.Adapter(m.handler.Navigation)
+- Business Logic Source: n/a
 - Path Params: projectId
 - Query Params (inferred): none
 
@@ -5515,7 +5654,7 @@ policy.RequirePermission(rbac.PermProjectView)
 policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 	TTL:	30 * time.Second,
 	TagSpecs: []cache.CacheTagSpec{
-		{Name: "project.sidebar", ProjectID: true},
+		{Name: "project.navigation", ProjectID: true},
 	},
 	AllowAuthenticated:	true,
 	VaryBy:			cache.CacheVaryBy{ProjectID: true, UserID: true},
@@ -5535,7 +5674,7 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.S
 - Read Cache:
   - TTL: 30 * time.Second
   - AllowAuthenticated: true
-  - TagSpecs: project.sidebar[project_id]
+  - TagSpecs: project.navigation[project_id]
   - VaryBy: projectid, userid
 - Cache-Control Directives: max-age=30 * time.Second, private
 - Cache-Control Vary: Authorization
@@ -5555,31 +5694,11 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.S
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "user": {
-      "id": "u-1",
-      "name": "Ayush",
-      "email": "ayush@projectbook.dev"
-    },
-    "projects": [
-      {
-        "id": "atlas-2026",
-        "name": "Atlas Research",
-        "icon": "rocket",
-        "status": "Active"
-      }
-    ],
-    "artifacts": {
-      "stories": [{ "id": "streamline-checkout", "title": "Streamline checkout for first-time users" }],
-      "journeys": [{ "id": "student-assignment-journey", "title": "Student assignment journey" }],
-      "problems": [{ "id": "deadline-clarity-students", "title": "Students need a clear way to track..." }],
-      "ideas": [{ "id": "deadline-lane-view", "title": "Deadline lane view" }],
-      "tasks": [{ "id": "deadline-lane-prototype", "title": "Prototype deadline lane interaction" }],
-      "feedback": [{ "id": "deadline-lane-session-1", "title": "Deadline lane usability session" }],
-      "pages": [{ "id": "research-notes", "title": "Research notes" }]
-    }
-  }
+    "_type": "projectNavigationResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -5683,12 +5802,12 @@ policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.S
 }
 ```
 
-### EP-025 - PUT /api/v1/projects/{projectId}/settings
+### OP-006 - PATCH /api/v1/projects/{projectId}/settings
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateSettings
 - Handler: httpx.Adapter(m.handler.UpdateSettings)
-- Business Logic Source: updateProjectSettings()
+- Business Logic Source: n/a
 - Path Params: projectId
 - Query Params (inferred): none
 
@@ -5759,10 +5878,11 @@ policy.CacheInvalidate(cacheMgr, invalidateProjectTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "projectId": "atlas-2026"
-  }
+    "_type": "projectUpdateSettingsResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
@@ -5969,7 +6089,7 @@ policy.CacheReadOptional(cacheMgr, cache.CacheReadConfig{
 	VaryBy: cache.CacheVaryBy{
 		ProjectID:	true,
 		PathParams:	[]string{"projectId"},
-		QueryParams:	[]string{"status", "offset", "limit"},
+		QueryParams:	[]string{"status", "docType", "sort", "order", "cursor", "limit"},
 	},
 })
 ```
@@ -6241,12 +6361,12 @@ policy.CacheControlOptional(cacheMgr, 30*time.Second)
 }
 ```
 
-### EP-067 - PUT /api/v1/projects/{projectId}/resources/{resourceId}
+### OP-001 - PATCH /api/v1/projects/{projectId}/resources/{resourceId}
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateResource
 - Handler: httpx.Adapter(m.handler.UpdateResource)
-- Business Logic Source: updateResource()
+- Business Logic Source: n/a
 - Path Params: projectId, resourceId
 - Query Params (inferred): none
 
@@ -6313,27 +6433,20 @@ policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "res-1",
-    "name": "Updated resource name",
-    "fileType": "PDF",
-    "docType": "Research Paper",
-    "owner": "Avery Patel",
-    "version": "v4",
-    "lastUpdated": "2026-02-14",
-    "linkedCount": 1,
-    "status": "Active"
-  }
+    "_type": "ResourceListItem"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-068 - PUT /api/v1/projects/{projectId}/resources/{resourceId}/status
+### OP-002 - PATCH /api/v1/projects/{projectId}/resources/{resourceId}/status
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateResourceStatus
 - Handler: httpx.Adapter(m.handler.UpdateResourceStatus)
-- Business Logic Source: updateResourceStatus()
+- Business Logic Source: n/a
 - Path Params: projectId, resourceId
 - Query Params (inferred): none
 
@@ -6400,296 +6513,17 @@ policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "id": "res-1",
-    "status": "Archived",
-    "lastUpdated": "2026-02-14"
-  }
-}
-```
-
-## Module: sidebar
-
-Total endpoints: 3
-
-### EP-079 - POST /api/v1/projects/{projectId}/sidebar/artifacts
-
-- Status: tested
-- Endpoint: CreateSidebarArtifact
-- Handler: httpx.Adapter(m.handler.CreateSidebarArtifact)
-- Business Logic Source: createSidebarArtifact()
-- Path Params: projectId
-- Query Params (inferred): none
-
-#### Policies
-1. AuthRequired
-- Applied Call:
-```go
-policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
-```
-2. ProjectRequired
-- Applied Call:
-```go
-policy.ProjectRequired()
-```
-3. ProjectMatchFromPath
-- Applied Call:
-```go
-policy.ProjectMatchFromPath("projectId")
-```
-4. ResolvePermissions
-- Applied Call:
-```go
-policy.ResolvePermissions(resolver)
-```
-5. RequireJSON
-- Applied Call:
-```go
-policy.RequireJSON()
-```
-6. RequireAnyPermission
-- Applied Call:
-```go
-policy.RequireAnyPermission(
-	rbac.PermStoryCreate,
-	rbac.PermProblemCreate,
-	rbac.PermIdeaCreate,
-	rbac.PermTaskCreate,
-	rbac.PermFeedbackCreate,
-	rbac.PermPageCreate,
-)
-```
-7. CacheInvalidateOptional
-- Applied Call:
-```go
-policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
-```
-
-#### RBAC Permissions
-- rbac.PermFeedbackCreate
-- rbac.PermIdeaCreate
-- rbac.PermPageCreate
-- rbac.PermProblemCreate
-- rbac.PermStoryCreate
-- rbac.PermTaskCreate
-
-#### Cache Details
-- Auth Status: true
-- Read Cache: none
-- Cache-Control: none
-- Invalidation: none
-
-#### Input Structure (JSON)
-```json
-{
-  "body": {
-    "_type": "createSidebarArtifactRequest"
+    "_type": "UpdateResourceStatusResponse"
   },
-  "path_params": {
-    "projectId": "string"
-  },
-  "query_params": {}
-}
-```
-
-#### Output Structure (JSON)
-```json
-{
-  "success": true,
-  "data": {
-    "id": "new-user-story-from-sidebar",
-    "title": "New user story from sidebar"
-  }
-}
-```
-
-### EP-080 - PUT /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename
-
-- Status: tested
-- Endpoint: RenameSidebarArtifact
-- Handler: httpx.Adapter(m.handler.RenameSidebarArtifact)
-- Business Logic Source: renameSidebarArtifact()
-- Path Params: artifactId, projectId
-- Query Params (inferred): none
-
-#### Policies
-1. AuthRequired
-- Applied Call:
-```go
-policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
-```
-2. ProjectRequired
-- Applied Call:
-```go
-policy.ProjectRequired()
-```
-3. ProjectMatchFromPath
-- Applied Call:
-```go
-policy.ProjectMatchFromPath("projectId")
-```
-4. ResolvePermissions
-- Applied Call:
-```go
-policy.ResolvePermissions(resolver)
-```
-5. RequireJSON
-- Applied Call:
-```go
-policy.RequireJSON()
-```
-6. RequireAnyPermission
-- Applied Call:
-```go
-policy.RequireAnyPermission(
-	rbac.PermStoryEdit,
-	rbac.PermProblemEdit,
-	rbac.PermIdeaEdit,
-	rbac.PermTaskEdit,
-	rbac.PermFeedbackEdit,
-	rbac.PermPageEdit,
-)
-```
-7. CacheInvalidateOptional
-- Applied Call:
-```go
-policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
-```
-
-#### RBAC Permissions
-- rbac.PermFeedbackEdit
-- rbac.PermIdeaEdit
-- rbac.PermPageEdit
-- rbac.PermProblemEdit
-- rbac.PermStoryEdit
-- rbac.PermTaskEdit
-
-#### Cache Details
-- Auth Status: true
-- Read Cache: none
-- Cache-Control: none
-- Invalidation: none
-
-#### Input Structure (JSON)
-```json
-{
-  "body": {
-    "_type": "renameSidebarArtifactRequest"
-  },
-  "path_params": {
-    "artifactId": "string",
-    "projectId": "string"
-  },
-  "query_params": {}
-}
-```
-
-#### Output Structure (JSON)
-```json
-{
-  "success": true,
-  "data": {
-    "id": "streamline-checkout",
-    "title": "Renamed story title"
-  }
-}
-```
-
-### EP-081 - DELETE /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}
-
-- Status: tested
-- Endpoint: DeleteSidebarArtifact
-- Handler: httpx.Adapter(m.handler.DeleteSidebarArtifact)
-- Business Logic Source: deleteSidebarArtifact()
-- Path Params: artifactId, projectId
-- Query Params (inferred): none
-
-#### Policies
-1. AuthRequired
-- Applied Call:
-```go
-policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
-```
-2. ProjectRequired
-- Applied Call:
-```go
-policy.ProjectRequired()
-```
-3. ProjectMatchFromPath
-- Applied Call:
-```go
-policy.ProjectMatchFromPath("projectId")
-```
-4. ResolvePermissions
-- Applied Call:
-```go
-policy.ResolvePermissions(resolver)
-```
-5. RequireJSON
-- Applied Call:
-```go
-policy.RequireJSON()
-```
-6. RequireAnyPermission
-- Applied Call:
-```go
-policy.RequireAnyPermission(
-	rbac.PermStoryDelete,
-	rbac.PermProblemDelete,
-	rbac.PermIdeaDelete,
-	rbac.PermTaskDelete,
-	rbac.PermFeedbackDelete,
-	rbac.PermPageDelete,
-)
-```
-7. CacheInvalidateOptional
-- Applied Call:
-```go
-policy.CacheInvalidateOptional(cacheMgr, invalidateTags)
-```
-
-#### RBAC Permissions
-- rbac.PermFeedbackDelete
-- rbac.PermIdeaDelete
-- rbac.PermPageDelete
-- rbac.PermProblemDelete
-- rbac.PermStoryDelete
-- rbac.PermTaskDelete
-
-#### Cache Details
-- Auth Status: true
-- Read Cache: none
-- Cache-Control: none
-- Invalidation: none
-
-#### Input Structure (JSON)
-```json
-{
-  "body": {
-    "_type": "deleteSidebarArtifactRequest"
-  },
-  "path_params": {
-    "artifactId": "string",
-    "projectId": "string"
-  },
-  "query_params": {}
-}
-```
-
-#### Output Structure (JSON)
-```json
-{
-  "success": true,
-  "data": {
-    "id": "streamline-checkout"
-  }
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
 ## Module: system
 
-Total endpoints: 2
+Total endpoints: 3
 
 ### OP-001 - POST /system/parse-duration
 
@@ -6755,6 +6589,56 @@ policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
 - Applied Call:
 ```go
 policy.RateLimitWithKeyer(limiter, "system.whoami", m.rateRule, ratelimit.KeyByUserOrProjectOrTokenHash(16))
+```
+
+#### RBAC Permissions
+- none
+
+#### Cache Details
+- Auth Status: true
+- Read Cache: none
+- Cache-Control: none
+- Invalidation: none
+
+#### Input Structure (JSON)
+```json
+{
+  "body": {},
+  "path_params": {},
+  "query_params": {}
+}
+```
+
+#### Output Structure (JSON)
+```json
+{
+  "data": {
+    "_type": "object"
+  },
+  "request_id": "req_1234567890",
+  "success": true
+}
+```
+
+### OP-003 - GET /api/v1/system/session-context
+
+- Status: operational
+- Endpoint: sessionContext
+- Handler: httpx.Adapter(m.sessionContext)
+- Business Logic Source: n/a
+- Path Params: none
+- Query Params (inferred): none
+
+#### Policies
+1. AuthRequired
+- Applied Call:
+```go
+policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode())
+```
+2. RateLimitWithKeyer
+- Applied Call:
+```go
+policy.RateLimitWithKeyer(limiter, "system.session_context", m.rateRule, ratelimit.KeyByUserOrProjectOrTokenHash(16))
 ```
 
 #### RBAC Permissions
@@ -7278,12 +7162,12 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 }
 ```
 
-### EP-033 - PUT /api/v1/projects/{projectId}/team/members/{memberId}/permissions
+### OP-001 - PATCH /api/v1/projects/{projectId}/team/members/{memberId}/permissions
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateMemberPermissions
 - Handler: httpx.Adapter(m.handler.UpdateMemberPermissions)
-- Business Logic Source: updateProjectMemberPermissions()
+- Business Logic Source: n/a
 - Path Params: memberId, projectId
 - Query Params (inferred): none
 
@@ -7355,22 +7239,20 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "memberId": "mem-2",
-    "role": "Editor",
-    "isCustom": true,
-    "permissionMask": 987654321
-  }
+    "_type": "updateMemberPermissionsResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 
-### EP-034 - PUT /api/v1/projects/{projectId}/team/roles/{role}/permissions
+### OP-002 - PATCH /api/v1/projects/{projectId}/team/roles/{role}/permissions
 
-- Status: tested
+- Status: operational
 - Endpoint: UpdateRolePermissions
 - Handler: httpx.Adapter(m.handler.UpdateRolePermissions)
-- Business Logic Source: updateProjectRolePermissions()
+- Business Logic Source: n/a
 - Path Params: projectId, role
 - Query Params (inferred): none
 
@@ -7442,12 +7324,11 @@ policy.CacheInvalidate(cacheMgr, invalidateTeamTags)
 #### Output Structure (JSON)
 ```json
 {
-  "success": true,
   "data": {
-    "role": "Admin",
-    "permissionMask": 123456789,
-    "customMembersUnaffected": 2
-  }
+    "_type": "updateRolePermissionsResponse"
+  },
+  "request_id": "req_1234567890",
+  "success": true
 }
 ```
 

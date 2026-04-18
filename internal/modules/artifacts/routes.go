@@ -31,7 +31,7 @@ func (m *Module) Register(r httpx.Router) error {
 		{Name: "artifacts.idea", PathParams: []string{"projectId"}},
 		{Name: "artifacts.task", PathParams: []string{"projectId"}},
 		{Name: "artifacts.feedback", PathParams: []string{"projectId"}},
-		{Name: "project.sidebar", PathParams: []string{"projectId"}},
+		{Name: "project.navigation", PathParams: []string{"projectId"}},
 	}}
 	storyReadTags := []cache.CacheTagSpec{
 		{Name: "artifacts.project", PathParams: []string{"projectId"}},

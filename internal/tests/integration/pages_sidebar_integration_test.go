@@ -2,14 +2,12 @@ package integration
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
@@ -111,70 +109,6 @@ func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
 	versionAfter := h.cacheTagVersion(t, tag)
 	if versionAfter <= versionBefore {
 		t.Fatalf("expected pages cache tag version bump for %s: before=%d after=%d", tag, versionBefore, versionAfter)
-	}
-}
-
-func TestIntegrationSidebarPagesDeleteRemovesDocument(t *testing.T) {
-	h := requireIntegration(t)
-
-	owner := h.createVerifiedSession(t, "sidebar_pages_owner")
-	project := h.createProject(t, owner.AccessToken, "Sidebar Pages Integration")
-
-	tag := fmt.Sprintf("pages.project|path.projectId=%s", url.QueryEscape(project.Slug))
-	versionBefore := h.cacheTagVersion(t, tag)
-
-	createPath := "/api/v1/projects/" + project.Slug + "/sidebar/artifacts"
-	createResp := h.requestJSON(t, http.MethodPost, createPath, owner.AccessToken, map[string]any{
-		"prefix": "pages",
-		"title":  "Sidebar Created Page",
-	})
-	if createResp.Status != http.StatusCreated || !createResp.Envelope.Success {
-		t.Fatalf("create sidebar page artifact status=%d body=%s", createResp.Status, createResp.Body)
-	}
-
-	created := mustDataMap(t, createResp)
-	pageSlug := mustString(t, created["id"], "sidebar.page.id")
-	pageUUID, _, _, _ := queryPageStateBySlug(t, h, project.UUID, pageSlug)
-	_ = mustFindPageDocument(t, h, pageUUID)
-
-	deletePath := "/api/v1/projects/" + project.Slug + "/sidebar/artifacts/" + pageSlug
-	deleteResp := h.requestJSON(t, http.MethodDelete, deletePath, owner.AccessToken, map[string]any{"prefix": "pages"})
-	if deleteResp.Status != http.StatusOK || !deleteResp.Envelope.Success {
-		t.Fatalf("delete sidebar page artifact status=%d body=%s", deleteResp.Status, deleteResp.Body)
-	}
-
-	deleted := mustDataMap(t, deleteResp)
-	if got := mustString(t, deleted["id"], "sidebar.delete.id"); got != pageSlug {
-		t.Fatalf("deleted id=%q want=%q", got, pageSlug)
-	}
-
-	var exists bool
-	err := h.pgPool.QueryRow(
-		context.Background(),
-		`SELECT EXISTS(SELECT 1 FROM pages WHERE project_id = $1::uuid AND slug = $2)`,
-		project.UUID,
-		pageSlug,
-	).Scan(&exists)
-	if err != nil {
-		t.Fatalf("query deleted page row existence: %v", err)
-	}
-	if exists {
-		t.Fatalf("expected page %s to be deleted", pageSlug)
-	}
-
-	findErr := h.mongoDB.Collection("page_documents").FindOne(context.Background(), bson.M{"artifact_id": pageUUID}).Decode(&bson.M{})
-	if !errors.Is(findErr, mongo.ErrNoDocuments) {
-		t.Fatalf("expected page document deletion for artifact_id=%s, got err=%v", pageUUID, findErr)
-	}
-
-	versionAfter := h.cacheTagVersion(t, tag)
-	if versionAfter <= versionBefore {
-		t.Fatalf("expected pages cache tag version bump for %s: before=%d after=%d", tag, versionBefore, versionAfter)
-	}
-
-	deleteAgain := h.requestJSON(t, http.MethodDelete, deletePath, owner.AccessToken, map[string]any{"prefix": "pages"})
-	if deleteAgain.Status != http.StatusNotFound || deleteAgain.Envelope.Success {
-		t.Fatalf("expected not found when deleting already-removed page status=%d body=%s", deleteAgain.Status, deleteAgain.Body)
 	}
 }
 

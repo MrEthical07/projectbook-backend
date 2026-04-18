@@ -143,8 +143,8 @@ func (m *Module) Register(r httpx.Router) error {
 		)
 		r.Handle(
 			http.MethodGet,
-			"/api/v1/projects/{projectId}/sidebar",
-			httpx.Adapter(m.handler.Sidebar),
+			"/api/v1/projects/{projectId}/navigation",
+			httpx.Adapter(m.handler.Navigation),
 			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 			policy.ProjectRequired(),
 			policy.ProjectMatchFromPath("projectId"),
@@ -153,7 +153,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
 				TTL: 30 * time.Second,
 				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.sidebar", ProjectID: true},
+					{Name: "project.navigation", ProjectID: true},
 				},
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
@@ -186,7 +186,7 @@ func (m *Module) Register(r httpx.Router) error {
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard/activity", httpx.Adapter(m.handler.DashboardActivity), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard", httpx.Adapter(m.handler.Dashboard), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/access", httpx.Adapter(m.handler.Access), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver))
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/sidebar", httpx.Adapter(m.handler.Sidebar), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
+		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/navigation", httpx.Adapter(m.handler.Navigation), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.GetSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 	}
 
@@ -200,7 +200,7 @@ func (m *Module) Register(r httpx.Router) error {
 		{Name: "project.dashboard.events", ProjectID: true},
 		{Name: "project.dashboard.activity", ProjectID: true},
 		{Name: "project.access", ProjectID: true},
-		{Name: "project.sidebar", ProjectID: true},
+		{Name: "project.navigation", ProjectID: true},
 		{Name: "project.settings", ProjectID: true},
 	}}
 

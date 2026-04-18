@@ -2,6 +2,27 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.11 (2026-04-18)
+
+### Breaking Changes
+- Project navigation read endpoint moved from `GET /api/v1/projects/{projectId}/sidebar` to `GET /api/v1/projects/{projectId}/navigation`.
+- Removed dedicated sidebar mutation endpoints:
+	- `POST /api/v1/projects/{projectId}/sidebar/artifacts`
+	- `PUT /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename`
+	- `DELETE /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}`
+
+### Changed
+- Project module handler/service/repository contracts now use `Navigation` semantics and return the `current_project` + `project_list` payload shape.
+- Cache tag naming migrated from `project.sidebar` to `project.navigation` for project navigation reads and dependent invalidation paths.
+
+### Removed
+- Deprecated `internal/modules/sidebar` module implementation and tests.
+
+### Documentation
+- Updated endpoint snapshots (`endpoint-tracker.md` / `.json` / `.csv`) to reflect `EP-023` as `/navigation` and removed deprecated sidebar endpoint entries.
+- Updated ProjectBookDocs API snapshot and frontend handoff/error-map artifacts to remove sidebar endpoint remnants and align sidebar interactions with artifact module endpoints.
+- Updated smoke and route coverage snapshots to validate navigation endpoint behavior.
+
 ## v0.7.10 (2026-04-15)
 
 ### Added

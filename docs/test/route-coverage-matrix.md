@@ -77,15 +77,12 @@ Scenario packs are defined in docs/test/integration-test-plan.md.
 | project | GET | /api/v1/projects/{projectId}/dashboard | PROTECTED-READ | 1 |
 | project | GET | /api/v1/projects/{projectId}/settings | PROTECTED-READ | 1 |
 | project | PUT | /api/v1/projects/{projectId}/settings | PROTECTED-WRITE | 3 |
-| project | GET | /api/v1/projects/{projectId}/sidebar | PROTECTED-READ | 1 |
+| project | GET | /api/v1/projects/{projectId}/navigation | PROTECTED-READ | 1 |
 | resources | GET | /api/v1/projects/{projectId}/resources | PROTECTED-READ | 1 |
 | resources | POST | /api/v1/projects/{projectId}/resources | PROTECTED-WRITE | 1 |
 | resources | GET | /api/v1/projects/{projectId}/resources/{resourceId} | PROTECTED-READ | 1 |
 | resources | PUT | /api/v1/projects/{projectId}/resources/{resourceId} | PROTECTED-WRITE | 1 |
 | resources | PUT | /api/v1/projects/{projectId}/resources/{resourceId}/status | PROTECTED-WRITE | 1 |
-| sidebar | POST | /api/v1/projects/{projectId}/sidebar/artifacts | PROTECTED-WRITE | 1 |
-| sidebar | DELETE | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId} | PROTECTED-WRITE | 1 |
-| sidebar | PUT | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename | PROTECTED-WRITE | 1 |
 | system | POST | /system/parse-duration | SYSTEM-UTILITY | 1 |
 | system | GET | /api/v1/system/whoami | PROTECTED-READ | 2 |
 | team | POST | /api/v1/projects/{projectId}/team/invites | PROTECTED-WRITE | 3 |

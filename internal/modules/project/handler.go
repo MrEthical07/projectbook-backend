@@ -92,16 +92,16 @@ func (h *Handler) Access(ctx *httpx.Context, _ httpx.NoBody) (projectAccessRespo
 	return h.svc.Access(ctx.Context(), principal.UserID, projectID, principal.Role, principal.PermissionMask)
 }
 
-func (h *Handler) Sidebar(ctx *httpx.Context, _ httpx.NoBody) (projectSidebarResponse, error) {
+func (h *Handler) Navigation(ctx *httpx.Context, _ httpx.NoBody) (projectNavigationResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return projectSidebarResponse{}, err
+		return projectNavigationResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return projectSidebarResponse{}, err
+		return projectNavigationResponse{}, err
 	}
-	return h.svc.Sidebar(ctx.Context(), principal.UserID, projectID)
+	return h.svc.Navigation(ctx.Context(), principal.UserID, projectID)
 }
 
 func (h *Handler) GetSettings(ctx *httpx.Context, _ httpx.NoBody) (projectSettingsResponse, error) {
