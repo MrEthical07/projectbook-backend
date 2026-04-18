@@ -32,6 +32,54 @@ func (h *Handler) Dashboard(ctx *httpx.Context, _ httpx.NoBody) (projectDashboar
 	return h.svc.Dashboard(ctx.Context(), principal.UserID, projectID)
 }
 
+func (h *Handler) DashboardSummary(ctx *httpx.Context, _ httpx.NoBody) (projectDashboardSummaryResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectDashboardSummaryResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectDashboardSummaryResponse{}, err
+	}
+	return h.svc.DashboardSummary(ctx.Context(), principal.UserID, projectID)
+}
+
+func (h *Handler) DashboardMyWork(ctx *httpx.Context, _ httpx.NoBody) (projectDashboardMyWorkResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+	return h.svc.DashboardMyWork(ctx.Context(), principal.UserID, projectID)
+}
+
+func (h *Handler) DashboardEvents(ctx *httpx.Context, _ httpx.NoBody) (projectDashboardEventsResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectDashboardEventsResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectDashboardEventsResponse{}, err
+	}
+	return h.svc.DashboardEvents(ctx.Context(), principal.UserID, projectID)
+}
+
+func (h *Handler) DashboardActivity(ctx *httpx.Context, _ httpx.NoBody) (projectDashboardActivityResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+	return h.svc.DashboardActivity(ctx.Context(), principal.UserID, projectID)
+}
+
 func (h *Handler) Access(ctx *httpx.Context, _ httpx.NoBody) (projectAccessResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {

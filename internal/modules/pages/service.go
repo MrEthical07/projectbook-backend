@@ -7,19 +7,20 @@ import (
 	"strings"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 )
 
 type Service interface {
-	ListPages(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error)
-	CreatePage(ctx context.Context, projectID, actorUserID string, req createPageRequest) (map[string]any, error)
-	GetPage(ctx context.Context, projectID, pageID string) (map[string]any, error)
-	UpdatePage(ctx context.Context, projectID, pageID, actorUserID string, req updatePageRequest) (map[string]any, error)
-	RenamePage(ctx context.Context, projectID, pageID, actorUserID string, req renamePageRequest) (map[string]any, error)
+	ListPages(ctx context.Context, projectID string, query listQuery) (ListPagesResponse, error)
+	CreatePage(ctx context.Context, projectID, actorUserID string, req createPageRequest) (PageListItem, error)
+	GetPage(ctx context.Context, projectID, pageID string) (GetPageResponse, error)
+	UpdatePage(ctx context.Context, projectID, pageID, actorUserID string, req updatePageRequest) (PageListItem, error)
+	RenamePage(ctx context.Context, projectID, pageID, actorUserID string, req renamePageRequest) (RenamePageResponse, error)
 
-	CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (map[string]any, error)
-	RenamePageForSidebar(ctx context.Context, projectID, pageID, actorUserID, title string) (map[string]any, error)
-	DeletePageForSidebar(ctx context.Context, projectID, pageID, actorUserID string) (map[string]any, error)
+	CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (PageListItem, error)
+	RenamePageForSidebar(ctx context.Context, projectID, pageID, actorUserID, title string) (RenamePageResponse, error)
+	DeletePageForSidebar(ctx context.Context, projectID, pageID, actorUserID string) (DeletePageResponse, error)
 }
 
 type service struct {
@@ -35,20 +36,33 @@ func NewService(store storage.RelationalStore, repo Repo) Service {
 	return &service{store: store, repo: repo}
 }
 
-func (s *service) ListPages(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {
+func (s *service) ListPages(ctx context.Context, projectID string, query listQuery) (ListPagesResponse, error) {
 	rows, err := s.repo.ListPages(ctx, projectID, query)
 	if err != nil {
-		return nil, mapServiceError("list pages", err)
+		return ListPagesResponse{}, mapServiceError("list pages", err)
 	}
-	return rows, nil
+
+	items := make([]PageListItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, decodePageListItem(row))
+	}
+
+	var nextCursor *string
+	if len(rows) > query.Limit {
+		items = items[:query.Limit]
+		cursor := pagination.EncodeOffsetCursor(query.Offset + len(items))
+		nextCursor = &cursor
+	}
+
+	return ListPagesResponse{Items: items, NextCursor: nextCursor}, nil
 }
 
-func (s *service) CreatePage(ctx context.Context, projectID, actorUserID string, req createPageRequest) (map[string]any, error) {
+func (s *service) CreatePage(ctx context.Context, projectID, actorUserID string, req createPageRequest) (PageListItem, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return PageListItem{}, err
 	}
 	if strings.TrimSpace(actorUserID) == "" {
-		return nil, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+		return PageListItem{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
 	}
 	var created map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -60,37 +74,37 @@ func (s *service) CreatePage(ctx context.Context, projectID, actorUserID string,
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("create page", err)
+		return PageListItem{}, mapServiceError("create page", err)
 	}
-	return created, nil
+	return decodePageListItem(created), nil
 }
 
-func (s *service) GetPage(ctx context.Context, projectID, pageID string) (map[string]any, error) {
+func (s *service) GetPage(ctx context.Context, projectID, pageID string) (GetPageResponse, error) {
 	item, err := s.repo.GetPage(ctx, projectID, pageID)
 	if err != nil {
-		return nil, mapServiceError("get page", err)
+		return GetPageResponse{}, mapServiceError("get page", err)
 	}
-	return item, nil
+	return decodeGetPageResponse(item), nil
 }
 
-func (s *service) UpdatePage(ctx context.Context, projectID, pageID, actorUserID string, req updatePageRequest) (map[string]any, error) {
+func (s *service) UpdatePage(ctx context.Context, projectID, pageID, actorUserID string, req updatePageRequest) (PageListItem, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return PageListItem{}, err
 	}
 	current, err := s.repo.GetPage(ctx, projectID, pageID)
 	if err != nil {
-		return nil, mapServiceError("load page before update", err)
+		return PageListItem{}, mapServiceError("load page before update", err)
 	}
 	from := nestedString(current, "page", "status")
 	if err := enforceArchiveOnlyForImmutableUpdate("page", from, req.State, pageImmutableStatuses); err != nil {
-		return nil, err
+		return PageListItem{}, err
 	}
 	if status := toString(req.State["status"]); status != "" {
 		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
 			"Draft":    {"Draft": {}, "Archived": {}},
-			"Archived": {"Archived": {}},
+			"Archived": {"Archived": {}, "Draft": {}},
 		}) {
-			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid page status transition")
+			return PageListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid page status transition")
 		}
 	}
 	var updated map[string]any
@@ -103,21 +117,21 @@ func (s *service) UpdatePage(ctx context.Context, projectID, pageID, actorUserID
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("update page", err)
+		return PageListItem{}, mapServiceError("update page", err)
 	}
-	return updated, nil
+	return decodePageListItem(updated), nil
 }
 
-func (s *service) RenamePage(ctx context.Context, projectID, pageID, actorUserID string, req renamePageRequest) (map[string]any, error) {
+func (s *service) RenamePage(ctx context.Context, projectID, pageID, actorUserID string, req renamePageRequest) (RenamePageResponse, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return RenamePageResponse{}, err
 	}
 	current, err := s.repo.GetPage(ctx, projectID, pageID)
 	if err != nil {
-		return nil, mapServiceError("load page before rename", err)
+		return RenamePageResponse{}, mapServiceError("load page before rename", err)
 	}
 	if err := enforceMutableOperation("page", nestedString(current, "page", "status"), pageImmutableStatuses); err != nil {
-		return nil, err
+		return RenamePageResponse{}, err
 	}
 	var out map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -129,14 +143,14 @@ func (s *service) RenamePage(ctx context.Context, projectID, pageID, actorUserID
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("rename page", err)
+		return RenamePageResponse{}, mapServiceError("rename page", err)
 	}
-	return out, nil
+	return decodeRenamePageResponse(out), nil
 }
 
-func (s *service) CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (map[string]any, error) {
+func (s *service) CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (PageListItem, error) {
 	if strings.TrimSpace(title) == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "title is required")
+		return PageListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "title is required")
 	}
 	var out map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -148,21 +162,21 @@ func (s *service) CreatePageForSidebar(ctx context.Context, projectID, actorUser
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("create page sidebar", err)
+		return PageListItem{}, mapServiceError("create page sidebar", err)
 	}
-	return out, nil
+	return decodePageListItem(out), nil
 }
 
-func (s *service) RenamePageForSidebar(ctx context.Context, projectID, pageID, actorUserID, title string) (map[string]any, error) {
+func (s *service) RenamePageForSidebar(ctx context.Context, projectID, pageID, actorUserID, title string) (RenamePageResponse, error) {
 	if strings.TrimSpace(title) == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "title is required")
+		return RenamePageResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "title is required")
 	}
 	current, err := s.repo.GetPage(ctx, projectID, pageID)
 	if err != nil {
-		return nil, mapServiceError("load page before sidebar rename", err)
+		return RenamePageResponse{}, mapServiceError("load page before sidebar rename", err)
 	}
 	if err := enforceMutableOperation("page", nestedString(current, "page", "status"), pageImmutableStatuses); err != nil {
-		return nil, err
+		return RenamePageResponse{}, err
 	}
 	var out map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -174,18 +188,18 @@ func (s *service) RenamePageForSidebar(ctx context.Context, projectID, pageID, a
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("rename page sidebar", err)
+		return RenamePageResponse{}, mapServiceError("rename page sidebar", err)
 	}
-	return out, nil
+	return decodeRenamePageResponse(out), nil
 }
 
-func (s *service) DeletePageForSidebar(ctx context.Context, projectID, pageID, actorUserID string) (map[string]any, error) {
+func (s *service) DeletePageForSidebar(ctx context.Context, projectID, pageID, actorUserID string) (DeletePageResponse, error) {
 	current, err := s.repo.GetPage(ctx, projectID, pageID)
 	if err != nil {
-		return nil, mapServiceError("load page before sidebar delete", err)
+		return DeletePageResponse{}, mapServiceError("load page before sidebar delete", err)
 	}
 	if err := enforceMutableOperation("page", nestedString(current, "page", "status"), pageImmutableStatuses); err != nil {
-		return nil, err
+		return DeletePageResponse{}, err
 	}
 	var out map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -197,9 +211,9 @@ func (s *service) DeletePageForSidebar(ctx context.Context, projectID, pageID, a
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("delete page sidebar", err)
+		return DeletePageResponse{}, mapServiceError("delete page sidebar", err)
 	}
-	return out, nil
+	return decodeDeletePageResponse(out), nil
 }
 
 func mapServiceError(action string, err error) error {
@@ -227,6 +241,9 @@ func enforceArchiveOnlyForImmutableUpdate(entity, from string, patch map[string]
 	if isArchiveOnlyPatch(patch) {
 		return nil
 	}
+	if isRestoreOnlyPatch(from, patch) {
+		return nil
+	}
 	return immutableStateError(entity, from)
 }
 
@@ -245,6 +262,17 @@ func isArchiveOnlyPatch(patch map[string]any) bool {
 	return strings.EqualFold(status, "Archived")
 }
 
+func isRestoreOnlyPatch(from string, patch map[string]any) bool {
+	if !strings.EqualFold(strings.TrimSpace(from), "Archived") {
+		return false
+	}
+	if len(patch) != 1 {
+		return false
+	}
+	status := strings.TrimSpace(toString(patch["status"]))
+	return status != "" && !strings.EqualFold(status, "Archived")
+}
+
 func isImmutableStatus(status string, immutableStatuses map[string]struct{}) bool {
 	trimmed := strings.TrimSpace(status)
 	if trimmed == "" {
@@ -255,7 +283,7 @@ func isImmutableStatus(status string, immutableStatuses map[string]struct{}) boo
 }
 
 func immutableStateError(entity, status string) error {
-	message := fmt.Sprintf("%s in status %q is immutable; only archive operation is allowed", strings.TrimSpace(entity), strings.TrimSpace(status))
+	message := fmt.Sprintf("%s in status %q is immutable; only archive or restore status operation is allowed", strings.TrimSpace(entity), strings.TrimSpace(status))
 	return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, message)
 }
 

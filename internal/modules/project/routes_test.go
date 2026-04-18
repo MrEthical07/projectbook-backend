@@ -45,8 +45,9 @@ func TestProjectRoutesRequireAuth(t *testing.T) {
 		body   string
 	}{
 		{name: "dashboard", method: http.MethodGet, path: "/api/v1/projects/atlas-2026/dashboard"},
+		{name: "dashboard events", method: http.MethodGet, path: "/api/v1/projects/atlas-2026/dashboard/events"},
 		{name: "access", method: http.MethodGet, path: "/api/v1/projects/atlas-2026/access"},
-		{name: "update settings", method: http.MethodPut, path: "/api/v1/projects/atlas-2026/settings", body: `{"settings":{"projectName":"Atlas","projectStatus":"Active"}}`},
+		{name: "update settings", method: http.MethodPatch, path: "/api/v1/projects/atlas-2026/settings", body: `{"settings":{"projectName":"Atlas","projectStatus":"Active"}}`},
 		{name: "delete", method: http.MethodDelete, path: "/api/v1/projects/atlas-2026"},
 	}
 

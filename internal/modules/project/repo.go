@@ -23,6 +23,10 @@ var (
 // Repo defines project module persistence operations.
 type Repo interface {
 	Dashboard(ctx context.Context, projectID, userID string) (projectDashboardResponse, error)
+	DashboardSummary(ctx context.Context, projectID, userID string) (projectDashboardSummaryResponse, error)
+	DashboardMyWork(ctx context.Context, projectID, userID string) (projectDashboardMyWorkResponse, error)
+	DashboardEvents(ctx context.Context, projectID, userID string) (projectDashboardEventsResponse, error)
+	DashboardActivity(ctx context.Context, projectID, userID string) (projectDashboardActivityResponse, error)
 	GetUser(ctx context.Context, userID string) (accessUser, error)
 	ListUserProjects(ctx context.Context, userID string) ([]sidebarProject, error)
 	ListSidebarArtifacts(ctx context.Context, projectID string) (sidebarArtifacts, error)
@@ -52,7 +56,7 @@ func NewRepo(store storage.RelationalStore) Repo {
 const queryResolveProjectIdentity = `
 SELECT id::text, slug, name, COALESCE(description, ''), status::text
 FROM projects
-WHERE slug = $1 OR id::text = $1
+WHERE id::text = $1
 LIMIT 1
 `
 
@@ -94,53 +98,135 @@ LIMIT 10
 const queryListDashboardRecentEdits = `
 SELECT id, artifact_type, title, href, updated_at
 FROM (
-	SELECT s.slug AS id, 'Story' AS artifact_type, s.title, '/project/' || p.slug || '/stories/' || s.slug AS href, s.updated_at
+	SELECT s.id::text AS id, 'Story' AS artifact_type, s.title, '/project/' || $1::text || '/stories/' || s.id::text AS href, s.updated_at
 	FROM stories s
-	JOIN projects p ON p.id = s.project_id
 	WHERE s.project_id = $1::uuid
 	UNION ALL
-	SELECT j.slug AS id, 'Journey' AS artifact_type, j.title, '/project/' || p.slug || '/journeys/' || j.slug AS href, j.updated_at
+	SELECT j.id::text AS id, 'Journey' AS artifact_type, j.title, '/project/' || $1::text || '/journeys/' || j.id::text AS href, j.updated_at
 	FROM journeys j
-	JOIN projects p ON p.id = j.project_id
 	WHERE j.project_id = $1::uuid
 	UNION ALL
-	SELECT pr.slug AS id, 'Problem' AS artifact_type, pr.title, '/project/' || p.slug || '/problem-statement/' || pr.slug AS href, pr.updated_at
+	SELECT pr.id::text AS id, 'Problem' AS artifact_type, pr.title, '/project/' || $1::text || '/problem-statement/' || pr.id::text AS href, pr.updated_at
 	FROM problems pr
-	JOIN projects p ON p.id = pr.project_id
 	WHERE pr.project_id = $1::uuid
 	UNION ALL
-	SELECT i.slug AS id, 'Idea' AS artifact_type, i.title, '/project/' || p.slug || '/ideas/' || i.slug AS href, i.updated_at
+	SELECT i.id::text AS id, 'Idea' AS artifact_type, i.title, '/project/' || $1::text || '/ideas/' || i.id::text AS href, i.updated_at
 	FROM ideas i
-	JOIN projects p ON p.id = i.project_id
 	WHERE i.project_id = $1::uuid
 	UNION ALL
-	SELECT t.slug AS id, 'Task' AS artifact_type, t.title, '/project/' || p.slug || '/tasks/' || t.slug AS href, t.updated_at
+	SELECT t.id::text AS id, 'Task' AS artifact_type, t.title, '/project/' || $1::text || '/tasks/' || t.id::text AS href, t.updated_at
 	FROM tasks t
-	JOIN projects p ON p.id = t.project_id
 	WHERE t.project_id = $1::uuid
 	UNION ALL
-	SELECT f.slug AS id, 'Feedback' AS artifact_type, f.title, '/project/' || p.slug || '/feedback/' || f.slug AS href, f.updated_at
+	SELECT f.id::text AS id, 'Feedback' AS artifact_type, f.title, '/project/' || $1::text || '/feedback/' || f.id::text AS href, f.updated_at
 	FROM feedback f
-	JOIN projects p ON p.id = f.project_id
 	WHERE f.project_id = $1::uuid
 	UNION ALL
-	SELECT r.slug AS id, 'Resource' AS artifact_type, r.title, '/project/' || p.slug || '/resources/' || r.slug AS href, r.updated_at
+	SELECT r.id::text AS id, 'Resource' AS artifact_type, r.title, '/project/' || $1::text || '/resources/' || r.id::text AS href, r.updated_at
 	FROM resources r
-	JOIN projects p ON p.id = r.project_id
 	WHERE r.project_id = $1::uuid
 	UNION ALL
-	SELECT pg.slug AS id, 'Page' AS artifact_type, pg.title, '/project/' || p.slug || '/pages/' || pg.slug AS href, pg.updated_at
+	SELECT pg.id::text AS id, 'Page' AS artifact_type, pg.title, '/project/' || $1::text || '/pages/' || pg.id::text AS href, pg.updated_at
 	FROM pages pg
-	JOIN projects p ON p.id = pg.project_id
 	WHERE pg.project_id = $1::uuid
 ) edits
 ORDER BY updated_at DESC
 LIMIT 10
 `
 
+const queryGetDashboardSummary = `
+SELECT
+	(SELECT COUNT(1) FROM stories s WHERE s.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM journeys j WHERE j.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM problems p WHERE p.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM ideas i WHERE i.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM tasks t WHERE t.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM feedback f WHERE f.project_id = $1::uuid),
+	(SELECT COUNT(1) FROM stories s WHERE s.project_id = $1::uuid AND s.is_orphan),
+	(SELECT COUNT(1) FROM journeys j WHERE j.project_id = $1::uuid AND j.is_orphan),
+	(SELECT COUNT(1) FROM problems p WHERE p.project_id = $1::uuid AND p.status = 'Locked'::problem_status),
+	(SELECT COUNT(1)
+	 FROM problems p
+	 WHERE p.project_id = $1::uuid
+	   AND NOT EXISTS (
+		   SELECT 1
+		   FROM ideas i
+		   WHERE i.project_id = p.project_id
+			 AND i.primary_problem_id = p.id
+	   )),
+	(SELECT COUNT(1) FROM ideas i WHERE i.project_id = $1::uuid AND i.status = 'Selected'::idea_status),
+	(SELECT COUNT(1)
+	 FROM ideas i
+	 WHERE i.project_id = $1::uuid
+	   AND i.status = 'Selected'::idea_status
+	   AND NOT EXISTS (
+		   SELECT 1
+		   FROM tasks t
+		   WHERE t.project_id = i.project_id
+			 AND t.primary_idea_id = i.id
+	   )),
+	(SELECT COUNT(1)
+	 FROM tasks t
+	 WHERE t.project_id = $1::uuid
+	   AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)),
+	(SELECT COUNT(1)
+	 FROM tasks t
+	 WHERE t.project_id = $1::uuid
+	   AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
+	   AND t.due_at IS NOT NULL
+	   AND t.due_at < NOW()),
+	(SELECT COUNT(1) FROM tasks t WHERE t.project_id = $1::uuid AND t.status = 'Completed'::task_status),
+	(SELECT COUNT(1)
+	 FROM tasks t
+	 WHERE t.project_id = $1::uuid
+	   AND t.status IN ('Blocked'::task_status, 'Abandoned'::task_status)),
+	(SELECT COUNT(1)
+	 FROM tasks t
+	 WHERE t.project_id = $1::uuid
+	   AND t.status = 'Completed'::task_status
+	   AND NOT EXISTS (
+		   SELECT 1
+		   FROM feedback f
+		   WHERE f.project_id = t.project_id
+			 AND f.primary_task_id = t.id
+	   )),
+	(SELECT COUNT(1)
+	 FROM feedback f
+	 WHERE f.project_id = $1::uuid
+	   AND COALESCE(f.outcome::text, 'Needs Iteration') = 'Needs Iteration')
+`
+
+const queryListDashboardMyTasks = `
+SELECT
+	t.id::text,
+	t.title,
+	t.status::text,
+	COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), '')
+FROM tasks t
+WHERE t.project_id = $1::uuid
+	AND t.owner_user_id = $2::uuid
+ORDER BY
+	CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END,
+	t.due_at ASC,
+	t.updated_at DESC
+LIMIT 5
+`
+
+const queryListDashboardMyFeedback = `
+SELECT
+	f.id::text,
+	f.title,
+	COALESCE(f.outcome::text, 'Needs Iteration')
+FROM feedback f
+WHERE f.project_id = $1::uuid
+	AND f.owner_user_id = $2::uuid
+ORDER BY f.updated_at DESC
+LIMIT 5
+`
+
 const queryListSidebarProjects = `
 SELECT
-	p.slug,
+	p.id::text,
 	p.name,
 	p.icon,
 	p.status::text
@@ -257,29 +343,251 @@ WHERE id = $1::uuid
 `
 
 func (r *repo) Dashboard(ctx context.Context, projectID, userID string) (projectDashboardResponse, error) {
-	if err := r.requireStore(); err != nil {
+	summary, err := r.DashboardSummary(ctx, projectID, userID)
+	if err != nil {
 		return projectDashboardResponse{}, err
+	}
+
+	myWork, err := r.DashboardMyWork(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardResponse{}, err
+	}
+
+	events, err := r.DashboardEvents(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardResponse{}, err
+	}
+
+	activity, err := r.DashboardActivity(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardResponse{}, err
+	}
+
+	return projectDashboardResponse{
+		Project:     summary.Project,
+		Me:          myWork.Me,
+		Summary:     summary.Summary,
+		MyTasks:     myWork.MyTasks,
+		MyFeedback:  myWork.MyFeedback,
+		Events:      events.Events,
+		Activity:    activity.Activity,
+		RecentEdits: myWork.RecentEdits,
+	}, nil
+}
+
+func (r *repo) DashboardSummary(ctx context.Context, projectID, userID string) (projectDashboardSummaryResponse, error) {
+	if err := r.requireStore(); err != nil {
+		return projectDashboardSummaryResponse{}, err
 	}
 
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return projectDashboardResponse{}, err
+		return projectDashboardSummaryResponse{}, err
+	}
+
+	summary, err := r.loadDashboardSummary(ctx, identity.UUID)
+	if err != nil {
+		return projectDashboardSummaryResponse{}, err
+	}
+
+	return projectDashboardSummaryResponse{
+		Project: dashboardProject{ID: identity.UUID, Name: identity.Name, Status: identity.Status},
+		Summary: summary,
+	}, nil
+}
+
+func (r *repo) DashboardMyWork(ctx context.Context, projectID, userID string) (projectDashboardMyWorkResponse, error) {
+	if err := r.requireStore(); err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+
+	identity, err := r.resolveProjectIdentity(ctx, projectID)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
 	}
 
 	me, err := r.GetUser(ctx, userID)
 	if err != nil {
-		return projectDashboardResponse{}, err
+		return projectDashboardMyWorkResponse{}, err
 	}
 
-	response := projectDashboardResponse{
-		Project:     dashboardProject{ID: identity.Slug, Name: identity.Name, Status: identity.Status},
+	myTasks, err := r.loadDashboardMyTasks(ctx, identity.UUID, userID)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+
+	myFeedback, err := r.loadDashboardMyFeedback(ctx, identity.UUID, userID)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+
+	recentEdits, err := r.loadDashboardRecentEdits(ctx, identity.UUID)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+
+	return projectDashboardMyWorkResponse{
 		Me:          dashboardUser{ID: me.ID, Name: me.Name, Initials: initialsFromName(me.Name)},
-		Events:      make([]dashboardEvent, 0, 10),
-		Activity:    make([]dashboardActivity, 0, 10),
-		RecentEdits: make([]dashboardRecentEdit, 0, 10),
+		MyTasks:     myTasks,
+		MyFeedback:  myFeedback,
+		RecentEdits: recentEdits,
+	}, nil
+}
+
+func (r *repo) DashboardEvents(ctx context.Context, projectID, userID string) (projectDashboardEventsResponse, error) {
+	if err := r.requireStore(); err != nil {
+		return projectDashboardEventsResponse{}, err
 	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardEvents,
+	identity, err := r.resolveProjectIdentity(ctx, projectID)
+	if err != nil {
+		return projectDashboardEventsResponse{}, err
+	}
+
+	events, err := r.loadDashboardEvents(ctx, identity.UUID)
+	if err != nil {
+		return projectDashboardEventsResponse{}, err
+	}
+
+	return projectDashboardEventsResponse{Events: events}, nil
+}
+
+func (r *repo) DashboardActivity(ctx context.Context, projectID, userID string) (projectDashboardActivityResponse, error) {
+	if err := r.requireStore(); err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+
+	identity, err := r.resolveProjectIdentity(ctx, projectID)
+	if err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+
+	activity, err := r.loadDashboardActivity(ctx, identity.UUID)
+	if err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+
+	return projectDashboardActivityResponse{
+		Activity: activity,
+	}, nil
+}
+
+func (r *repo) loadDashboardSummary(ctx context.Context, projectUUID string) (dashboardSummary, error) {
+	var summaryStories int64
+	var summaryJourneys int64
+	var summaryProblems int64
+	var summaryIdeas int64
+	var summaryTasks int64
+	var summaryFeedback int64
+	var summaryOrphanStories int64
+	var summaryOrphanJourneys int64
+	var summaryLockedProblems int64
+	var summaryProblemsWithoutIdeas int64
+	var summarySelectedIdeas int64
+	var summarySelectedIdeasWithoutTasks int64
+	var summaryOpenTasks int64
+	var summaryOverdueTasks int64
+	var summaryCompletedTasks int64
+	var summaryBlockedOrAbandonedTasks int64
+	var summaryCompletedTasksNoFeedback int64
+	var summaryFeedbackNeedsIteration int64
+
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryGetDashboardSummary,
+		func(row storage.RowScanner) error {
+			return row.Scan(
+				&summaryStories,
+				&summaryJourneys,
+				&summaryProblems,
+				&summaryIdeas,
+				&summaryTasks,
+				&summaryFeedback,
+				&summaryOrphanStories,
+				&summaryOrphanJourneys,
+				&summaryLockedProblems,
+				&summaryProblemsWithoutIdeas,
+				&summarySelectedIdeas,
+				&summarySelectedIdeasWithoutTasks,
+				&summaryOpenTasks,
+				&summaryOverdueTasks,
+				&summaryCompletedTasks,
+				&summaryBlockedOrAbandonedTasks,
+				&summaryCompletedTasksNoFeedback,
+				&summaryFeedbackNeedsIteration,
+			)
+		},
+		projectUUID,
+	))
+	if err != nil {
+		return dashboardSummary{}, wrapRepoError("load dashboard summary", err)
+	}
+
+	return dashboardSummary{
+		Stories:                   int(summaryStories),
+		Journeys:                  int(summaryJourneys),
+		Problems:                  int(summaryProblems),
+		Ideas:                     int(summaryIdeas),
+		Tasks:                     int(summaryTasks),
+		Feedback:                  int(summaryFeedback),
+		OrphanStories:             int(summaryOrphanStories),
+		OrphanJourneys:            int(summaryOrphanJourneys),
+		LockedProblems:            int(summaryLockedProblems),
+		ProblemsWithoutIdeas:      int(summaryProblemsWithoutIdeas),
+		SelectedIdeas:             int(summarySelectedIdeas),
+		SelectedIdeasWithoutTasks: int(summarySelectedIdeasWithoutTasks),
+		OpenTasks:                 int(summaryOpenTasks),
+		OverdueTasks:              int(summaryOverdueTasks),
+		CompletedTasks:            int(summaryCompletedTasks),
+		BlockedOrAbandonedTasks:   int(summaryBlockedOrAbandonedTasks),
+		CompletedTasksNoFeedback:  int(summaryCompletedTasksNoFeedback),
+		FeedbackNeedsIteration:    int(summaryFeedbackNeedsIteration),
+	}, nil
+}
+
+func (r *repo) loadDashboardMyTasks(ctx context.Context, projectUUID, userID string) ([]dashboardTask, error) {
+	items := make([]dashboardTask, 0, 5)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardMyTasks,
+		func(row storage.RowScanner) error {
+			var item dashboardTask
+			if err := row.Scan(&item.ID, &item.Title, &item.Status, &item.Deadline); err != nil {
+				return err
+			}
+			item.ID = strings.TrimSpace(item.ID)
+			items = append(items, item)
+			return nil
+		},
+		projectUUID,
+		strings.TrimSpace(userID),
+	))
+	if err != nil {
+		return nil, wrapRepoError("list dashboard my tasks", err)
+	}
+	return items, nil
+}
+
+func (r *repo) loadDashboardMyFeedback(ctx context.Context, projectUUID, userID string) ([]dashboardFeedback, error) {
+	items := make([]dashboardFeedback, 0, 5)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardMyFeedback,
+		func(row storage.RowScanner) error {
+			var item dashboardFeedback
+			if err := row.Scan(&item.ID, &item.Title, &item.Outcome); err != nil {
+				return err
+			}
+			item.ID = strings.TrimSpace(item.ID)
+			items = append(items, item)
+			return nil
+		},
+		projectUUID,
+		strings.TrimSpace(userID),
+	))
+	if err != nil {
+		return nil, wrapRepoError("list dashboard my feedback", err)
+	}
+	return items, nil
+}
+
+func (r *repo) loadDashboardEvents(ctx context.Context, projectUUID string) ([]dashboardEvent, error) {
+	items := make([]dashboardEvent, 0, 10)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardEvents,
 		func(row storage.RowScanner) error {
 			var event dashboardEvent
 			var startAt time.Time
@@ -288,16 +596,20 @@ func (r *repo) Dashboard(ctx context.Context, projectID, userID string) (project
 			}
 			event.StartAt = startAt.UTC().Format(time.RFC3339)
 			event.Initials = initialsFromName(event.Creator)
-			response.Events = append(response.Events, event)
+			items = append(items, event)
 			return nil
 		},
-		identity.UUID,
+		projectUUID,
 	))
 	if err != nil {
-		return projectDashboardResponse{}, wrapRepoError("list dashboard events", err)
+		return nil, wrapRepoError("list dashboard events", err)
 	}
+	return items, nil
+}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardActivity,
+func (r *repo) loadDashboardActivity(ctx context.Context, projectUUID string) ([]dashboardActivity, error) {
+	items := make([]dashboardActivity, 0, 10)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardActivity,
 		func(row storage.RowScanner) error {
 			var item dashboardActivity
 			var createdAt time.Time
@@ -306,16 +618,20 @@ func (r *repo) Dashboard(ctx context.Context, projectID, userID string) (project
 			}
 			item.Initials = initialsFromName(item.User)
 			item.At = createdAt.UTC().Format(time.RFC3339)
-			response.Activity = append(response.Activity, item)
+			items = append(items, item)
 			return nil
 		},
-		identity.UUID,
+		projectUUID,
 	))
 	if err != nil {
-		return projectDashboardResponse{}, wrapRepoError("list dashboard activity", err)
+		return nil, wrapRepoError("list dashboard activity", err)
 	}
+	return items, nil
+}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardRecentEdits,
+func (r *repo) loadDashboardRecentEdits(ctx context.Context, projectUUID string) ([]dashboardRecentEdit, error) {
+	items := make([]dashboardRecentEdit, 0, 10)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardRecentEdits,
 		func(row storage.RowScanner) error {
 			var edit dashboardRecentEdit
 			var updatedAt time.Time
@@ -323,16 +639,15 @@ func (r *repo) Dashboard(ctx context.Context, projectID, userID string) (project
 				return err
 			}
 			edit.At = updatedAt.UTC().Format(time.RFC3339)
-			response.RecentEdits = append(response.RecentEdits, edit)
+			items = append(items, edit)
 			return nil
 		},
-		identity.UUID,
+		projectUUID,
 	))
 	if err != nil {
-		return projectDashboardResponse{}, wrapRepoError("list dashboard recent edits", err)
+		return nil, wrapRepoError("list dashboard recent edits", err)
 	}
-
-	return response, nil
+	return items, nil
 }
 
 func (r *repo) GetUser(ctx context.Context, userID string) (accessUser, error) {
@@ -546,7 +861,7 @@ func (r *repo) UpdateSettings(ctx context.Context, projectID string, patch proje
 		return projectUpdateSettingsResponse{}, wrapRepoError("upsert project settings", err)
 	}
 
-	return projectUpdateSettingsResponse{ProjectID: identity.Slug}, nil
+	return projectUpdateSettingsResponse{ProjectID: identity.UUID}, nil
 }
 
 func (r *repo) Archive(ctx context.Context, projectID string) (projectArchiveResponse, error) {
@@ -588,7 +903,7 @@ func (r *repo) Archive(ctx context.Context, projectID string) (projectArchiveRes
 		return projectArchiveResponse{}, wrapRepoError("sync archived settings", err)
 	}
 
-	return projectArchiveResponse{ProjectID: identity.Slug, Status: "Archived"}, nil
+	return projectArchiveResponse{ProjectID: identity.UUID, Status: "Archived"}, nil
 }
 
 func (r *repo) Delete(ctx context.Context, projectID string) (projectDeleteResponse, error) {
@@ -606,7 +921,7 @@ func (r *repo) Delete(ctx context.Context, projectID string) (projectDeleteRespo
 		return projectDeleteResponse{}, wrapRepoError("delete project", err)
 	}
 
-	return projectDeleteResponse{ProjectID: identity.Slug, Status: "Deleted"}, nil
+	return projectDeleteResponse{ProjectID: identity.UUID, Status: "Deleted"}, nil
 }
 
 func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (projectIdentity, error) {
@@ -690,14 +1005,69 @@ func (r *repo) listArtifactsByTable(ctx context.Context, projectUUID, table stri
 
 func sidebarArtifactsQuery(table string) (string, error) {
 	switch table {
-	case "stories", "journeys", "problems", "ideas", "tasks", "feedback", "pages":
-		return fmt.Sprintf(`
-SELECT slug, title
-FROM %s
+	case "stories":
+		return `
+SELECT id::text, title
+FROM stories
 WHERE project_id = $1::uuid
+  AND status <> 'Archived'::story_status
 ORDER BY updated_at DESC
 LIMIT 100
-`, table), nil
+`, nil
+	case "journeys":
+		return `
+SELECT id::text, title
+FROM journeys
+WHERE project_id = $1::uuid
+  AND status <> 'Archived'::journey_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
+	case "problems":
+		return `
+SELECT id::text, title
+FROM problems
+WHERE project_id = $1::uuid
+  AND status <> 'Archived'::problem_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
+	case "ideas":
+		return `
+SELECT id::text, title
+FROM ideas
+WHERE project_id = $1::uuid
+  AND status <> 'Archived'::idea_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
+	case "tasks":
+		return `
+SELECT id::text, title
+FROM tasks
+WHERE project_id = $1::uuid
+  AND status <> 'Abandoned'::task_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
+	case "feedback":
+		return `
+SELECT id::text, title
+FROM feedback
+WHERE project_id = $1::uuid
+  AND status <> 'Archived'::feedback_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
+	case "pages":
+		return `
+SELECT id::text, title
+FROM pages
+WHERE project_id = $1::uuid
+  AND status <> 'Archived'::page_status
+ORDER BY updated_at DESC
+LIMIT 100
+`, nil
 	default:
 		return "", apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "invalid artifact table")
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 )
 
 type Handler struct {
@@ -17,20 +18,42 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) ListProjectActivity(ctx *httpx.Context, _ httpx.NoBody) ([]map[string]any, error) {
+func (h *Handler) ListProjectActivity(ctx *httpx.Context, _ httpx.NoBody) (ListProjectActivityResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return ListProjectActivityResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return ListProjectActivityResponse{}, err
 	}
+	query, err := parseListQuery(ctx)
+	if err != nil {
+		return ListProjectActivityResponse{}, err
+	}
+	return h.svc.ListProjectActivity(ctx.Context(), resolveProjectScope(principal, projectID), query)
+}
+
+func parseListQuery(ctx *httpx.Context) (listQuery, error) {
+	if ctx == nil {
+		return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "request context is required")
+	}
+
+	offset := 0
+	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
+		if decodeErr != nil {
+			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
+		}
+		offset = decodedOffset
+	}
+
 	limit, err := parseLimit(ctx.Query("limit"))
 	if err != nil {
-		return nil, err
+		return listQuery{}, err
 	}
-	return h.svc.ListProjectActivity(ctx.Context(), resolveProjectScope(principal, projectID), listQuery{Limit: limit})
+
+	return listQuery{Offset: offset, Limit: limit}, nil
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

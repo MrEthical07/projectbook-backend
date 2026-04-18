@@ -42,7 +42,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, 30*time.Second),
@@ -56,7 +56,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermPageCreate),
 		policy.CacheInvalidateOptional(cacheMgr, pageInvalidate),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/pages/{slug}", httpx.Adapter(m.handler.GetPage),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/pages/{pageId}", httpx.Adapter(m.handler.GetPage),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -68,12 +68,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "pageId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, 30*time.Second),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/pages/{pageId}", httpx.Adapter(m.handler.UpdatePage),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/pages/{pageId}", httpx.Adapter(m.handler.UpdatePage),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -82,7 +82,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermPageEdit),
 		policy.CacheInvalidateOptional(cacheMgr, pageInvalidate),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/pages/{pageId}/rename", httpx.Adapter(m.handler.RenamePage),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/pages/{pageId}/rename", httpx.Adapter(m.handler.RenamePage),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),

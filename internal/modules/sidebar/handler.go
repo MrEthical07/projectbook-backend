@@ -18,62 +18,63 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) CreateSidebarArtifact(ctx *httpx.Context, req createSidebarArtifactRequest) (httpx.Result[map[string]any], error) {
+func (h *Handler) CreateSidebarArtifact(ctx *httpx.Context, req createSidebarArtifactRequest) (httpx.Result[SidebarArtifactResponse], error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[SidebarArtifactResponse]{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[SidebarArtifactResponse]{}, err
 	}
 	prefix := normalizePrefix(req.Prefix)
 	if !hasPrefixPermission(principal.PermissionMask, prefix, operationCreate) {
-		return httpx.Result[map[string]any]{}, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
+		return httpx.Result[SidebarArtifactResponse]{}, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
 	}
 	created, err := h.svc.CreateSidebarArtifact(ctx.Context(), resolveProjectScope(principal, projectID), principal.UserID, req)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[SidebarArtifactResponse]{}, err
 	}
-	return httpx.Result[map[string]any]{Status: http.StatusCreated, Data: created}, nil
+	return httpx.Result[SidebarArtifactResponse]{Status: http.StatusCreated, Data: created}, nil
 }
 
-func (h *Handler) RenameSidebarArtifact(ctx *httpx.Context, req renameSidebarArtifactRequest) (map[string]any, error) {
+func (h *Handler) RenameSidebarArtifact(ctx *httpx.Context, req renameSidebarArtifactRequest) (SidebarArtifactResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return SidebarArtifactResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return SidebarArtifactResponse{}, err
 	}
 	artifactID := strings.TrimSpace(ctx.Param("artifactId"))
 	if artifactID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "artifactId is required")
+		return SidebarArtifactResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "artifactId is required")
 	}
 	prefix := normalizePrefix(req.Prefix)
 	if !hasPrefixPermission(principal.PermissionMask, prefix, operationEdit) {
-		return nil, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
+		return SidebarArtifactResponse{}, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
 	}
 	return h.svc.RenameSidebarArtifact(ctx.Context(), resolveProjectScope(principal, projectID), artifactID, principal.UserID, req)
 }
 
-func (h *Handler) DeleteSidebarArtifact(ctx *httpx.Context, req deleteSidebarArtifactRequest) (map[string]any, error) {
+func (h *Handler) DeleteSidebarArtifact(ctx *httpx.Context, req deleteSidebarArtifactRequest) (SidebarDeleteResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return SidebarDeleteResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return SidebarDeleteResponse{}, err
 	}
 	artifactID := strings.TrimSpace(ctx.Param("artifactId"))
 	if artifactID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "artifactId is required")
+		return SidebarDeleteResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "artifactId is required")
 	}
+	req.Prefix = strings.TrimSpace(ctx.Query("prefix"))
 	prefix := normalizePrefix(req.Prefix)
 	if !hasPrefixPermission(principal.PermissionMask, prefix, operationDelete) {
-		return nil, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
+		return SidebarDeleteResponse{}, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "forbidden")
 	}
 	return h.svc.DeleteSidebarArtifact(ctx.Context(), resolveProjectScope(principal, projectID), artifactID, principal.UserID, req)
 }

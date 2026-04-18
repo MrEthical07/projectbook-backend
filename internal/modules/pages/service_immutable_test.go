@@ -17,6 +17,13 @@ func TestPageImmutableHelpers(t *testing.T) {
 		}
 	})
 
+	t.Run("archived allows restore-only patch", func(t *testing.T) {
+		err := enforceArchiveOnlyForImmutableUpdate("page", "Archived", map[string]any{"status": "Draft"}, pageImmutableStatuses)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
 	t.Run("archived blocks mixed patch", func(t *testing.T) {
 		err := enforceArchiveOnlyForImmutableUpdate("page", "Archived", map[string]any{"status": "Archived", "tags": []any{"x"}}, pageImmutableStatuses)
 		if err == nil {
@@ -27,10 +34,20 @@ func TestPageImmutableHelpers(t *testing.T) {
 	t.Run("transition matrix draft to archived is allowed", func(t *testing.T) {
 		ok := isAllowedTransition("Draft", "Archived", map[string]map[string]struct{}{
 			"Draft":    {"Draft": {}, "Archived": {}},
-			"Archived": {"Archived": {}},
+			"Archived": {"Archived": {}, "Draft": {}},
 		})
 		if !ok {
 			t.Fatal("expected Draft -> Archived to be allowed")
+		}
+	})
+
+	t.Run("transition matrix archived to draft is allowed", func(t *testing.T) {
+		ok := isAllowedTransition("Archived", "Draft", map[string]map[string]struct{}{
+			"Draft":    {"Draft": {}, "Archived": {}},
+			"Archived": {"Archived": {}, "Draft": {}},
+		})
+		if !ok {
+			t.Fatal("expected Archived -> Draft to be allowed")
 		}
 	})
 }

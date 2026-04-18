@@ -193,7 +193,6 @@ type signupResponse struct {
 type authTokenResponse struct {
 	AccessToken       string `json:"access_token"`
 	RefreshToken      string `json:"refresh_token"`
-	AccessExpiresUTC  string `json:"access_expires_utc"`
 	AccessExpiresUnix int64  `json:"access_expires_unix"`
 }
 

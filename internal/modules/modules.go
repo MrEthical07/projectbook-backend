@@ -11,7 +11,6 @@ import (
 	"github.com/MrEthical07/superapi/internal/modules/pages"
 	"github.com/MrEthical07/superapi/internal/modules/project"
 	"github.com/MrEthical07/superapi/internal/modules/resources"
-	"github.com/MrEthical07/superapi/internal/modules/sidebar"
 	"github.com/MrEthical07/superapi/internal/modules/system"
 	"github.com/MrEthical07/superapi/internal/modules/team"
 	// MODULE_IMPORTS
@@ -32,7 +31,6 @@ func All() []app.Module {
 		resources.New(),
 		pages.New(),
 		calendar.New(),
-		sidebar.New(),
 		activity.New(),
 		team.New(),
 		health.New(),

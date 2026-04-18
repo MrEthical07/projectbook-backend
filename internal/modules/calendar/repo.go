@@ -10,16 +10,17 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 )
 
 type Repo interface {
-	ListCalendarData(ctx context.Context, projectID string, query listQuery) (map[string]any, error)
-	CreateCalendarEvent(ctx context.Context, projectID, actorUserID string, req createCalendarEventRequest) (map[string]any, error)
-	GetCalendarEvent(ctx context.Context, projectID, eventID string) (map[string]any, error)
-	UpdateCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string, patch map[string]any) (map[string]any, error)
-	DeleteCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string) (map[string]any, error)
+	ListCalendarData(ctx context.Context, projectID string, query listQuery) (ListCalendarDataResponse, error)
+	CreateCalendarEvent(ctx context.Context, projectID, actorUserID string, req createCalendarEventRequest) (CalendarListEvent, error)
+	GetCalendarEvent(ctx context.Context, projectID, eventID string) (GetCalendarEventResponse, error)
+	UpdateCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string, patch map[string]any) (UpdateCalendarEventResponse, error)
+	DeleteCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string) (DeleteCalendarEventResponse, error)
 }
 
 type repo struct {
@@ -46,8 +47,8 @@ type calendarRecord struct {
 	Description     string
 	Location        string
 	EventKind       string
-	LinkedArtifacts []any
-	Tags            []any
+	LinkedArtifacts []string
+	Tags            []string
 	SourceTitle     string
 	CreatedAt       string
 	UpdatedAt       string
@@ -57,13 +58,13 @@ func NewRepo(store storage.RelationalStore) Repo {
 	return &repo{store: store}
 }
 
-func (r *repo) ListCalendarData(ctx context.Context, projectID string, query listQuery) (map[string]any, error) {
+func (r *repo) ListCalendarData(ctx context.Context, projectID string, query listQuery) (ListCalendarDataResponse, error) {
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return ListCalendarDataResponse{}, err
 	}
 
-	rows := make([]map[string]any, 0, query.Limit)
+	rows := make([]CalendarListEvent, 0, query.Limit+1)
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT
 			e.id::text,
@@ -89,7 +90,7 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 		 LEFT JOIN users u ON u.id = e.owner_user_id
 		 WHERE e.project_id = $1::uuid
 		 ORDER BY e.starts_at ASC, e.created_at ASC
-		 LIMIT $2`,
+		 OFFSET $2 LIMIT $3`,
 		func(row storage.RowScanner) error {
 			rec, scanErr := scanCalendarRecord(row)
 			if scanErr != nil {
@@ -99,30 +100,43 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 			return nil
 		},
 		identity.UUID,
-		query.Limit,
+		query.Offset,
+		query.Limit+1,
 	))
 	if err != nil {
-		return nil, wrapRepoError("list calendar", err)
+		return ListCalendarDataResponse{}, wrapRepoError("list calendar", err)
 	}
 
-	return map[string]any{
-		"events": rows,
-		"reference": map[string]any{
-			"phaseChoices":          defaultPhaseChoices,
-			"manualKinds":           defaultManualKinds,
-			"linkedArtifactOptions": []any{},
+	hasMore := len(rows) > query.Limit
+	if hasMore {
+		rows = rows[:query.Limit]
+	}
+
+	var nextCursor *string
+	if hasMore {
+		cursor := pagination.EncodeOffsetCursor(query.Offset + query.Limit)
+		nextCursor = &cursor
+	}
+
+	return ListCalendarDataResponse{
+		Items:      rows,
+		NextCursor: nextCursor,
+		Reference: CalendarReference{
+			PhaseChoices:          defaultPhaseChoices,
+			ManualKinds:           defaultManualKinds,
+			LinkedArtifactOptions: []string{},
 		},
 	}, nil
 }
 
-func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID string, req createCalendarEventRequest) (map[string]any, error) {
+func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID string, req createCalendarEventRequest) (CalendarListEvent, error) {
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 	ownerName, err := r.resolveUserName(ctx, actorUserID)
 	if err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 	allDay := true
 	if req.AllDay != nil {
@@ -130,15 +144,15 @@ func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID s
 	}
 	startsAt, endsAt, err := buildEventTimestamps(req.Start, req.End, allDay, req.StartTime, req.EndTime)
 	if err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 	linkedJSON, err := encodeArrayJSON(req.LinkedArtifacts)
 	if err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 	tagsJSON, err := encodeArrayJSON(req.Tags)
 	if err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 
 	var id, title, eventType, start, end, phase, createdAt string
@@ -202,103 +216,110 @@ func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID s
 		tagsJSON,
 	))
 	if err != nil {
-		return nil, wrapRepoError("create calendar event", err)
+		return CalendarListEvent{}, wrapRepoError("create calendar event", err)
 	}
 
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "created Calendar Event", map[string]any{
 		"artifact": title,
-		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.Slug, id),
+		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.UUID, id),
 	}); err != nil {
-		return nil, err
+		return CalendarListEvent{}, err
 	}
 
-	result := map[string]any{
-		"id":           id,
-		"title":        title,
-		"type":         eventType,
-		"start":        start,
-		"end":          end,
-		"allDay":       outAllDay,
-		"owner":        ownerName,
-		"phase":        phase,
-		"artifactType": "Manual",
-		"createdAt":    createdAt,
+	result := CalendarListEvent{
+		ID:              id,
+		Title:           title,
+		Type:            eventType,
+		Start:           start,
+		End:             end,
+		AllDay:          outAllDay,
+		Owner:           ownerName,
+		Phase:           phase,
+		ArtifactType:    "Manual",
+		CreatedAt:       createdAt,
+		LinkedArtifacts: []string{},
+		Tags:            []string{},
 	}
 	if !outAllDay {
-		result["startTime"] = startTime
-		result["endTime"] = endTime
+		result.StartTime = startTime
+		result.EndTime = endTime
 	}
 	return result, nil
 }
 
-func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) (map[string]any, error) {
+func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) (GetCalendarEventResponse, error) {
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return GetCalendarEventResponse{}, err
 	}
 	rec, err := r.loadCalendarEvent(ctx, identity.UUID, eventID)
 	if err != nil {
-		return nil, err
+		return GetCalendarEventResponse{}, err
 	}
 
-	event := map[string]any{
-		"id":              rec.ID,
-		"title":           rec.Title,
-		"type":            rec.EventType,
-		"date":            rec.Start,
-		"allDay":          rec.AllDay,
-		"owner":           rec.Owner,
-		"eventKind":       rec.EventKind,
-		"description":     rec.Description,
-		"location":        rec.Location,
-		"linkedArtifacts": rec.LinkedArtifacts,
-		"tags":            rec.Tags,
-		"createdAt":       rec.CreatedAt,
-		"lastEdited":      rec.UpdatedAt,
+	event := CalendarEventDetail{
+		ID:              rec.ID,
+		Title:           rec.Title,
+		Type:            rec.EventType,
+		Date:            rec.Start,
+		AllDay:          rec.AllDay,
+		Owner:           rec.Owner,
+		EventKind:       rec.EventKind,
+		Description:     rec.Description,
+		Location:        rec.Location,
+		LinkedArtifacts: rec.LinkedArtifacts,
+		Tags:            rec.Tags,
+		CreatedAt:       rec.CreatedAt,
+		LastEdited:      rec.UpdatedAt,
 	}
 	if !rec.AllDay {
-		event["startTime"] = rec.StartTime
-		event["endTime"] = rec.EndTime
+		event.StartTime = rec.StartTime
+		event.EndTime = rec.EndTime
+	}
+	if event.LinkedArtifacts == nil {
+		event.LinkedArtifacts = []string{}
+	}
+	if event.Tags == nil {
+		event.Tags = []string{}
 	}
 
-	return map[string]any{
-		"event": event,
-		"reference": map[string]any{
-			"phaseChoices":          defaultPhaseChoices,
-			"manualKinds":           defaultManualKinds,
-			"linkedArtifactOptions": []any{},
-			"permissions":           map[string]any{},
+	return GetCalendarEventResponse{
+		Event: event,
+		Reference: CalendarReference{
+			PhaseChoices:          defaultPhaseChoices,
+			ManualKinds:           defaultManualKinds,
+			LinkedArtifactOptions: []string{},
 		},
 	}, nil
 }
 
-func (r *repo) UpdateCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string, patch map[string]any) (map[string]any, error) {
+func (r *repo) UpdateCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string, patch map[string]any) (UpdateCalendarEventResponse, error) {
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	current, err := r.loadCalendarEvent(ctx, identity.UUID, eventID)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	if strings.EqualFold(current.EventType, "Derived") {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "derived calendar events cannot be edited")
+		return UpdateCalendarEventResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "derived calendar events cannot be edited")
 	}
 	updated, err := mergeCalendarPatch(current, patch)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	startsAt, endsAt, err := buildEventTimestamps(updated.Start, updated.End, updated.AllDay, updated.StartTime, updated.EndTime)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	linkedJSON, err := encodeArrayJSON(updated.LinkedArtifacts)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	tagsJSON, err := encodeArrayJSON(updated.Tags)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 
 	var id, title, lastEdited string
@@ -339,32 +360,32 @@ func (r *repo) UpdateCalendarEvent(ctx context.Context, projectID, eventID, acto
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "calendar event not found")
+			return UpdateCalendarEventResponse{}, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "calendar event not found")
 		}
-		return nil, wrapRepoError("update calendar event", err)
+		return UpdateCalendarEventResponse{}, wrapRepoError("update calendar event", err)
 	}
 
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "updated Calendar Event", map[string]any{
 		"artifact": title,
-		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.Slug, id),
+		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.UUID, id),
 	}); err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 
-	return map[string]any{"id": id, "title": title, "lastEdited": lastEdited}, nil
+	return UpdateCalendarEventResponse{ID: id, Title: title, LastEdited: lastEdited}, nil
 }
 
-func (r *repo) DeleteCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string) (map[string]any, error) {
+func (r *repo) DeleteCalendarEvent(ctx context.Context, projectID, eventID, actorUserID string) (DeleteCalendarEventResponse, error) {
 	identity, err := r.resolveProjectIdentity(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return DeleteCalendarEventResponse{}, err
 	}
 	current, err := r.loadCalendarEvent(ctx, identity.UUID, eventID)
 	if err != nil {
-		return nil, err
+		return DeleteCalendarEventResponse{}, err
 	}
 	if strings.EqualFold(current.EventType, "Derived") {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "derived calendar events cannot be deleted")
+		return DeleteCalendarEventResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "derived calendar events cannot be deleted")
 	}
 
 	var deletedID string
@@ -376,19 +397,19 @@ func (r *repo) DeleteCalendarEvent(ctx context.Context, projectID, eventID, acto
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "calendar event not found")
+			return DeleteCalendarEventResponse{}, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "calendar event not found")
 		}
-		return nil, wrapRepoError("delete calendar event", err)
+		return DeleteCalendarEventResponse{}, wrapRepoError("delete calendar event", err)
 	}
 
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, deletedID, "deleted Calendar Event", map[string]any{
 		"artifact": current.Title,
-		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.Slug, deletedID),
+		"href":     fmt.Sprintf("/project/%s/calendar/%s", identity.UUID, deletedID),
 	}); err != nil {
-		return nil, err
+		return DeleteCalendarEventResponse{}, err
 	}
 
-	return map[string]any{"eventId": deletedID}, nil
+	return DeleteCalendarEventResponse{EventID: deletedID}, nil
 }
 
 func (r *repo) loadCalendarEvent(ctx context.Context, projectUUID, eventID string) (calendarRecord, error) {
@@ -467,31 +488,29 @@ func scanCalendarRecord(row storage.RowScanner) (calendarRecord, error) {
 	return rec, nil
 }
 
-func asCalendarListItem(rec calendarRecord) map[string]any {
-	item := map[string]any{
-		"id":           rec.ID,
-		"title":        rec.Title,
-		"type":         rec.EventType,
-		"start":        rec.Start,
-		"end":          rec.End,
-		"allDay":       rec.AllDay,
-		"owner":        rec.Owner,
-		"phase":        rec.Phase,
-		"artifactType": rec.ArtifactType,
-		"createdAt":    rec.CreatedAt,
-	}
-	if rec.SourceTitle != "" {
-		item["sourceTitle"] = rec.SourceTitle
+func asCalendarListItem(rec calendarRecord) CalendarListEvent {
+	item := CalendarListEvent{
+		ID:           rec.ID,
+		Title:        rec.Title,
+		Type:         rec.EventType,
+		Start:        rec.Start,
+		End:          rec.End,
+		AllDay:       rec.AllDay,
+		Owner:        rec.Owner,
+		Phase:        rec.Phase,
+		ArtifactType: rec.ArtifactType,
+		SourceTitle:  rec.SourceTitle,
+		CreatedAt:    rec.CreatedAt,
 	}
 	if rec.EventType == "Manual" {
-		item["description"] = rec.Description
-		item["location"] = rec.Location
-		item["eventKind"] = rec.EventKind
-		item["linkedArtifacts"] = rec.LinkedArtifacts
-		item["tags"] = rec.Tags
+		item.Description = rec.Description
+		item.Location = rec.Location
+		item.EventKind = rec.EventKind
+		item.LinkedArtifacts = rec.LinkedArtifacts
+		item.Tags = rec.Tags
 		if !rec.AllDay {
-			item["startTime"] = rec.StartTime
-			item["endTime"] = rec.EndTime
+			item.StartTime = rec.StartTime
+			item.EndTime = rec.EndTime
 		}
 	}
 	return item
@@ -532,10 +551,10 @@ func mergeCalendarPatch(current calendarRecord, patch map[string]any) (calendarR
 	if endTime, ok := patch["endTime"].(string); ok {
 		out.EndTime = strings.TrimSpace(endTime)
 	}
-	if links := toSlice(patch["linkedArtifacts"]); links != nil {
+	if links := toStringSlice(patch["linkedArtifacts"]); links != nil {
 		out.LinkedArtifacts = links
 	}
-	if tags := toSlice(patch["tags"]); tags != nil {
+	if tags := toStringSlice(patch["tags"]); tags != nil {
 		out.Tags = tags
 	}
 
@@ -598,9 +617,9 @@ func buildEventTimestamps(startDateRaw, endDateRaw string, allDay bool, startTim
 	return start, end, nil
 }
 
-func encodeArrayJSON(items []any) (string, error) {
+func encodeArrayJSON(items []string) (string, error) {
 	if items == nil {
-		items = []any{}
+		items = []string{}
 	}
 	bytes, err := json.Marshal(items)
 	if err != nil {
@@ -609,13 +628,13 @@ func encodeArrayJSON(items []any) (string, error) {
 	return string(bytes), nil
 }
 
-func decodeArrayJSON(raw []byte) []any {
+func decodeArrayJSON(raw []byte) []string {
 	if len(raw) == 0 {
-		return []any{}
+		return []string{}
 	}
-	items := make([]any, 0)
+	items := make([]string, 0)
 	if err := json.Unmarshal(raw, &items); err != nil {
-		return []any{}
+		return []string{}
 	}
 	return items
 }
@@ -626,7 +645,7 @@ func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (pr
 	}
 	var identity projectIdentity
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT id::text, slug FROM projects WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+		`SELECT id::text, slug FROM projects WHERE id::text = $1 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&identity.UUID, &identity.Slug)
 		},

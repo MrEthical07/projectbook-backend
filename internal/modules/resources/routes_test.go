@@ -45,8 +45,8 @@ func TestResourcesRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/v1/projects/atlas-2026/resources", ""},
 		{http.MethodPost, "/api/v1/projects/atlas-2026/resources", `{"name":"Doc","docType":"Specification"}`},
 		{http.MethodGet, "/api/v1/projects/atlas-2026/resources/res-1", ""},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/resources/res-1", `{"state":{"name":"Doc"}}`},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/resources/res-1/status", `{"status":"Archived"}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/resources/res-1", `{"state":{"name":"Doc"}}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/resources/res-1/status", `{"status":"Archived"}`},
 	}
 
 	for _, tc := range tests {

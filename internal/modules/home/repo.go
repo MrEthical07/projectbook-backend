@@ -69,7 +69,6 @@ type homeProjectRecord struct {
 type inviteTarget struct {
 	InviteID       string
 	ProjectUUID    string
-	ProjectSlug    string
 	RecipientEmail string
 	AssignedRole   string
 	PermissionMask int64
@@ -86,7 +85,6 @@ WHERE id = $1::uuid
 const queryListProjects = `
 SELECT
 	p.id::text,
-	p.slug,
 	p.name,
 	p.organization_name,
 	p.icon,
@@ -120,7 +118,7 @@ INSERT INTO projects (
 	created_by_user_id
 )
 VALUES ($1, $2, $3, $4, NULLIF($5, ''), 'Active', $6::uuid, $6::uuid)
-RETURNING id::text, slug, name, organization_name, icon, COALESCE(description, ''), last_updated_at, status::text
+RETURNING id::text, name, organization_name, icon, COALESCE(description, ''), last_updated_at, status::text
 `
 
 const queryUpsertProjectMember = `
@@ -204,7 +202,7 @@ SELECT
 	p.name,
 	COALESCE(p.description, ''),
 	p.status::text,
-	p.slug,
+	i.project_id::text,
 	p.organization_name,
 	inviter.name,
 	i.inviter_role::text,
@@ -225,14 +223,12 @@ const queryGetInviteTarget = `
 SELECT
 	i.id::text,
 	i.project_id::text,
-	p.slug,
 	i.email,
 	i.assigned_role::text,
 	i.permission_mask,
 	i.status::text,
 	i.expires_at
 FROM project_invites i
-JOIN projects p ON p.id = i.project_id
 WHERE i.id = $1::uuid
 `
 
@@ -343,11 +339,9 @@ func (r *repo) ListProjects(ctx context.Context, userID string, limit, offset in
 	projects := make([]homeProject, 0, limit)
 	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListProjects,
 		func(row storage.RowScanner) error {
-			var projectUUID string
 			var project homeProject
 			var lastUpdatedAt time.Time
 			if err := row.Scan(
-				&projectUUID,
 				&project.ID,
 				&project.Name,
 				&project.Organization,
@@ -361,7 +355,6 @@ func (r *repo) ListProjects(ctx context.Context, userID string, limit, offset in
 				return err
 			}
 			project.LastUpdatedAt = lastUpdatedAt.UTC().Format(time.RFC3339)
-			_ = projectUUID
 			projects = append(projects, project)
 			return nil
 		},
@@ -385,16 +378,19 @@ func (r *repo) CreateProject(ctx context.Context, input createProjectInput) (hom
 	var lastUpdatedAt time.Time
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(queryCreateProject,
 		func(row storage.RowScanner) error {
-			return row.Scan(
+			if err := row.Scan(
 				&projectRecord.ProjectUUID,
-				&projectRecord.Project.ID,
 				&projectRecord.Project.Name,
 				&projectRecord.Project.Organization,
 				&projectRecord.Project.Icon,
 				&projectRecord.Project.Description,
 				&lastUpdatedAt,
 				&projectRecord.Project.Status,
-			)
+			); err != nil {
+				return err
+			}
+			projectRecord.Project.ID = projectRecord.ProjectUUID
+			return nil
 		},
 		input.Slug,
 		input.Name,
@@ -587,7 +583,6 @@ func (r *repo) GetInviteTarget(ctx context.Context, inviteID, userID string) (in
 			return row.Scan(
 				&target.InviteID,
 				&target.ProjectUUID,
-				&target.ProjectSlug,
 				&target.RecipientEmail,
 				&target.AssignedRole,
 				&target.PermissionMask,
@@ -865,7 +860,7 @@ SELECT
 	a.action,
 	COALESCE(a.payload->>'artifactName', ''),
 	COALESCE(a.payload->>'artifactUrl', ''),
-	p.slug,
+	p.id::text,
 	p.name,
 	CASE
 		WHEN a.action ILIKE '%comment%' THEN 'Comments'
@@ -887,7 +882,7 @@ WHERE 1 = 1
 	argPos := 2
 
 	if filter.ProjectID != "" {
-		base += fmt.Sprintf("\nAND p.slug = $%d", argPos)
+		base += fmt.Sprintf("\nAND p.id::text = $%d", argPos)
 		args = append(args, strings.TrimSpace(filter.ProjectID))
 		argPos++
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/patchx"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -67,7 +68,7 @@ WHERE p.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND p.status = $%d::page_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY p.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
@@ -78,7 +79,7 @@ WHERE p.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":                   slugOrID(slug, id),
+			"id":                   id,
 			"title":                title,
 			"owner":                owner,
 			"lastEdited":           lastEdited,
@@ -131,12 +132,12 @@ func (r *repo) CreatePage(ctx context.Context, projectID, actorUserID, title str
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "created Page", map[string]any{
 		"artifact": createdTitle,
-		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.Slug, slugOrID(createdSlug, id)),
+		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"id":                   slugOrID(createdSlug, id),
+		"id":                   id,
 		"title":                createdTitle,
 		"owner":                ownerName,
 		"lastEdited":           lastEdited,
@@ -156,7 +157,7 @@ func (r *repo) GetPage(ctx context.Context, projectID, slug string) (map[string]
 		`SELECT p.id::text, p.slug, p.title, p.status::text, COALESCE(u.name, ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), '')
 		 FROM pages p
 		 JOIN users u ON u.id = p.owner_user_id
-		 WHERE p.project_id = $1::uuid AND (p.slug = $2 OR p.id::text = $2)
+		 WHERE p.project_id = $1::uuid AND p.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &foundSlug, &title, &status, &owner, &lastEdited)
@@ -177,7 +178,7 @@ func (r *repo) GetPage(ctx context.Context, projectID, slug string) (map[string]
 	}
 	return map[string]any{
 		"page": map[string]any{
-			"id":         slugOrID(foundSlug, id),
+			"id":         id,
 			"title":      title,
 			"status":     status,
 			"owner":      owner,
@@ -208,16 +209,40 @@ func (r *repo) UpdatePage(ctx context.Context, projectID, pageID, actorUserID st
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE pages p
-		 SET status = COALESCE(NULLIF($3, '')::page_status, p.status),
+		 SET status = CASE
+		 	 	WHEN NULLIF($3, '')::page_status = 'Archived'::page_status
+		 	 		AND p.status <> 'Archived'::page_status
+		 	 	THEN 'Archived'::page_status
+		 	 	WHEN NULLIF($3, '')::page_status IS NOT NULL
+		 	 		AND p.status = 'Archived'::page_status
+		 	 		AND NULLIF($3, '')::page_status <> 'Archived'::page_status
+		 	 	THEN COALESCE(p.archived_from_status, 'Draft'::page_status)
+		 	 	ELSE COALESCE(NULLIF($3, '')::page_status, p.status)
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN NULLIF($3, '')::page_status = 'Archived'::page_status
+		 	 		AND p.status <> 'Archived'::page_status
+		 	 	THEN p.status
+		 	 	WHEN NULLIF($3, '')::page_status IS NOT NULL
+		 	 		AND p.status = 'Archived'::page_status
+		 	 		AND NULLIF($3, '')::page_status <> 'Archived'::page_status
+		 	 	THEN NULL
+		 	 	ELSE p.archived_from_status
+		 	 END,
 		     is_orphan = CASE WHEN $4 < 0 THEN p.is_orphan ELSE ($4 = 0) END,
 		     updated_at = NOW(),
 		     document_revision = p.document_revision + 1
 		 FROM users u
-		 WHERE p.project_id = $1::uuid AND (p.id::text = $2 OR p.slug = $2)
+		 WHERE p.project_id = $1::uuid AND p.id::text = $2
 		   AND u.id = p.owner_user_id
 		   AND (
 		 	 p.status <> 'Archived'::page_status
 		 	 OR NULLIF($3, '')::page_status = 'Archived'::page_status
+		 	 OR (
+		 	 	p.status = 'Archived'::page_status
+		 	 	AND NULLIF($3, '')::page_status IS NOT NULL
+		 	 	AND NULLIF($3, '')::page_status <> 'Archived'::page_status
+		 	 )
 		   )
 		 RETURNING p.id::text, p.slug, p.title, COALESCE(u.name, ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), ''), p.status::text, p.is_orphan, p.document_revision`,
 		func(row storage.RowScanner) error {
@@ -240,12 +265,12 @@ func (r *repo) UpdatePage(ctx context.Context, projectID, pageID, actorUserID st
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "updated Page", map[string]any{
 		"artifact": title,
-		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.Slug, slugOrID(slug, id)),
+		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"id":                   slugOrID(slug, id),
+		"id":                   id,
 		"title":                title,
 		"owner":                owner,
 		"lastEdited":           lastEdited,
@@ -268,7 +293,7 @@ func (r *repo) RenamePage(ctx context.Context, projectID, pageID, title, actorUs
 		     updated_at = NOW(),
 		     document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND status <> 'Archived'::page_status
 		 RETURNING id::text, slug, title, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
@@ -289,11 +314,11 @@ func (r *repo) RenamePage(ctx context.Context, projectID, pageID, title, actorUs
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "renamed Page", map[string]any{
 		"artifact": outTitle,
-		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.Slug, slugOrID(slug, id)),
+		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"id": slugOrID(slug, id), "title": outTitle, "lastEdited": lastEdited}, nil
+	return map[string]any{"id": id, "title": outTitle, "lastEdited": lastEdited}, nil
 }
 
 func (r *repo) CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (map[string]any, error) {
@@ -313,7 +338,7 @@ func (r *repo) DeletePageForSidebar(ctx context.Context, projectID, pageID, acto
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`DELETE FROM pages
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND status <> 'Archived'::page_status
 		 RETURNING id::text, slug, title`,
 		func(row storage.RowScanner) error { return row.Scan(&id, &slug, &title) },
@@ -331,11 +356,11 @@ func (r *repo) DeletePageForSidebar(ctx context.Context, projectID, pageID, acto
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "deleted Page", map[string]any{
 		"artifact": title,
-		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.Slug, slugOrID(slug, id)),
+		"href":     fmt.Sprintf("/project/%s/pages/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"id": slugOrID(slug, id)}, nil
+	return map[string]any{"id": id}, nil
 }
 
 func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (projectIdentity, error) {
@@ -344,7 +369,7 @@ func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (pr
 	}
 	var identity projectIdentity
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT id::text, slug FROM projects WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+		`SELECT id::text, slug FROM projects WHERE id::text = $1 LIMIT 1`,
 		func(row storage.RowScanner) error { return row.Scan(&identity.UUID, &identity.Slug) },
 		strings.TrimSpace(projectID),
 	))
@@ -402,6 +427,12 @@ func (r *repo) slugExists(ctx context.Context, table, projectUUID, slug string) 
 }
 
 func (r *repo) upsertDocument(ctx context.Context, projectUUID, pageID string, revision int, actorUserID string, content map[string]any) error {
+	existingContent, err := r.loadLatestContent(ctx, projectUUID, pageID, map[string]any{})
+	if err != nil {
+		return err
+	}
+	mergedContent := patchx.MergeShallow(existingContent, content)
+
 	documentID := fmt.Sprintf("page:%s", pageID)
 	doc := map[string]any{
 		"artifact_id":        pageID,
@@ -411,7 +442,7 @@ func (r *repo) upsertDocument(ctx context.Context, projectUUID, pageID string, r
 		"updated_at":         time.Now().UTC(),
 		"updated_by_user_id": strings.TrimSpace(actorUserID),
 		"schema_version":     1,
-		"content":            cloneMap(content),
+		"content":            mergedContent,
 	}
 
 	if err := r.docs.Execute(ctx, storage.DocumentRun(
@@ -530,13 +561,6 @@ func cloneMap(in map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
-}
-
-func slugOrID(slug, id string) string {
-	if strings.TrimSpace(slug) != "" {
-		return strings.TrimSpace(slug)
-	}
-	return strings.TrimSpace(id)
 }
 
 func (r *repo) requireStore() error {

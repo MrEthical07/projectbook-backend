@@ -11,9 +11,9 @@ import (
 )
 
 type Service interface {
-	CreateSidebarArtifact(ctx context.Context, projectID, actorUserID string, req createSidebarArtifactRequest) (map[string]any, error)
-	RenameSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req renameSidebarArtifactRequest) (map[string]any, error)
-	DeleteSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req deleteSidebarArtifactRequest) (map[string]any, error)
+	CreateSidebarArtifact(ctx context.Context, projectID, actorUserID string, req createSidebarArtifactRequest) (SidebarArtifactResponse, error)
+	RenameSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req renameSidebarArtifactRequest) (SidebarArtifactResponse, error)
+	DeleteSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req deleteSidebarArtifactRequest) (SidebarDeleteResponse, error)
 }
 
 type service struct {
@@ -25,12 +25,12 @@ func NewService(store storage.RelationalStore, repo Repo) Service {
 	return &service{store: store, repo: repo}
 }
 
-func (s *service) CreateSidebarArtifact(ctx context.Context, projectID, actorUserID string, req createSidebarArtifactRequest) (map[string]any, error) {
+func (s *service) CreateSidebarArtifact(ctx context.Context, projectID, actorUserID string, req createSidebarArtifactRequest) (SidebarArtifactResponse, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return SidebarArtifactResponse{}, err
 	}
 	if strings.TrimSpace(actorUserID) == "" {
-		return nil, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+		return SidebarArtifactResponse{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
 	}
 	var out map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -42,14 +42,14 @@ func (s *service) CreateSidebarArtifact(ctx context.Context, projectID, actorUse
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("create sidebar artifact", err)
+		return SidebarArtifactResponse{}, mapServiceError("create sidebar artifact", err)
 	}
-	return out, nil
+	return decodeSidebarArtifactResponse(out), nil
 }
 
-func (s *service) RenameSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req renameSidebarArtifactRequest) (map[string]any, error) {
+func (s *service) RenameSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req renameSidebarArtifactRequest) (SidebarArtifactResponse, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return SidebarArtifactResponse{}, err
 	}
 	var out map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -61,14 +61,14 @@ func (s *service) RenameSidebarArtifact(ctx context.Context, projectID, artifact
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("rename sidebar artifact", err)
+		return SidebarArtifactResponse{}, mapServiceError("rename sidebar artifact", err)
 	}
-	return out, nil
+	return decodeSidebarArtifactResponse(out), nil
 }
 
-func (s *service) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req deleteSidebarArtifactRequest) (map[string]any, error) {
+func (s *service) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID, actorUserID string, req deleteSidebarArtifactRequest) (SidebarDeleteResponse, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return SidebarDeleteResponse{}, err
 	}
 	var out map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -80,9 +80,9 @@ func (s *service) DeleteSidebarArtifact(ctx context.Context, projectID, artifact
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("delete sidebar artifact", err)
+		return SidebarDeleteResponse{}, mapServiceError("delete sidebar artifact", err)
 	}
-	return out, nil
+	return decodeSidebarDeleteResponse(out), nil
 }
 
 func mapServiceError(action string, err error) error {

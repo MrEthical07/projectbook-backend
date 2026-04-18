@@ -30,23 +30,90 @@ var defaultManualKinds = []string{"Workshop", "Review", "Testing Session", "Meet
 var defaultPhaseChoices = []string{"None", "Empathize", "Define", "Ideate", "Prototype", "Test"}
 
 type listQuery struct {
-	Limit int
+	Offset int
+	Limit  int
+}
+
+type CalendarReference struct {
+	PhaseChoices          []string `json:"phaseChoices"`
+	ManualKinds           []string `json:"manualKinds"`
+	LinkedArtifactOptions []string `json:"linkedArtifactOptions"`
+}
+
+type CalendarListEvent struct {
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Type            string   `json:"type"`
+	Start           string   `json:"start"`
+	End             string   `json:"end"`
+	AllDay          bool     `json:"allDay"`
+	StartTime       string   `json:"startTime,omitempty"`
+	EndTime         string   `json:"endTime,omitempty"`
+	Owner           string   `json:"owner"`
+	Phase           string   `json:"phase"`
+	ArtifactType    string   `json:"artifactType"`
+	SourceTitle     string   `json:"sourceTitle,omitempty"`
+	Description     string   `json:"description,omitempty"`
+	Location        string   `json:"location,omitempty"`
+	EventKind       string   `json:"eventKind,omitempty"`
+	LinkedArtifacts []string `json:"linkedArtifacts,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	CreatedAt       string   `json:"createdAt"`
+}
+
+type ListCalendarDataResponse struct {
+	Items      []CalendarListEvent `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
+	Reference  CalendarReference   `json:"reference"`
+}
+
+type CalendarEventDetail struct {
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Type            string   `json:"type"`
+	Date            string   `json:"date"`
+	AllDay          bool     `json:"allDay"`
+	StartTime       string   `json:"startTime,omitempty"`
+	EndTime         string   `json:"endTime,omitempty"`
+	Owner           string   `json:"owner"`
+	EventKind       string   `json:"eventKind,omitempty"`
+	Description     string   `json:"description,omitempty"`
+	Location        string   `json:"location,omitempty"`
+	LinkedArtifacts []string `json:"linkedArtifacts"`
+	Tags            []string `json:"tags"`
+	CreatedAt       string   `json:"createdAt"`
+	LastEdited      string   `json:"lastEdited"`
+}
+
+type GetCalendarEventResponse struct {
+	Event     CalendarEventDetail `json:"event"`
+	Reference CalendarReference   `json:"reference"`
+}
+
+type UpdateCalendarEventResponse struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	LastEdited string `json:"lastEdited"`
+}
+
+type DeleteCalendarEventResponse struct {
+	EventID string `json:"eventId"`
 }
 
 type createCalendarEventRequest struct {
-	Title           string `json:"title"`
-	Start           string `json:"start"`
-	End             string `json:"end"`
-	AllDay          *bool  `json:"allDay"`
-	StartTime       string `json:"startTime"`
-	EndTime         string `json:"endTime"`
-	Owner           string `json:"owner"`
-	Phase           string `json:"phase"`
-	Description     string `json:"description"`
-	Location        string `json:"location"`
-	EventKind       string `json:"eventKind"`
-	LinkedArtifacts []any  `json:"linkedArtifacts"`
-	Tags            []any  `json:"tags"`
+	Title           string   `json:"title"`
+	Start           string   `json:"start"`
+	End             string   `json:"end"`
+	AllDay          *bool    `json:"allDay"`
+	StartTime       string   `json:"startTime"`
+	EndTime         string   `json:"endTime"`
+	Owner           string   `json:"owner"`
+	Phase           string   `json:"phase"`
+	Description     string   `json:"description"`
+	Location        string   `json:"location"`
+	EventKind       string   `json:"eventKind"`
+	LinkedArtifacts []string `json:"linkedArtifacts"`
+	Tags            []string `json:"tags"`
 }
 
 func (r createCalendarEventRequest) Validate() error {
@@ -170,6 +237,34 @@ func toSlice(v any) []any {
 	out := make([]any, 0, len(stringSlice))
 	for _, item := range stringSlice {
 		out = append(out, item)
+	}
+	return out
+}
+
+func toStringSlice(v any) []string {
+	s, ok := v.([]string)
+	if ok {
+		out := make([]string, 0, len(s))
+		for _, item := range s {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	}
+	raw, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if text, ok := item.(string); ok {
+			trimmed := strings.TrimSpace(text)
+			if trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
 	}
 	return out
 }

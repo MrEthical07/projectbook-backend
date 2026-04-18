@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -82,6 +83,20 @@ func (s *ResendSender) Send(ctx context.Context, message coreemail.Message) erro
 		return err
 	}
 
+	if err := s.sendWithFrom(ctx, to, subject, htmlBody, textBody, from); err != nil {
+		if fallbackFrom, ok := s.resolveTransactionalFrom(message, from, err); ok {
+			if fallbackErr := s.sendWithFrom(ctx, to, subject, htmlBody, textBody, fallbackFrom); fallbackErr == nil {
+				return nil
+			}
+		}
+
+		return fmt.Errorf("resend send email: %w", classifyResendSendError(err))
+	}
+
+	return nil
+}
+
+func (s *ResendSender) sendWithFrom(ctx context.Context, to, subject, htmlBody, textBody, from string) error {
 	params := &resend.SendEmailRequest{
 		From:    from,
 		To:      []string{to},
@@ -90,11 +105,88 @@ func (s *ResendSender) Send(ctx context.Context, message coreemail.Message) erro
 		Text:    textBody,
 	}
 
-	if _, err := s.client.Emails.SendWithContext(ctx, params); err != nil {
-		return fmt.Errorf("resend send email: %w", err)
+	_, err := s.client.Emails.SendWithContext(ctx, params)
+	return err
+}
+
+func (s *ResendSender) resolveTransactionalFrom(message coreemail.Message, currentFrom string, sendErr error) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	if coreemail.NormalizeSenderIdentity(message.From).Email != "" {
+		return "", false
+	}
+	if message.Flow == coreemail.FlowTransactional {
+		return "", false
+	}
+	if !isSenderIdentityError(sendErr) {
+		return "", false
 	}
 
-	return nil
+	transactionalFrom, err := s.resolveFrom(coreemail.Message{Flow: coreemail.FlowTransactional})
+	if err != nil {
+		return "", false
+	}
+	if strings.EqualFold(strings.TrimSpace(transactionalFrom), strings.TrimSpace(currentFrom)) {
+		return "", false
+	}
+
+	return transactionalFrom, true
+}
+
+func classifyResendSendError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, resend.ErrRateLimit) {
+		return fmt.Errorf("%w: %v", coreemail.ErrRateLimited, err)
+	}
+
+	errorText := strings.ToLower(strings.TrimSpace(err.Error()))
+	if isRecipientAddressErrorText(errorText) {
+		return fmt.Errorf("%w: %v", coreemail.ErrInvalidRecipient, err)
+	}
+	if isSenderIdentityError(err) {
+		return fmt.Errorf("%w: %v", coreemail.ErrSenderIdentityRejected, err)
+	}
+
+	return fmt.Errorf("%w: %v", coreemail.ErrProviderUnavailable, err)
+}
+
+func isRecipientAddressErrorText(errorText string) bool {
+	if errorText == "" {
+		return false
+	}
+
+	return strings.Contains(errorText, "invalid `to`") ||
+		strings.Contains(errorText, "invalid to") ||
+		strings.Contains(errorText, "recipient")
+}
+
+func isSenderIdentityError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errorText := strings.ToLower(strings.TrimSpace(err.Error()))
+	if errorText == "" {
+		return false
+	}
+
+	if strings.Contains(errorText, "invalid `from`") || strings.Contains(errorText, "invalid from") {
+		return true
+	}
+	if strings.Contains(errorText, "sender") && (strings.Contains(errorText, "verify") || strings.Contains(errorText, "verified")) {
+		return true
+	}
+	if strings.Contains(errorText, "domain") && (strings.Contains(errorText, "verify") || strings.Contains(errorText, "verified")) {
+		return true
+	}
+	if strings.Contains(errorText, "from") && strings.Contains(errorText, "not verified") {
+		return true
+	}
+
+	return false
 }
 
 func (s *ResendSender) resolveFrom(message coreemail.Message) (string, error) {

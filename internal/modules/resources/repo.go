@@ -10,6 +10,8 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
+	"github.com/MrEthical07/superapi/internal/core/patchx"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -56,7 +58,7 @@ func (r *repo) ListResources(ctx context.Context, projectID string, query listQu
 		orderExpr = "ASC"
 	}
 
-	rows := make([]map[string]any, 0, query.Limit)
+	rows := make([]map[string]any, 0, query.Limit+1)
 	args := []any{identity.UUID}
 	sql := `
 SELECT
@@ -82,7 +84,7 @@ WHERE r.project_id = $1::uuid
 		args = append(args, query.DocType)
 		sql += fmt.Sprintf(" AND r.doc_type = $%d\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY %s %s OFFSET $%d LIMIT $%d", sortExpr, orderExpr, len(args)-1, len(args))
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
@@ -92,7 +94,7 @@ WHERE r.project_id = $1::uuid
 			return scanErr
 		}
 		rows = append(rows, map[string]any{
-			"id":          slugOrID(slug, id),
+			"id":          id,
 			"name":        name,
 			"fileType":    fileType,
 			"docType":     docType,
@@ -125,8 +127,18 @@ WHERE r.project_id = $1::uuid
 		docTypes = []string{"Pitch Deck", "Research Paper", "Specification", "Design File", "Other"}
 	}
 
+	hasMore := len(rows) > query.Limit
+	if hasMore {
+		rows = rows[:query.Limit]
+	}
+	var nextCursor any
+	if hasMore {
+		nextCursor = pagination.EncodeOffsetCursor(query.Offset + query.Limit)
+	}
+
 	return map[string]any{
-		"rows": rows,
+		"items":       rows,
+		"next_cursor": nextCursor,
 		"reference": map[string]any{
 			"docTypes":    docTypes,
 			"fileTypes":   []string{"PDF", "PPTX", "DOCX", "XLSX", "Other"},
@@ -187,13 +199,13 @@ func (r *repo) CreateResource(ctx context.Context, projectID, actorUserID, name,
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "created Resource", map[string]any{
 		"artifact": createdName,
-		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.Slug, slugOrID(createdSlug, id)),
+		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{
-		"id":          slugOrID(createdSlug, id),
+		"id":          id,
 		"name":        createdName,
 		"fileType":    fileType,
 		"docType":     createdDocType,
@@ -217,7 +229,7 @@ func (r *repo) GetResource(ctx context.Context, projectID, resourceID string) (m
 		        COALESCE(to_char(r.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(r.updated_at, 'YYYY-MM-DD'), '')
 		 FROM resources r
 		 JOIN users u ON u.id = r.owner_user_id
-		 WHERE r.project_id = $1::uuid AND (r.id::text = $2 OR r.slug = $2)
+		 WHERE r.project_id = $1::uuid AND r.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &slug, &name, &fileType, &docType, &status, &owner, &createdAt, &updatedAt)
@@ -272,7 +284,7 @@ func (r *repo) GetResource(ctx context.Context, projectID, resourceID string) (m
 
 	return map[string]any{
 		"resource": map[string]any{
-			"id":       slugOrID(slug, id),
+			"id":       id,
 			"name":     name,
 			"fileType": fileType,
 			"docType":  docType,
@@ -311,7 +323,7 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 		     updated_at = NOW(),
 		     document_revision = r.document_revision + 1
 		 FROM users u
-		 WHERE r.project_id = $1::uuid AND (r.id::text = $2 OR r.slug = $2)
+		 WHERE r.project_id = $1::uuid AND r.id::text = $2
 		   AND u.id = r.owner_user_id
 		   AND r.status <> 'Archived'::resource_status
 		 RETURNING r.id::text, r.slug, r.title, r.file_type, r.doc_type, COALESCE(u.name, ''),
@@ -342,7 +354,7 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "updated Resource", map[string]any{
 		"artifact": outName,
-		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.Slug, slugOrID(slug, id)),
+		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.UUID, id),
 	}); err != nil {
 		return nil, err
 	}
@@ -351,7 +363,7 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 	version, _ := r.latestResourceVersion(ctx, id)
 
 	return map[string]any{
-		"id":          slugOrID(slug, id),
+		"id":          id,
 		"name":        outName,
 		"fileType":    fileType,
 		"docType":     outDocType,
@@ -372,14 +384,35 @@ func (r *repo) UpdateResourceStatus(ctx context.Context, projectID, resourceID, 
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE resources
-		 SET status = $3::resource_status,
+		 SET status = CASE
+		 	 	WHEN $3::resource_status = 'Archived'::resource_status
+		 	 		AND resources.status <> 'Archived'::resource_status
+		 	 	THEN 'Archived'::resource_status
+		 	 	WHEN resources.status = 'Archived'::resource_status
+		 	 		AND $3::resource_status <> 'Archived'::resource_status
+		 	 	THEN COALESCE(resources.archived_from_status, 'Active'::resource_status)
+		 	 	ELSE $3::resource_status
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN $3::resource_status = 'Archived'::resource_status
+		 	 		AND resources.status <> 'Archived'::resource_status
+		 	 	THEN resources.status
+		 	 	WHEN resources.status = 'Archived'::resource_status
+		 	 		AND $3::resource_status <> 'Archived'::resource_status
+		 	 	THEN NULL
+		 	 	ELSE resources.archived_from_status
+		 	 END,
 		     updated_at = NOW(),
 		     document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND (
 		 	 status <> 'Archived'::resource_status
 		 	 OR $3::resource_status = 'Archived'::resource_status
+		 	 OR (
+		 	 	status = 'Archived'::resource_status
+		 	 	AND $3::resource_status <> 'Archived'::resource_status
+		 	 )
 		   )
 		 RETURNING id::text, slug, title, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
@@ -400,12 +433,12 @@ func (r *repo) UpdateResourceStatus(ctx context.Context, projectID, resourceID, 
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "changed Resource status", map[string]any{
 		"artifact": name,
-		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.Slug, slugOrID(slug, id)),
+		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.UUID, id),
 		"status":   outStatus,
 	}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"id": slugOrID(slug, id), "status": outStatus, "lastUpdated": lastUpdated}, nil
+	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
 }
 
 func (r *repo) insertResourceVersion(ctx context.Context, resourceID, projectUUID, title, actorUserID string, revision int) error {
@@ -525,7 +558,7 @@ func (r *repo) resolveArtifactIDByIdentifier(ctx context.Context, projectUUID, a
 	if err != nil {
 		return "", err
 	}
-	query := fmt.Sprintf("SELECT id::text FROM %s WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1", table)
+	query := fmt.Sprintf("SELECT id::text FROM %s WHERE project_id = $1::uuid AND id::text = $2 LIMIT 1", table)
 	var id string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(query, func(row storage.RowScanner) error {
 		return row.Scan(&id)
@@ -562,7 +595,7 @@ func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (pr
 	}
 	var identity projectIdentity
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT id::text, slug FROM projects WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+		`SELECT id::text, slug FROM projects WHERE id::text = $1 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&identity.UUID, &identity.Slug)
 		},
@@ -622,6 +655,12 @@ func (r *repo) slugExists(ctx context.Context, table, projectUUID, slug string) 
 }
 
 func (r *repo) upsertDocument(ctx context.Context, projectUUID, resourceID string, revision int, actorUserID string, content map[string]any) error {
+	existingContent, err := r.loadLatestContent(ctx, projectUUID, resourceID, map[string]any{})
+	if err != nil {
+		return err
+	}
+	mergedContent := patchx.MergeShallow(existingContent, content)
+
 	documentID := fmt.Sprintf("resource:%s", resourceID)
 	doc := map[string]any{
 		"artifact_id":        resourceID,
@@ -631,7 +670,7 @@ func (r *repo) upsertDocument(ctx context.Context, projectUUID, resourceID strin
 		"updated_at":         time.Now().UTC(),
 		"updated_by_user_id": strings.TrimSpace(actorUserID),
 		"schema_version":     1,
-		"content":            cloneMap(content),
+		"content":            mergedContent,
 	}
 
 	if err := r.docs.Execute(ctx, storage.DocumentRun(
@@ -724,13 +763,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func slugOrID(slug, id string) string {
-	if strings.TrimSpace(slug) != "" {
-		return strings.TrimSpace(slug)
-	}
-	return strings.TrimSpace(id)
 }
 
 func (r *repo) requireStore() error {

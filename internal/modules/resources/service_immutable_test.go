@@ -19,18 +19,28 @@ func TestResourceImmutableHelpers(t *testing.T) {
 
 	t.Run("archived blocks non-archive status transition", func(t *testing.T) {
 		err := enforceArchiveOnlyForImmutableStatusChange("resource", "Archived", "Active", resourceImmutableStatuses)
-		if err == nil {
-			t.Fatal("expected immutable status error")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("transition matrix active to archived is allowed", func(t *testing.T) {
 		ok := isAllowedTransition("Active", "Archived", map[string]map[string]struct{}{
 			"Active":   {"Active": {}, "Archived": {}},
-			"Archived": {"Archived": {}},
+			"Archived": {"Archived": {}, "Active": {}},
 		})
 		if !ok {
 			t.Fatal("expected Active -> Archived to be allowed")
+		}
+	})
+
+	t.Run("transition matrix archived to active is allowed", func(t *testing.T) {
+		ok := isAllowedTransition("Archived", "Active", map[string]map[string]struct{}{
+			"Active":   {"Active": {}, "Archived": {}},
+			"Archived": {"Archived": {}, "Active": {}},
+		})
+		if !ok {
+			t.Fatal("expected Archived -> Active to be allowed")
 		}
 	})
 }

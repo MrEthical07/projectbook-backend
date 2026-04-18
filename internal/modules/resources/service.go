@@ -11,11 +11,11 @@ import (
 )
 
 type Service interface {
-	ListResources(ctx context.Context, projectID string, query listQuery) (map[string]any, error)
-	CreateResource(ctx context.Context, projectID, actorUserID string, req createResourceRequest) (map[string]any, error)
-	GetResource(ctx context.Context, projectID, resourceID string) (map[string]any, error)
-	UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceRequest) (map[string]any, error)
-	UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (map[string]any, error)
+	ListResources(ctx context.Context, projectID string, query listQuery) (ListResourcesResponse, error)
+	CreateResource(ctx context.Context, projectID, actorUserID string, req createResourceRequest) (ResourceListItem, error)
+	GetResource(ctx context.Context, projectID, resourceID string) (GetResourceResponse, error)
+	UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceRequest) (ResourceListItem, error)
+	UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error)
 }
 
 type service struct {
@@ -31,20 +31,20 @@ func NewService(store storage.RelationalStore, repo Repo) Service {
 	return &service{store: store, repo: repo}
 }
 
-func (s *service) ListResources(ctx context.Context, projectID string, query listQuery) (map[string]any, error) {
+func (s *service) ListResources(ctx context.Context, projectID string, query listQuery) (ListResourcesResponse, error) {
 	rows, err := s.repo.ListResources(ctx, projectID, query)
 	if err != nil {
-		return nil, mapServiceError("list resources", err)
+		return ListResourcesResponse{}, mapServiceError("list resources", err)
 	}
-	return rows, nil
+	return decodeListResourcesResponse(rows), nil
 }
 
-func (s *service) CreateResource(ctx context.Context, projectID, actorUserID string, req createResourceRequest) (map[string]any, error) {
+func (s *service) CreateResource(ctx context.Context, projectID, actorUserID string, req createResourceRequest) (ResourceListItem, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return ResourceListItem{}, err
 	}
 	if strings.TrimSpace(actorUserID) == "" {
-		return nil, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+		return ResourceListItem{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
 	}
 	var created map[string]any
 	err := s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -56,37 +56,37 @@ func (s *service) CreateResource(ctx context.Context, projectID, actorUserID str
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("create resource", err)
+		return ResourceListItem{}, mapServiceError("create resource", err)
 	}
-	return created, nil
+	return decodeResourceListItem(created), nil
 }
 
-func (s *service) GetResource(ctx context.Context, projectID, resourceID string) (map[string]any, error) {
+func (s *service) GetResource(ctx context.Context, projectID, resourceID string) (GetResourceResponse, error) {
 	item, err := s.repo.GetResource(ctx, projectID, resourceID)
 	if err != nil {
-		return nil, mapServiceError("get resource", err)
+		return GetResourceResponse{}, mapServiceError("get resource", err)
 	}
-	return item, nil
+	return decodeGetResourceResponse(item), nil
 }
 
-func (s *service) UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceRequest) (map[string]any, error) {
+func (s *service) UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceRequest) (ResourceListItem, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return ResourceListItem{}, err
 	}
 	current, err := s.repo.GetResource(ctx, projectID, resourceID)
 	if err != nil {
-		return nil, mapServiceError("load resource before update", err)
+		return ResourceListItem{}, mapServiceError("load resource before update", err)
 	}
 	from := nestedString(current, "resource", "status")
 	if err := enforceArchiveOnlyForImmutableUpdate("resource", from, req.State, resourceImmutableStatuses); err != nil {
-		return nil, err
+		return ResourceListItem{}, err
 	}
 	if status := toString(req.State["status"]); status != "" {
 		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
 			"Active":   {"Active": {}, "Archived": {}},
-			"Archived": {"Archived": {}},
+			"Archived": {"Archived": {}, "Active": {}},
 		}) {
-			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status transition")
+			return ResourceListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status transition")
 		}
 	}
 	var updated map[string]any
@@ -99,28 +99,28 @@ func (s *service) UpdateResource(ctx context.Context, projectID, resourceID, act
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("update resource", err)
+		return ResourceListItem{}, mapServiceError("update resource", err)
 	}
-	return updated, nil
+	return decodeResourceListItem(updated), nil
 }
 
-func (s *service) UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (map[string]any, error) {
+func (s *service) UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error) {
 	if err := req.Validate(); err != nil {
-		return nil, err
+		return UpdateResourceStatusResponse{}, err
 	}
 	current, err := s.repo.GetResource(ctx, projectID, resourceID)
 	if err != nil {
-		return nil, mapServiceError("load resource before status update", err)
+		return UpdateResourceStatusResponse{}, mapServiceError("load resource before status update", err)
 	}
 	from := nestedString(current, "resource", "status")
 	if err := enforceArchiveOnlyForImmutableStatusChange("resource", from, req.Status, resourceImmutableStatuses); err != nil {
-		return nil, err
+		return UpdateResourceStatusResponse{}, err
 	}
 	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
 		"Active":   {"Active": {}, "Archived": {}},
-		"Archived": {"Archived": {}},
+		"Archived": {"Archived": {}, "Active": {}},
 	}) {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status transition")
+		return UpdateResourceStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status transition")
 	}
 	var updated map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
@@ -132,9 +132,13 @@ func (s *service) UpdateResourceStatus(ctx context.Context, projectID, resourceI
 		return nil
 	})
 	if err != nil {
-		return nil, mapServiceError("update resource status", err)
+		return UpdateResourceStatusResponse{}, mapServiceError("update resource status", err)
 	}
-	return updated, nil
+	return UpdateResourceStatusResponse{
+		ID:          toString(updated["id"]),
+		Status:      toString(updated["status"]),
+		LastUpdated: toString(updated["lastUpdated"]),
+	}, nil
 }
 
 func mapServiceError(action string, err error) error {
@@ -162,11 +166,17 @@ func enforceArchiveOnlyForImmutableUpdate(entity, from string, patch map[string]
 	if isArchiveOnlyPatch(patch) {
 		return nil
 	}
+	if isRestoreOnlyPatch(from, patch) {
+		return nil
+	}
 	return immutableStateError(entity, from)
 }
 
 func enforceArchiveOnlyForImmutableStatusChange(entity, from, to string, immutableStatuses map[string]struct{}) error {
 	if !isImmutableStatus(from, immutableStatuses) {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(from), "Archived") && !strings.EqualFold(strings.TrimSpace(to), "Archived") {
 		return nil
 	}
 	if strings.EqualFold(strings.TrimSpace(to), "Archived") {
@@ -183,6 +193,17 @@ func isArchiveOnlyPatch(patch map[string]any) bool {
 	return strings.EqualFold(status, "Archived")
 }
 
+func isRestoreOnlyPatch(from string, patch map[string]any) bool {
+	if !strings.EqualFold(strings.TrimSpace(from), "Archived") {
+		return false
+	}
+	if len(patch) != 1 {
+		return false
+	}
+	status := strings.TrimSpace(toString(patch["status"]))
+	return status != "" && !strings.EqualFold(status, "Archived")
+}
+
 func isImmutableStatus(status string, immutableStatuses map[string]struct{}) bool {
 	trimmed := strings.TrimSpace(status)
 	if trimmed == "" {
@@ -193,7 +214,7 @@ func isImmutableStatus(status string, immutableStatuses map[string]struct{}) boo
 }
 
 func immutableStateError(entity, status string) error {
-	message := fmt.Sprintf("%s in status %q is immutable; only archive operation is allowed", strings.TrimSpace(entity), strings.TrimSpace(status))
+	message := fmt.Sprintf("%s in status %q is immutable; only archive or restore status operation is allowed", strings.TrimSpace(entity), strings.TrimSpace(status))
 	return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, message)
 }
 

@@ -59,9 +59,66 @@ func (r projectSettingsPatch) Validate() error {
 type projectDashboardResponse struct {
 	Project     dashboardProject      `json:"project"`
 	Me          dashboardUser         `json:"me"`
+	Summary     dashboardSummary      `json:"summary"`
+	MyTasks     []dashboardTask       `json:"myTasks"`
+	MyFeedback  []dashboardFeedback   `json:"myFeedback"`
 	Events      []dashboardEvent      `json:"events"`
 	Activity    []dashboardActivity   `json:"activity"`
 	RecentEdits []dashboardRecentEdit `json:"recentEdits"`
+}
+
+type projectDashboardSummaryResponse struct {
+	Project dashboardProject `json:"project"`
+	Summary dashboardSummary `json:"summary"`
+}
+
+type projectDashboardMyWorkResponse struct {
+	Me          dashboardUser         `json:"me"`
+	MyTasks     []dashboardTask       `json:"myTasks"`
+	MyFeedback  []dashboardFeedback   `json:"myFeedback"`
+	RecentEdits []dashboardRecentEdit `json:"recentEdits"`
+}
+
+type projectDashboardEventsResponse struct {
+	Events []dashboardEvent `json:"events"`
+}
+
+type projectDashboardActivityResponse struct {
+	Activity []dashboardActivity `json:"activity"`
+}
+
+type dashboardSummary struct {
+	Stories                   int `json:"stories"`
+	Journeys                  int `json:"journeys"`
+	Problems                  int `json:"problems"`
+	Ideas                     int `json:"ideas"`
+	Tasks                     int `json:"tasks"`
+	Feedback                  int `json:"feedback"`
+	OrphanStories             int `json:"orphanStories"`
+	OrphanJourneys            int `json:"orphanJourneys"`
+	LockedProblems            int `json:"lockedProblems"`
+	ProblemsWithoutIdeas      int `json:"problemsWithoutIdeas"`
+	SelectedIdeas             int `json:"selectedIdeas"`
+	SelectedIdeasWithoutTasks int `json:"selectedIdeasWithoutTasks"`
+	OpenTasks                 int `json:"openTasks"`
+	OverdueTasks              int `json:"overdueTasks"`
+	CompletedTasks            int `json:"completedTasks"`
+	BlockedOrAbandonedTasks   int `json:"blockedOrAbandonedTasks"`
+	CompletedTasksNoFeedback  int `json:"completedTasksNoFeedback"`
+	FeedbackNeedsIteration    int `json:"feedbackNeedsIteration"`
+}
+
+type dashboardTask struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Status   string `json:"status"`
+	Deadline string `json:"deadline"`
+}
+
+type dashboardFeedback struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Outcome string `json:"outcome"`
 }
 
 type dashboardProject struct {

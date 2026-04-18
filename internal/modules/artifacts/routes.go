@@ -31,6 +31,7 @@ func (m *Module) Register(r httpx.Router) error {
 		{Name: "artifacts.idea", PathParams: []string{"projectId"}},
 		{Name: "artifacts.task", PathParams: []string{"projectId"}},
 		{Name: "artifacts.feedback", PathParams: []string{"projectId"}},
+		{Name: "project.sidebar", PathParams: []string{"projectId"}},
 	}}
 	storyReadTags := []cache.CacheTagSpec{
 		{Name: "artifacts.project", PathParams: []string{"projectId"}},
@@ -72,7 +73,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -86,7 +87,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermStoryCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/stories/{slug}", httpx.Adapter(m.handler.GetStory),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/stories/{storyId}", httpx.Adapter(m.handler.GetStory),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -98,12 +99,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "storyId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/stories/{storyId}", httpx.Adapter(m.handler.UpdateStory),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/stories/{storyId}", httpx.Adapter(m.handler.UpdateStory),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -127,7 +128,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -141,7 +142,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermStoryCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/journeys/{slug}", httpx.Adapter(m.handler.GetJourney),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/journeys/{journeyId}", httpx.Adapter(m.handler.GetJourney),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -153,12 +154,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "journeyId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/journeys/{journeyId}", httpx.Adapter(m.handler.UpdateJourney),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/journeys/{journeyId}", httpx.Adapter(m.handler.UpdateJourney),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -182,7 +183,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -196,7 +197,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermProblemCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/problems/{slug}", httpx.Adapter(m.handler.GetProblem),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/problems/{problemId}", httpx.Adapter(m.handler.GetProblem),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -208,12 +209,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "problemId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/problems/{problemId}", httpx.Adapter(m.handler.UpdateProblem),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/problems/{problemId}", httpx.Adapter(m.handler.UpdateProblem),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -230,7 +231,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermProblemStatusChange),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/problems/{problemId}/status", httpx.Adapter(m.handler.UpdateProblemStatus),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/problems/{problemId}/status", httpx.Adapter(m.handler.UpdateProblemStatus),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -254,7 +255,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -268,7 +269,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermIdeaCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/ideas/{slug}", httpx.Adapter(m.handler.GetIdea),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/ideas/{ideaId}", httpx.Adapter(m.handler.GetIdea),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -280,12 +281,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "ideaId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/ideas/{ideaId}", httpx.Adapter(m.handler.UpdateIdea),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/ideas/{ideaId}", httpx.Adapter(m.handler.UpdateIdea),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -302,7 +303,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermIdeaStatusChange),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/ideas/{ideaId}/status", httpx.Adapter(m.handler.UpdateIdeaStatus),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/ideas/{ideaId}/status", httpx.Adapter(m.handler.UpdateIdeaStatus),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -326,7 +327,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -340,7 +341,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermTaskCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/tasks/{slug}", httpx.Adapter(m.handler.GetTask),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/tasks/{taskId}", httpx.Adapter(m.handler.GetTask),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -352,12 +353,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "taskId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/tasks/{taskId}", httpx.Adapter(m.handler.UpdateTask),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/tasks/{taskId}", httpx.Adapter(m.handler.UpdateTask),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -366,7 +367,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermTaskEdit),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/tasks/{taskId}/status", httpx.Adapter(m.handler.UpdateTaskStatus),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/tasks/{taskId}/status", httpx.Adapter(m.handler.UpdateTaskStatus),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -390,7 +391,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"outcome", "offset", "limit"},
+				QueryParams: []string{"status", "outcome", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
@@ -404,7 +405,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermFeedbackCreate),
 		policy.CacheInvalidateOptional(cacheMgr, invalidateArtifactTags),
 	)
-	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/feedback/{slug}", httpx.Adapter(m.handler.GetFeedback),
+	r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/feedback/{feedbackId}", httpx.Adapter(m.handler.GetFeedback),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -416,12 +417,12 @@ func (m *Module) Register(r httpx.Router) error {
 			AllowAuthenticated: true,
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:  true,
-				PathParams: []string{"projectId", "slug"},
+				PathParams: []string{"projectId", "feedbackId"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, ttl),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/feedback/{feedbackId}", httpx.Adapter(m.handler.UpdateFeedback),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/feedback/{feedbackId}", httpx.Adapter(m.handler.UpdateFeedback),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),

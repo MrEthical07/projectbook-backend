@@ -9,6 +9,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/patchx"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -75,7 +76,7 @@ func (r *repo) ResolveProjectIdentity(ctx context.Context, projectID string) (pr
 
 	var identity projectIdentity
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT id::text, slug FROM projects WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+		`SELECT id::text, slug FROM projects WHERE id::text = $1 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&identity.UUID, &identity.Slug)
 		},
@@ -119,7 +120,7 @@ WHERE s.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND s.status = $%d::story_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY s.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
@@ -130,7 +131,7 @@ WHERE s.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":                     slugOrID(slug, id),
+			"id":                     id,
 			"title":                  title,
 			"personaName":            personaName,
 			"painPointsCount":        painCount,
@@ -191,7 +192,7 @@ func (r *repo) CreateStory(ctx context.Context, projectID, actorUserID, title st
 	}
 
 	return map[string]any{
-		"id":                     slugOrID(createdSlug, id),
+		"id":                     id,
 		"title":                  createdTitle,
 		"personaName":            personaName,
 		"painPointsCount":        painCount,
@@ -215,7 +216,7 @@ func (r *repo) GetStory(ctx context.Context, projectID, slug string) (map[string
 		`SELECT s.id::text, s.slug, s.title, s.status::text, COALESCE(u.name, ''), COALESCE(to_char(s.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(s.updated_at, 'YYYY-MM-DD'), ''), s.is_orphan
 		 FROM stories s
 		 JOIN users u ON u.id = s.owner_user_id
-		 WHERE s.project_id = $1::uuid AND (s.slug = $2 OR s.id::text = $2)
+		 WHERE s.project_id = $1::uuid AND s.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &createdAt, &lastUpdated, &isOrphan)
@@ -241,7 +242,7 @@ func (r *repo) GetStory(ctx context.Context, projectID, slug string) (map[string
 
 	return map[string]any{
 		"story": map[string]any{
-			"id":          slugOrID(foundSlug, id),
+			"id":          id,
 			"title":       title,
 			"status":      status,
 			"owner":       ownerName,
@@ -287,7 +288,26 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE stories
 		 SET title = COALESCE(NULLIF($3, ''), title),
-		 	 status = COALESCE(NULLIF($4, '')::story_status, status),
+		 	 status = CASE
+		 	 	WHEN NULLIF($4, '')::story_status = 'Archived'::story_status
+		 	 		AND stories.status <> 'Archived'::story_status
+		 	 	THEN 'Archived'::story_status
+		 	 	WHEN NULLIF($4, '')::story_status IS NOT NULL
+		 	 		AND stories.status = 'Archived'::story_status
+		 	 		AND NULLIF($4, '')::story_status <> 'Archived'::story_status
+		 	 	THEN COALESCE(stories.archived_from_status, 'Draft'::story_status)
+		 	 	ELSE COALESCE(NULLIF($4, '')::story_status, stories.status)
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN NULLIF($4, '')::story_status = 'Archived'::story_status
+		 	 		AND stories.status <> 'Archived'::story_status
+		 	 	THEN stories.status
+		 	 	WHEN NULLIF($4, '')::story_status IS NOT NULL
+		 	 		AND stories.status = 'Archived'::story_status
+		 	 		AND NULLIF($4, '')::story_status <> 'Archived'::story_status
+		 	 	THEN NULL
+		 	 	ELSE stories.archived_from_status
+		 	 END,
 		 	 persona_name = CASE WHEN $5 = '' THEN persona_name ELSE $5 END,
 		 	 pain_points_count = CASE WHEN $6 < 0 THEN pain_points_count ELSE $6 END,
 		 	 problem_hypotheses_count = CASE WHEN $7 < 0 THEN problem_hypotheses_count ELSE $7 END,
@@ -295,11 +315,16 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE stories.project_id = $1::uuid
-		   AND (stories.id::text = $2 OR stories.slug = $2)
+		   AND stories.id::text = $2
 		   AND u.id = stories.owner_user_id
 		   AND (
 		 	 stories.status NOT IN ('Locked'::story_status, 'Archived'::story_status)
 		 	 OR NULLIF($4, '')::story_status = 'Archived'::story_status
+		 	 OR (
+		 	 	stories.status = 'Archived'::story_status
+		 	 	AND NULLIF($4, '')::story_status IS NOT NULL
+		 	 	AND NULLIF($4, '')::story_status <> 'Archived'::story_status
+		 	 )
 		   )
 		 RETURNING stories.id::text, stories.slug, stories.title, COALESCE(stories.persona_name, ''), stories.pain_points_count,
 		 	 stories.problem_hypotheses_count, COALESCE(u.name, ''), COALESCE(to_char(stories.updated_at, 'YYYY-MM-DD'), ''),
@@ -327,7 +352,7 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 	}
 
 	return map[string]any{
-		"id":                     slugOrID(slug, id),
+		"id":                     id,
 		"title":                  outTitle,
 		"personaName":            outPersonaName,
 		"painPointsCount":        outPainCount,
@@ -364,7 +389,7 @@ WHERE j.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND j.status = $%d::journey_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY j.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
@@ -374,7 +399,7 @@ WHERE j.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":              slugOrID(slug, id),
+			"id":              id,
 			"title":           title,
 			"linkedPersonas":  []string{},
 			"stagesCount":     0,
@@ -433,7 +458,7 @@ func (r *repo) CreateJourney(ctx context.Context, projectID, actorUserID, title 
 	}
 
 	return map[string]any{
-		"id":              slugOrID(createdSlug, id),
+		"id":              id,
 		"title":           createdTitle,
 		"linkedPersonas":  []string{},
 		"stagesCount":     0,
@@ -456,7 +481,7 @@ func (r *repo) GetJourney(ctx context.Context, projectID, slug string) (map[stri
 		`SELECT j.id::text, j.slug, j.title, j.status::text, COALESCE(u.name, ''), COALESCE(to_char(j.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(j.updated_at, 'YYYY-MM-DD'), '')
 		 FROM journeys j
 		 JOIN users u ON u.id = j.owner_user_id
-		 WHERE j.project_id = $1::uuid AND (j.slug = $2 OR j.id::text = $2)
+		 WHERE j.project_id = $1::uuid AND j.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &createdAt, &lastUpdated)
@@ -478,7 +503,7 @@ func (r *repo) GetJourney(ctx context.Context, projectID, slug string) (map[stri
 
 	return map[string]any{
 		"journey": map[string]any{
-			"id":          slugOrID(foundSlug, id),
+			"id":          id,
 			"title":       title,
 			"status":      status,
 			"owner":       ownerName,
@@ -513,16 +538,40 @@ func (r *repo) UpdateJourney(ctx context.Context, projectID, journeyID, actorUse
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE journeys
 		 SET title = COALESCE(NULLIF($3, ''), title),
-		 	 status = COALESCE(NULLIF($4, '')::journey_status, status),
+		 	 status = CASE
+		 	 	WHEN NULLIF($4, '')::journey_status = 'Archived'::journey_status
+		 	 		AND journeys.status <> 'Archived'::journey_status
+		 	 	THEN 'Archived'::journey_status
+		 	 	WHEN NULLIF($4, '')::journey_status IS NOT NULL
+		 	 		AND journeys.status = 'Archived'::journey_status
+		 	 		AND NULLIF($4, '')::journey_status <> 'Archived'::journey_status
+		 	 	THEN COALESCE(journeys.archived_from_status, 'Draft'::journey_status)
+		 	 	ELSE COALESCE(NULLIF($4, '')::journey_status, journeys.status)
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN NULLIF($4, '')::journey_status = 'Archived'::journey_status
+		 	 		AND journeys.status <> 'Archived'::journey_status
+		 	 	THEN journeys.status
+		 	 	WHEN NULLIF($4, '')::journey_status IS NOT NULL
+		 	 		AND journeys.status = 'Archived'::journey_status
+		 	 		AND NULLIF($4, '')::journey_status <> 'Archived'::journey_status
+		 	 	THEN NULL
+		 	 	ELSE journeys.archived_from_status
+		 	 END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE journeys.project_id = $1::uuid
-		   AND (journeys.id::text = $2 OR journeys.slug = $2)
+		   AND journeys.id::text = $2
 		   AND u.id = journeys.owner_user_id
 		   AND (
-		 	 journeys.status <> 'Archived'::journey_status
+		 	 journeys.status NOT IN ('Locked'::journey_status, 'Archived'::journey_status)
 		 	 OR NULLIF($4, '')::journey_status = 'Archived'::journey_status
+		 	 OR (
+		 	 	journeys.status = 'Archived'::journey_status
+		 	 	AND NULLIF($4, '')::journey_status IS NOT NULL
+		 	 	AND NULLIF($4, '')::journey_status <> 'Archived'::journey_status
+		 	 )
 		   )
 		 RETURNING journeys.id::text, journeys.slug, journeys.title, COALESCE(u.name, ''), COALESCE(to_char(journeys.updated_at, 'YYYY-MM-DD'), ''), journeys.status::text, journeys.document_revision, journeys.is_orphan`,
 		func(row storage.RowScanner) error {
@@ -545,7 +594,7 @@ func (r *repo) UpdateJourney(ctx context.Context, projectID, journeyID, actorUse
 	}
 
 	return map[string]any{
-		"id":              slugOrID(slug, id),
+		"id":              id,
 		"title":           outTitle,
 		"linkedPersonas":  []string{},
 		"stagesCount":     0,
@@ -583,7 +632,7 @@ WHERE p.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND p.status = $%d::problem_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY p.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
@@ -594,7 +643,7 @@ WHERE p.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":              slugOrID(slug, id),
+			"id":              id,
 			"statement":       statement,
 			"linkedSources":   []string{},
 			"painPointsCount": 0,
@@ -652,7 +701,7 @@ func (r *repo) CreateProblem(ctx context.Context, projectID, actorUserID, statem
 	}
 
 	return map[string]any{
-		"id":              slugOrID(createdSlug, id),
+		"id":              id,
 		"statement":       outStatement,
 		"linkedSources":   []string{},
 		"painPointsCount": 0,
@@ -674,7 +723,7 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 		`SELECT p.id::text, p.slug, p.title, p.status::text, COALESCE(u.name, ''), COALESCE(to_char(p.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), '')
 		 FROM problems p
 		 JOIN users u ON u.id = p.owner_user_id
-		 WHERE p.project_id = $1::uuid AND (p.slug = $2 OR p.id::text = $2)
+		 WHERE p.project_id = $1::uuid AND p.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &foundSlug, &statement, &status, &ownerName, &createdAt, &lastUpdated)
@@ -694,9 +743,183 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 		return nil, err
 	}
 
+	storyOptions := make([]any, 0)
+	stories, err := r.ListStories(ctx, identity.UUID, listQuery{Offset: 0, Limit: 100})
+	if err != nil {
+		return nil, err
+	}
+	for _, story := range stories {
+		storyID := strings.TrimSpace(toString(story["id"]))
+		storyTitle := strings.TrimSpace(toString(story["title"]))
+		if storyID == "" || storyTitle == "" {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(toString(story["status"])), "Locked") {
+			continue
+		}
+		storyOptions = append(storyOptions, map[string]any{
+			"id":    storyID,
+			"title": storyTitle,
+			"href":  fmt.Sprintf("/project/%s/stories/%s", identity.UUID, storyID),
+		})
+	}
+
+	journeyOptions := make([]any, 0)
+	journeys, err := r.ListJourneys(ctx, identity.UUID, listQuery{Offset: 0, Limit: 100})
+	if err != nil {
+		return nil, err
+	}
+	for _, journey := range journeys {
+		journeyID := strings.TrimSpace(toString(journey["id"]))
+		journeyTitle := strings.TrimSpace(toString(journey["title"]))
+		if journeyID == "" || journeyTitle == "" {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(toString(journey["status"])), "Locked") {
+			continue
+		}
+		journeyOptions = append(journeyOptions, map[string]any{
+			"id":    journeyID,
+			"title": journeyTitle,
+			"href":  fmt.Sprintf("/project/%s/journeys/%s", identity.UUID, journeyID),
+		})
+	}
+
+	linkedSourcesPayload := make([]any, 0)
+	sourcePainPoints := make([]any, 0)
+	sourcePersonas := make([]any, 0)
+	sourcePainInsights := make([]any, 0)
+	journeyPainInsights := make([]any, 0)
+	sourceContextChunks := make([]string, 0)
+
+	linkedSources, _ := content["linkedSources"].([]any)
+	for _, raw := range linkedSources {
+		source := toMap(raw)
+		if source == nil {
+			continue
+		}
+
+		sourceID := strings.TrimSpace(toString(source["id"]))
+		if sourceID == "" {
+			continue
+		}
+
+		sourceTypeRaw := firstNonEmpty(toString(source["type"]), toString(source["artifactType"]))
+		normalizedType, ok := normalizeArtifactType(sourceTypeRaw)
+		if !ok || (normalizedType != "story" && normalizedType != "journey") {
+			continue
+		}
+
+		sourceTitle := strings.TrimSpace(toString(source["title"]))
+		if sourceTitle == "" {
+			if normalizedType == "story" {
+				sourceTitle = "User Story"
+			} else {
+				sourceTitle = "User Journey"
+			}
+		}
+
+		hrefPrefix := "stories"
+		sourceLabelPrefix := "Story"
+		typeLabel := "User Story"
+		if normalizedType == "journey" {
+			hrefPrefix = "journeys"
+			sourceLabelPrefix = "Journey"
+			typeLabel = "User Journey"
+		}
+
+		linkedSourcesPayload = append(linkedSourcesPayload, map[string]any{
+			"id":    sourceID,
+			"title": sourceTitle,
+			"type":  typeLabel,
+			"href":  fmt.Sprintf("/project/%s/%s/%s", identity.UUID, hrefPrefix, sourceID),
+		})
+
+		resolvedID, resolveErr := r.resolveArtifactIDByIdentifier(ctx, identity.UUID, normalizedType, sourceID)
+		if resolveErr != nil {
+			continue
+		}
+
+		sourceContent, loadErr := r.loadLatestContent(ctx, identity.UUID, normalizedType, resolvedID, map[string]any{})
+		if loadErr != nil {
+			continue
+		}
+
+		persona := toMap(sourceContent["persona"])
+		personaName := strings.TrimSpace(toString(persona["name"]))
+		personaBio := strings.TrimSpace(toString(persona["bio"]))
+		if personaName != "" {
+			sourcePersonas = append(sourcePersonas, map[string]any{
+				"name":        personaName,
+				"description": personaBio,
+			})
+		}
+
+		if normalizedType == "story" {
+			painPoints, _ := sourceContent["painPoints"].([]any)
+			for pointIndex, point := range painPoints {
+				text := strings.TrimSpace(toString(point))
+				if text == "" {
+					continue
+				}
+				pointID := fmt.Sprintf("%s:story:%d", sourceID, pointIndex+1)
+				sourcePainPoints = append(sourcePainPoints, map[string]any{
+					"id":          pointID,
+					"text":        text,
+					"sourceLabel": sourceTitle,
+				})
+				sourcePainInsights = append(sourcePainInsights, map[string]any{
+					"id":          pointID,
+					"text":        text,
+					"sourceLabel": sourceTitle,
+				})
+			}
+		}
+
+		if normalizedType == "journey" {
+			stages, _ := sourceContent["stages"].([]any)
+			for stageIndex, stageRaw := range stages {
+				stage := toMap(stageRaw)
+				if stage == nil {
+					continue
+				}
+				stageName := strings.TrimSpace(toString(stage["name"]))
+				if stageName == "" {
+					stageName = "Stage"
+				}
+				stagePainPoints, _ := stage["painPoints"].([]any)
+				for painPointIndex, painPointRaw := range stagePainPoints {
+					text := strings.TrimSpace(toString(painPointRaw))
+					if text == "" {
+						continue
+					}
+					pointID := fmt.Sprintf("%s:journey:%d:%d", sourceID, stageIndex+1, painPointIndex+1)
+					sourcePainPoints = append(sourcePainPoints, map[string]any{
+						"id":          pointID,
+						"text":        text,
+						"sourceLabel": fmt.Sprintf("%s / %s", sourceTitle, stageName),
+					})
+					journeyPainInsights = append(journeyPainInsights, map[string]any{
+						"id":          pointID,
+						"text":        text,
+						"journeyName": sourceTitle,
+						"stageName":   stageName,
+					})
+				}
+			}
+		}
+
+		sourceContext := strings.TrimSpace(toString(sourceContent["context"]))
+		if sourceContext != "" {
+			sourceContextChunks = append(sourceContextChunks, fmt.Sprintf("%s: %s", sourceLabelPrefix, sourceContext))
+		}
+	}
+
+	sourceContextSummary := strings.Join(sourceContextChunks, "\n")
+
 	return map[string]any{
 		"problem": map[string]any{
-			"id":          slugOrID(foundSlug, id),
+			"id":          id,
 			"statement":   statement,
 			"status":      status,
 			"owner":       ownerName,
@@ -710,12 +933,22 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			"lastEditedAt": lastUpdated,
 			"lastUpdated":  lastUpdated,
 		},
-		"detail": content,
+		"detail": func() map[string]any {
+			payload := cloneMap(content)
+			payload["linkedSources"] = linkedSourcesPayload
+			return payload
+		}(),
 		"reference": map[string]any{
-			"storyOptions":     []any{},
-			"journeyOptions":   []any{},
-			"sourcePainPoints": []any{},
-			"permissions":      map[string]any{},
+			"storyOptions":     storyOptions,
+			"journeyOptions":   journeyOptions,
+			"sourcePainPoints": sourcePainPoints,
+			"sourceInsights": map[string]any{
+				"personas":          sourcePersonas,
+				"context":           sourceContextSummary,
+				"painPoints":        sourcePainInsights,
+				"journeyPainPoints": journeyPainInsights,
+			},
+			"permissions": map[string]any{},
 		},
 	}, nil
 }
@@ -727,6 +960,7 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 	}
 	title := firstNonEmpty(toString(patch["finalStatement"]), toString(patch["title"]))
 	status := toString(patch["status"])
+	linkedSources, hasLinkedSources := patch["linkedSources"]
 
 	var id, slug, outStatement, outOwner, outLastUpdated, outStatus string
 	var revision int
@@ -734,17 +968,56 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE problems
 		 SET title = COALESCE(NULLIF($3, ''), title),
-		 	 status = COALESCE(NULLIF($4, '')::problem_status, status),
-		 	 is_locked = CASE WHEN COALESCE(NULLIF($4, ''), status::text) = 'Locked' THEN TRUE ELSE is_locked END,
+		 	 status = CASE
+		 	 	WHEN NULLIF($4, '')::problem_status = 'Archived'::problem_status
+		 	 		AND problems.status <> 'Archived'::problem_status
+		 	 	THEN 'Archived'::problem_status
+		 	 	WHEN NULLIF($4, '')::problem_status IS NOT NULL
+		 	 		AND problems.status = 'Archived'::problem_status
+		 	 		AND NULLIF($4, '')::problem_status <> 'Archived'::problem_status
+		 	 	THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
+		 	 	ELSE COALESCE(NULLIF($4, '')::problem_status, problems.status)
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN NULLIF($4, '')::problem_status = 'Archived'::problem_status
+		 	 		AND problems.status <> 'Archived'::problem_status
+		 	 	THEN problems.status
+		 	 	WHEN NULLIF($4, '')::problem_status IS NOT NULL
+		 	 		AND problems.status = 'Archived'::problem_status
+		 	 		AND NULLIF($4, '')::problem_status <> 'Archived'::problem_status
+		 	 	THEN NULL
+		 	 	ELSE problems.archived_from_status
+		 	 END,
+		 	 is_locked = CASE
+		 	 	WHEN (
+		 	 		CASE
+		 	 			WHEN NULLIF($4, '')::problem_status = 'Archived'::problem_status
+		 	 				AND problems.status <> 'Archived'::problem_status
+		 	 			THEN 'Archived'::problem_status
+		 	 			WHEN NULLIF($4, '')::problem_status IS NOT NULL
+		 	 				AND problems.status = 'Archived'::problem_status
+		 	 				AND NULLIF($4, '')::problem_status <> 'Archived'::problem_status
+		 	 			THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
+		 	 			ELSE COALESCE(NULLIF($4, '')::problem_status, problems.status)
+		 	 		END
+		 	 	) = 'Locked'::problem_status
+		 	 	THEN TRUE
+		 	 	ELSE FALSE
+		 	 END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE problems.project_id = $1::uuid
-		   AND (problems.id::text = $2 OR problems.slug = $2)
+		   AND problems.id::text = $2
 		   AND u.id = problems.owner_user_id
 		   AND (
 		 	 problems.status NOT IN ('Locked'::problem_status, 'Archived'::problem_status)
 		 	 OR NULLIF($4, '')::problem_status = 'Archived'::problem_status
+		 	 OR (
+		 	 	problems.status = 'Archived'::problem_status
+		 	 	AND NULLIF($4, '')::problem_status IS NOT NULL
+		 	 	AND NULLIF($4, '')::problem_status <> 'Archived'::problem_status
+		 	 )
 		   )
 		 RETURNING problems.id::text, problems.slug, problems.title, COALESCE(u.name, ''), COALESCE(to_char(problems.updated_at, 'YYYY-MM-DD'), ''), problems.status::text, problems.document_revision, problems.is_orphan`,
 		func(row storage.RowScanner) error {
@@ -762,8 +1035,14 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 		return nil, wrapRepoError("update problem", err)
 	}
 
-	if err := r.replaceProblemSourceLinks(ctx, identity.UUID, id, actorUserID, toSlice(patch["linkedSources"])); err != nil {
-		return nil, err
+	if hasLinkedSources {
+		linkedSourceItems, ok := coerceAnySlice(linkedSources)
+		if !ok {
+			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linkedSources must be an array")
+		}
+		if err := r.replaceProblemSourceLinks(ctx, identity.UUID, id, actorUserID, linkedSourceItems); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, patch); err != nil {
@@ -776,7 +1055,7 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 	}
 
 	return map[string]any{
-		"id":              slugOrID(slug, id),
+		"id":              id,
 		"statement":       outStatement,
 		"linkedSources":   []string{},
 		"painPointsCount": 0,
@@ -798,7 +1077,7 @@ func (r *repo) LockProblem(ctx context.Context, projectID, problemID, actorUserI
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE problems
 		 SET status = 'Locked', is_locked = TRUE, updated_at = NOW(), document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2)
+		 WHERE project_id = $1::uuid AND id::text = $2
 		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &status, &lastUpdated, &revision)
@@ -827,15 +1106,50 @@ func (r *repo) UpdateProblemStatus(ctx context.Context, projectID, problemID, st
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE problems
-		 SET status = $3::problem_status,
-		 	 is_locked = CASE WHEN $3::problem_status = 'Locked' THEN TRUE ELSE FALSE END,
+		 SET status = CASE
+		 	 	WHEN $3::problem_status = 'Archived'::problem_status
+		 	 		AND problems.status <> 'Archived'::problem_status
+		 	 	THEN 'Archived'::problem_status
+		 	 	WHEN problems.status = 'Archived'::problem_status
+		 	 		AND $3::problem_status <> 'Archived'::problem_status
+		 	 	THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
+		 	 	ELSE $3::problem_status
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN $3::problem_status = 'Archived'::problem_status
+		 	 		AND problems.status <> 'Archived'::problem_status
+		 	 	THEN problems.status
+		 	 	WHEN problems.status = 'Archived'::problem_status
+		 	 		AND $3::problem_status <> 'Archived'::problem_status
+		 	 	THEN NULL
+		 	 	ELSE problems.archived_from_status
+		 	 END,
+		 	 is_locked = CASE
+		 	 	WHEN (
+		 	 		CASE
+		 	 			WHEN $3::problem_status = 'Archived'::problem_status
+		 	 				AND problems.status <> 'Archived'::problem_status
+		 	 			THEN 'Archived'::problem_status
+		 	 			WHEN problems.status = 'Archived'::problem_status
+		 	 				AND $3::problem_status <> 'Archived'::problem_status
+		 	 			THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
+		 	 			ELSE $3::problem_status
+		 	 		END
+		 	 	) = 'Locked'::problem_status
+		 	 	THEN TRUE
+		 	 	ELSE FALSE
+		 	 END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND (
 		 	 status NOT IN ('Locked'::problem_status, 'Archived'::problem_status)
 		 	 OR $3::problem_status = 'Archived'::problem_status
+		 	 OR (
+		 	 	status = 'Archived'::problem_status
+		 	 	AND $3::problem_status <> 'Archived'::problem_status
+		 	 )
 		   )
 		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
@@ -885,7 +1199,7 @@ WHERE i.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND i.status = $%d::idea_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY i.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
 		var id, slug, title, problemStatement, owner, lastUpdated, status string
@@ -895,7 +1209,7 @@ WHERE i.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":                     slugOrID(slug, id),
+			"id":                     id,
 			"title":                  title,
 			"linkedProblemStatement": problemStatement,
 			"persona":                "",
@@ -952,7 +1266,7 @@ func (r *repo) CreateIdea(ctx context.Context, projectID, actorUserID, title str
 		return nil, err
 	}
 	return map[string]any{
-		"id":                     slugOrID(createdSlug, id),
+		"id":                     id,
 		"title":                  outTitle,
 		"linkedProblemStatement": "",
 		"persona":                "",
@@ -976,7 +1290,7 @@ func (r *repo) GetIdea(ctx context.Context, projectID, slug string) (map[string]
 		`SELECT i.id::text, i.slug, i.title, i.status::text, COALESCE(u.name, ''), COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''), i.primary_problem_id::text
 		 FROM ideas i
 		 JOIN users u ON u.id = i.owner_user_id
-		 WHERE i.project_id = $1::uuid AND (i.slug = $2 OR i.id::text = $2)
+		 WHERE i.project_id = $1::uuid AND i.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
 			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &lastUpdated, &primaryProblemID)
@@ -995,19 +1309,23 @@ func (r *repo) GetIdea(ctx context.Context, projectID, slug string) (map[string]
 	if err != nil {
 		return nil, err
 	}
+	problemOptions, err := r.listLockedProblemOptions(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
 	if primaryProblemID != nil {
 		content["selectedProblemId"] = *primaryProblemID
 	}
 	return map[string]any{
 		"idea": map[string]any{
-			"id":          slugOrID(foundSlug, id),
+			"id":          id,
 			"title":       title,
 			"status":      status,
 			"owner":       ownerName,
 			"lastUpdated": lastUpdated,
 		},
 		"detail":    content,
-		"reference": map[string]any{"problemOptions": []any{}, "linkedStories": []any{}, "derivedPersonas": []any{}, "permissions": map[string]any{}},
+		"reference": map[string]any{"problemOptions": problemOptions, "linkedStories": []any{}, "derivedPersonas": []any{}, "permissions": map[string]any{}},
 	}, nil
 }
 
@@ -1016,12 +1334,19 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 	if err != nil {
 		return nil, err
 	}
-	problemRef := toString(patch["selectedProblemId"])
+	rawProblemRef, hasProblemRef := patch["selectedProblemId"]
+	problemRef := toString(rawProblemRef)
 	var primaryProblemID *string
-	if problemRef != "" {
+	if hasProblemRef {
+		if problemRef == "" {
+			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "selectedProblemId must be a non-empty string")
+		}
 		resolved, resolveErr := r.resolveArtifactIDByIdentifier(ctx, identity.UUID, "problem", problemRef)
 		if resolveErr != nil {
 			return nil, resolveErr
+		}
+		if lockErr := r.ensureProblemLocked(ctx, identity.UUID, resolved); lockErr != nil {
+			return nil, lockErr
 		}
 		primaryProblemID = &resolved
 	}
@@ -1035,7 +1360,7 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
-		 WHERE i.project_id = $1::uuid AND (i.id::text = $2 OR i.slug = $2)
+		 WHERE i.project_id = $1::uuid AND i.id::text = $2
 		   AND u.id = i.owner_user_id
 		   AND i.status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
 		 RETURNING i.id::text, i.slug, i.title, COALESCE(u.name, ''), COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''),
@@ -1069,7 +1394,7 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 	}
 
 	return map[string]any{
-		"id":                     slugOrID(slug, id),
+		"id":                     id,
 		"title":                  title,
 		"linkedProblemStatement": linkedProblemStatement,
 		"persona":                "",
@@ -1093,7 +1418,7 @@ func (r *repo) SelectIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		`UPDATE ideas i
 		 SET status = 'Selected', selected_at = NOW(), updated_at = NOW(), document_revision = document_revision + 1
 		 WHERE i.project_id = $1::uuid
-		   AND (i.id::text = $2 OR i.slug = $2)
+		   AND i.id::text = $2
 		   AND i.primary_problem_id IS NOT NULL
 		   AND EXISTS (SELECT 1 FROM problems p WHERE p.id = i.primary_problem_id AND p.status = 'Locked')
 		 RETURNING i.id::text, i.status::text, COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''), i.document_revision`,
@@ -1124,12 +1449,35 @@ func (r *repo) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, status, 
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE ideas
-		 SET status = $3::idea_status, updated_at = NOW(), document_revision = document_revision + 1
+		 SET status = CASE
+		 	 	WHEN $3::idea_status = 'Archived'::idea_status
+		 	 		AND ideas.status <> 'Archived'::idea_status
+		 	 	THEN 'Archived'::idea_status
+		 	 	WHEN ideas.status = 'Archived'::idea_status
+		 	 		AND $3::idea_status <> 'Archived'::idea_status
+		 	 	THEN COALESCE(ideas.archived_from_status, 'Considered'::idea_status)
+		 	 	ELSE $3::idea_status
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN $3::idea_status = 'Archived'::idea_status
+		 	 		AND ideas.status <> 'Archived'::idea_status
+		 	 	THEN ideas.status
+		 	 	WHEN ideas.status = 'Archived'::idea_status
+		 	 		AND $3::idea_status <> 'Archived'::idea_status
+		 	 	THEN NULL
+		 	 	ELSE ideas.archived_from_status
+		 	 END,
+		 	 updated_at = NOW(),
+		 	 document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND (
 		 	 status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
 		 	 OR $3::idea_status = 'Archived'::idea_status
+		 	 OR (
+		 	 	status = 'Archived'::idea_status
+		 	 	AND $3::idea_status <> 'Archived'::idea_status
+		 	 )
 		   )
 		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
 		func(row storage.RowScanner) error {
@@ -1182,7 +1530,7 @@ WHERE t.project_id = $1::uuid
 		args = append(args, query.Status)
 		sql += fmt.Sprintf(" AND t.status = $%d::task_status\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY t.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
 		var id, slug, title, linkedIdea, linkedProblemStatement, owner, deadline, lastUpdated, status string
@@ -1191,7 +1539,7 @@ WHERE t.project_id = $1::uuid
 			return scanErr
 		}
 		items = append(items, map[string]any{
-			"id":                     slugOrID(slug, id),
+			"id":                     id,
 			"title":                  title,
 			"linkedIdea":             linkedIdea,
 			"linkedProblemStatement": linkedProblemStatement,
@@ -1243,14 +1591,20 @@ func (r *repo) CreateTask(ctx context.Context, projectID, actorUserID, title str
 	if err != nil {
 		return nil, wrapRepoError("create task", err)
 	}
+	ownerAssignees := []string{strings.TrimSpace(actorUserID)}
+	if err := r.replaceTaskAssignees(ctx, identity.UUID, id, actorUserID, ownerAssignees); err != nil {
+		return nil, err
+	}
 	if content == nil {
 		content = defaultTaskContent(outTitle)
 	}
+	content["assignedToIds"] = stringSliceToAny(ownerAssignees)
+	content["assignedToId"] = firstNonEmpty(ownerAssignees...)
 	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"id":                     slugOrID(createdSlug, id),
+		"id":                     id,
 		"title":                  outTitle,
 		"linkedIdea":             "",
 		"linkedProblemStatement": "",
@@ -1270,15 +1624,15 @@ func (r *repo) GetTask(ctx context.Context, projectID, slug string) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	var id, foundSlug, title, status, ownerName, deadline string
+	var id, foundSlug, title, status, ownerName, ownerUserID, deadline string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT t.id::text, t.slug, t.title, t.status::text, COALESCE(u.name, ''), COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), '')
+		`SELECT t.id::text, t.slug, t.title, t.status::text, COALESCE(u.name, ''), t.owner_user_id::text, COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), '')
 		 FROM tasks t
 		 JOIN users u ON u.id = t.owner_user_id
-		 WHERE t.project_id = $1::uuid AND (t.slug = $2 OR t.id::text = $2)
+		 WHERE t.project_id = $1::uuid AND t.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &deadline)
+			return row.Scan(&id, &foundSlug, &title, &status, &ownerName, &ownerUserID, &deadline)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -1296,16 +1650,45 @@ func (r *repo) GetTask(ctx context.Context, projectID, slug string) (map[string]
 	if strings.TrimSpace(deadline) != "" {
 		content["deadline"] = deadline
 	}
+	assignedToIDs, err := r.listTaskAssigneeIDs(ctx, identity.UUID, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(assignedToIDs) == 0 {
+		fallbackOwner := strings.TrimSpace(ownerUserID)
+		if fallbackOwner != "" {
+			assignedToIDs = []string{fallbackOwner}
+		}
+	}
+	content["assignedToIds"] = stringSliceToAny(assignedToIDs)
+	if len(assignedToIDs) > 0 {
+		content["assignedToId"] = assignedToIDs[0]
+	} else {
+		content["assignedToId"] = ""
+	}
+
+	assigneeOptions, err := r.listTaskAssigneeOptions(ctx, identity.UUID)
+	if err != nil {
+		return nil, err
+	}
+	ideaOptions, err := r.listTaskIdeaOptions(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"task": map[string]any{
-			"id":       slugOrID(foundSlug, id),
+			"id":       id,
 			"title":    title,
 			"status":   status,
 			"owner":    ownerName,
 			"deadline": deadline,
 		},
-		"detail":    content,
-		"reference": map[string]any{"assigneeOptions": []any{}, "ideaOptions": []any{}, "permissions": map[string]any{}},
+		"detail": content,
+		"reference": map[string]any{
+			"assigneeOptions": assigneeOptions,
+			"ideaOptions":     ideaOptions,
+			"permissions":     map[string]any{},
+		},
 	}, nil
 }
 
@@ -1314,16 +1697,33 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 	if err != nil {
 		return nil, err
 	}
-	ideaRef := toString(patch["selectedIdeaId"])
+	rawIdeaRef, hasIdeaRef := patch["selectedIdeaId"]
+	ideaRef := toString(rawIdeaRef)
 	deadlineRaw := toString(patch["deadline"])
 	var primaryIdeaID *string
-	if ideaRef != "" {
+	if hasIdeaRef {
+		if ideaRef == "" {
+			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "selectedIdeaId must be a non-empty string")
+		}
 		resolved, resolveErr := r.resolveArtifactIDByIdentifier(ctx, identity.UUID, "idea", ideaRef)
 		if resolveErr != nil {
 			return nil, resolveErr
 		}
 		primaryIdeaID = &resolved
+		if selectedErr := r.ensureIdeaSelectedForTask(ctx, identity.UUID, resolved); selectedErr != nil {
+			return nil, selectedErr
+		}
 	}
+
+	assigneeIDs, hasAssigneePatch := extractTaskAssigneeIDs(patch)
+	if hasAssigneePatch {
+		resolvedAssignees, resolveErr := r.resolveActiveProjectMemberIDs(ctx, identity.UUID, assigneeIDs)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		assigneeIDs = resolvedAssignees
+	}
+
 	var dueAt any
 	if deadlineRaw != "" {
 		parsed, parseErr := time.Parse("2006-01-02", deadlineRaw)
@@ -1343,7 +1743,7 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
-		 WHERE t.project_id = $1::uuid AND (t.id::text = $2 OR t.slug = $2)
+		 WHERE t.project_id = $1::uuid AND t.id::text = $2
 		   AND u.id = t.owner_user_id
 		   AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
 		 RETURNING t.id::text, t.slug, t.title,
@@ -1375,11 +1775,22 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 			return nil, linkErr
 		}
 	}
+	if hasAssigneePatch {
+		if assigneeErr := r.replaceTaskAssignees(ctx, identity.UUID, id, actorUserID, assigneeIDs); assigneeErr != nil {
+			return nil, assigneeErr
+		}
+		patch["assignedToIds"] = stringSliceToAny(assigneeIDs)
+		if len(assigneeIDs) > 0 {
+			patch["assignedToId"] = assigneeIDs[0]
+		} else {
+			patch["assignedToId"] = ""
+		}
+	}
 	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"id":                     slugOrID(slug, id),
+		"id":                     id,
 		"title":                  title,
 		"linkedIdea":             linkedIdea,
 		"linkedProblemStatement": linkedProblemStatement,
@@ -1409,7 +1820,7 @@ func (r *repo) UpdateTaskStatus(ctx context.Context, projectID, taskID, status, 
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 WHERE project_id = $1::uuid
-		   AND (id::text = $2 OR slug = $2)
+		   AND id::text = $2
 		   AND status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
 		   AND (
 			 $3::task_status <> 'In Progress'
@@ -1457,7 +1868,7 @@ func (r *repo) taskBlockedForStart(ctx context.Context, projectUUID, taskID stri
 			FROM tasks t
 			JOIN ideas i ON i.id = t.primary_idea_id
 			WHERE t.project_id = $1::uuid
-			  AND (t.id::text = $2 OR t.slug = $2)
+			  AND t.id::text = $2
 			  AND i.status = 'Rejected'::idea_status
 		)`,
 		func(row storage.RowScanner) error { return row.Scan(&blocked) },
@@ -1483,6 +1894,7 @@ SELECT
 	f.slug,
 	f.title,
 	COALESCE(f.outcome::text, 'Needs Iteration'),
+	f.status::text,
 	COALESCE(u.name, ''),
 	COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''),
 	f.is_orphan,
@@ -1493,16 +1905,20 @@ JOIN users u ON u.id = f.owner_user_id
 LEFT JOIN tasks t ON t.id = f.primary_task_id
 WHERE f.project_id = $1::uuid
 `
+	if query.Status != "" {
+		args = append(args, query.Status)
+		sql += fmt.Sprintf(" AND f.status = $%d::feedback_status\n", len(args))
+	}
 	if query.Outcome != "" {
 		args = append(args, query.Outcome)
 		sql += fmt.Sprintf(" AND COALESCE(f.outcome::text, 'Needs Iteration') = $%d\n", len(args))
 	}
-	args = append(args, query.Offset, query.Limit)
+	args = append(args, query.Offset, query.Limit+1)
 	sql += fmt.Sprintf("ORDER BY f.updated_at DESC OFFSET $%d LIMIT $%d", len(args)-1, len(args))
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(sql, func(row storage.RowScanner) error {
-		var id, slug, title, outcome, owner, createdDate, linkedTask string
+		var id, slug, title, outcome, status, owner, createdDate, linkedTask string
 		var isOrphan, hasTaskLink bool
-		if scanErr := row.Scan(&id, &slug, &title, &outcome, &owner, &createdDate, &isOrphan, &hasTaskLink, &linkedTask); scanErr != nil {
+		if scanErr := row.Scan(&id, &slug, &title, &outcome, &status, &owner, &createdDate, &isOrphan, &hasTaskLink, &linkedTask); scanErr != nil {
 			return scanErr
 		}
 		linkedTaskOrIdea := ""
@@ -1510,10 +1926,11 @@ WHERE f.project_id = $1::uuid
 			linkedTaskOrIdea = "Task: " + linkedTask
 		}
 		items = append(items, map[string]any{
-			"id":               slugOrID(slug, id),
+			"id":               id,
 			"title":            title,
 			"linkedArtifacts":  []string{},
 			"outcome":          outcome,
+			"status":           status,
 			"linkedTaskOrIdea": linkedTaskOrIdea,
 			"owner":            owner,
 			"createdDate":      createdDate,
@@ -1541,15 +1958,16 @@ func (r *repo) CreateFeedback(ctx context.Context, projectID, actorUserID, title
 	if err != nil {
 		return nil, err
 	}
-	var id, createdSlug, outTitle, outcome, createdDate string
+	var id, createdSlug, outTitle, outcome, status, createdDate string
 	var hasTaskLink, isOrphan bool
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`INSERT INTO feedback (project_id, slug, title, owner_user_id, outcome, is_orphan)
-		 VALUES ($1::uuid, $2, $3, $4::uuid, 'Needs Iteration', TRUE)
-		 RETURNING id::text, slug, title, COALESCE(outcome::text, 'Needs Iteration'), COALESCE(to_char(created_at, 'YYYY-MM-DD'), ''), primary_task_id IS NOT NULL, is_orphan, document_revision`,
+		`INSERT INTO feedback (project_id, slug, title, owner_user_id, outcome, status, is_orphan)
+		 VALUES ($1::uuid, $2, $3, $4::uuid, 'Needs Iteration', 'Active', TRUE)
+		 RETURNING id::text, slug, title, COALESCE(outcome::text, 'Needs Iteration'), status::text,
+		           COALESCE(to_char(created_at, 'YYYY-MM-DD'), ''), primary_task_id IS NOT NULL, is_orphan, document_revision`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &createdSlug, &outTitle, &outcome, &createdDate, &hasTaskLink, &isOrphan, &revision)
+			return row.Scan(&id, &createdSlug, &outTitle, &outcome, &status, &createdDate, &hasTaskLink, &isOrphan, &revision)
 		},
 		identity.UUID,
 		slug,
@@ -1566,10 +1984,11 @@ func (r *repo) CreateFeedback(ctx context.Context, projectID, actorUserID, title
 		return nil, err
 	}
 	return map[string]any{
-		"id":               slugOrID(createdSlug, id),
+		"id":               id,
 		"title":            outTitle,
 		"linkedArtifacts":  []string{},
 		"outcome":          outcome,
+		"status":           status,
 		"linkedTaskOrIdea": "",
 		"owner":            ownerName,
 		"createdDate":      createdDate,
@@ -1583,15 +2002,16 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	if err != nil {
 		return nil, err
 	}
-	var id, foundSlug, title, outcome, ownerName, createdDate, updatedDate string
+	var id, foundSlug, title, outcome, status, ownerName, createdDate, updatedDate string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), COALESCE(u.name, ''), COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(f.updated_at, 'YYYY-MM-DD'), '')
+		`SELECT f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), f.status::text,
+		        COALESCE(u.name, ''), COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(f.updated_at, 'YYYY-MM-DD'), '')
 		 FROM feedback f
 		 JOIN users u ON u.id = f.owner_user_id
-		 WHERE f.project_id = $1::uuid AND (f.slug = $2 OR f.id::text = $2)
+		 WHERE f.project_id = $1::uuid AND f.id::text = $2
 		 LIMIT 1`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &foundSlug, &title, &outcome, &ownerName, &createdDate, &updatedDate)
+			return row.Scan(&id, &foundSlug, &title, &outcome, &status, &ownerName, &createdDate, &updatedDate)
 		},
 		identity.UUID,
 		strings.TrimSpace(slug),
@@ -1608,9 +2028,10 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	}
 	return map[string]any{
 		"feedback": map[string]any{
-			"id":          slugOrID(foundSlug, id),
+			"id":          id,
 			"title":       title,
 			"outcome":     outcome,
+			"status":      status,
 			"owner":       ownerName,
 			"createdDate": createdDate,
 			"lastUpdated": updatedDate,
@@ -1634,6 +2055,7 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 		return nil, err
 	}
 	outcome := toString(patch["outcome"])
+	status := toString(patch["status"])
 	linkedArtifacts := toSlice(patch["linkedArtifacts"])
 
 	primaryTaskID, linkIDs, err := r.resolveFeedbackLinks(ctx, identity.UUID, linkedArtifacts)
@@ -1641,27 +2063,34 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 		return nil, err
 	}
 
-	var id, slug, title, outOutcome, owner, createdDate string
+	var id, slug, title, outOutcome, outStatus, owner, createdDate string
 	var hasTaskLink, isOrphan bool
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE feedback f
 		 SET outcome = COALESCE(NULLIF($3, '')::feedback_outcome, f.outcome),
-		 	 primary_task_id = $4::uuid,
+		 	 status = COALESCE(NULLIF($4, '')::feedback_status, f.status),
+		 	 archived_from_status = CASE
+		 	 	WHEN COALESCE(NULLIF($4, ''), f.status::text) = 'Archived' AND f.status <> 'Archived'::feedback_status THEN f.status
+		 	 	WHEN COALESCE(NULLIF($4, ''), f.status::text) <> 'Archived' AND f.status = 'Archived'::feedback_status THEN NULL
+		 	 	ELSE f.archived_from_status
+		 	 END,
+		 	 primary_task_id = $5::uuid,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE f.project_id = $1::uuid
-		   AND (f.id::text = $2 OR f.slug = $2)
+		   AND f.id::text = $2
 		   AND u.id = f.owner_user_id
-		 RETURNING f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), COALESCE(u.name, ''),
+		 RETURNING f.id::text, f.slug, f.title, COALESCE(f.outcome::text, 'Needs Iteration'), f.status::text, COALESCE(u.name, ''),
 		 	 COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''), f.primary_task_id IS NOT NULL, f.is_orphan, f.document_revision`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &slug, &title, &outOutcome, &owner, &createdDate, &hasTaskLink, &isOrphan, &revision)
+			return row.Scan(&id, &slug, &title, &outOutcome, &outStatus, &owner, &createdDate, &hasTaskLink, &isOrphan, &revision)
 		},
 		identity.UUID,
 		strings.TrimSpace(feedbackID),
 		outcome,
+		status,
 		primaryTaskID,
 	))
 	if err != nil {
@@ -1684,10 +2113,11 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 	}
 
 	return map[string]any{
-		"id":               slugOrID(slug, id),
+		"id":               id,
 		"title":            title,
 		"linkedArtifacts":  []string{},
 		"outcome":          outOutcome,
+		"status":           outStatus,
 		"linkedTaskOrIdea": linkedTaskOrIdea,
 		"owner":            owner,
 		"createdDate":      createdDate,
@@ -1748,6 +2178,12 @@ func (r *repo) upsertDocument(ctx context.Context, projectUUID, artifactType, ar
 		return err
 	}
 
+	existingContent, err := r.loadLatestContent(ctx, projectUUID, artifactType, artifactID, map[string]any{})
+	if err != nil {
+		return err
+	}
+	mergedContent := patchx.MergeShallow(existingContent, content)
+
 	documentID := fmt.Sprintf("%s:%s", artifactType, artifactID)
 	doc := map[string]any{
 		"artifact_id":        artifactID,
@@ -1757,7 +2193,7 @@ func (r *repo) upsertDocument(ctx context.Context, projectUUID, artifactType, ar
 		"updated_at":         time.Now().UTC(),
 		"updated_by_user_id": strings.TrimSpace(actorUserID),
 		"schema_version":     1,
-		"content":            cloneMap(content),
+		"content":            mergedContent,
 	}
 
 	if err := r.docs.Execute(ctx, storage.DocumentRun(
@@ -1812,7 +2248,7 @@ func (r *repo) resolveArtifactIDByIdentifier(ctx context.Context, projectUUID, a
 	if err != nil {
 		return "", err
 	}
-	query := fmt.Sprintf("SELECT id::text FROM %s WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1", table)
+	query := fmt.Sprintf("SELECT id::text FROM %s WHERE project_id = $1::uuid AND id::text = $2 LIMIT 1", table)
 	var id string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(query, func(row storage.RowScanner) error {
 		return row.Scan(&id)
@@ -1880,20 +2316,23 @@ func (r *repo) replaceProblemSourceLinks(ctx context.Context, projectUUID, probl
 	for _, raw := range linkedSources {
 		item := toMap(raw)
 		if item == nil {
-			continue
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked source entry must be an object")
 		}
 		typeRaw := firstNonEmpty(toString(item["type"]), toString(item["artifactType"]))
 		normalized, ok := normalizeArtifactType(typeRaw)
 		if !ok || (normalized != "story" && normalized != "journey") {
-			continue
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked source type must be story or journey")
 		}
 		identifier := toString(item["id"])
 		if identifier == "" {
-			continue
+			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked source id is required")
 		}
 		sourceID, err := r.resolveArtifactIDByIdentifier(ctx, projectUUID, normalized, identifier)
 		if err != nil {
 			return err
+		}
+		if lockErr := r.ensureProblemSourceLocked(ctx, projectUUID, normalized, sourceID); lockErr != nil {
+			return lockErr
 		}
 		if err := r.store.Execute(ctx, storage.RelationalExec(
 			`INSERT INTO artifact_links (project_id, source_type, source_id, target_type, target_id, link_kind, created_by_user_id)
@@ -2026,6 +2465,490 @@ func (r *repo) replaceFeedbackLinks(ctx context.Context, projectUUID, feedbackID
 	return nil
 }
 
+func stringSliceToAny(values []string) []any {
+	trimmed := normalizeUniqueStrings(values)
+	out := make([]any, 0, len(trimmed))
+	for _, value := range trimmed {
+		out = append(out, value)
+	}
+	return out
+}
+
+func extractTaskAssigneeIDs(patch map[string]any) ([]string, bool) {
+	if patch == nil {
+		return nil, false
+	}
+	if raw, ok := patch["assignedToIds"]; ok {
+		return normalizeUniqueStrings(asStringSlice(raw)), true
+	}
+	if raw, ok := patch["assignedToId"]; ok {
+		value := strings.TrimSpace(toString(raw))
+		if value == "" {
+			return []string{}, true
+		}
+		return []string{value}, true
+	}
+	return nil, false
+}
+
+func asStringSlice(value any) []string {
+	if value == nil {
+		return []string{}
+	}
+	switch typed := value.(type) {
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			trimmed := strings.TrimSpace(toString(item))
+			if trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return []string{}
+		}
+		return []string{trimmed}
+	default:
+		return []string{}
+	}
+}
+
+func coerceAnySlice(value any) ([]any, bool) {
+	switch typed := value.(type) {
+	case []any:
+		return typed, true
+	case []map[string]any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func normalizeUniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		unique = append(unique, trimmed)
+	}
+	return unique
+}
+
+func (r *repo) listTaskAssigneeIDs(ctx context.Context, projectUUID, taskID string) ([]string, error) {
+	ids := make([]string, 0, 4)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT ta.user_id::text
+		 FROM task_assignees ta
+		 WHERE ta.project_id = $1::uuid
+		   AND ta.task_id = $2::uuid
+		 ORDER BY ta.assigned_at ASC, ta.user_id ASC`,
+		func(row storage.RowScanner) error {
+			var userID string
+			if scanErr := row.Scan(&userID); scanErr != nil {
+				return scanErr
+			}
+			trimmed := strings.TrimSpace(userID)
+			if trimmed != "" {
+				ids = append(ids, trimmed)
+			}
+			return nil
+		},
+		projectUUID,
+		taskID,
+	))
+	if err != nil {
+		return nil, wrapRepoError("list task assignees", err)
+	}
+	return normalizeUniqueStrings(ids), nil
+}
+
+func (r *repo) listTaskAssigneeOptions(ctx context.Context, projectUUID string) ([]any, error) {
+	options := make([]any, 0, 8)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`WITH assignable AS (
+		 	SELECT pm.user_id, pm.role::text AS role
+		 	FROM project_members pm
+		 	WHERE pm.project_id = $1::uuid
+		 	  AND pm.status = 'Active'::member_status
+		 	UNION ALL
+		 	SELECT p.owner_user_id, 'Owner'
+		 	FROM projects p
+		 	WHERE p.id = $1::uuid
+		 ), dedup AS (
+		 	SELECT
+		 		a.user_id,
+		 		CASE
+		 			WHEN BOOL_OR(a.role = 'Owner') THEN 'Owner'
+		 			ELSE MIN(a.role)
+		 		END AS role
+		 	FROM assignable a
+		 	GROUP BY a.user_id
+		 )
+		 SELECT d.user_id::text, COALESCE(u.name, ''), d.role
+		 FROM dedup d
+		 JOIN users u ON u.id = d.user_id
+		 ORDER BY CASE WHEN d.role = 'Owner' THEN 0 ELSE 1 END, u.name ASC`,
+		func(row storage.RowScanner) error {
+			var userID, name, role string
+			if scanErr := row.Scan(&userID, &name, &role); scanErr != nil {
+				return scanErr
+			}
+			trimmedID := strings.TrimSpace(userID)
+			trimmedName := strings.TrimSpace(name)
+			if trimmedID == "" || trimmedName == "" {
+				return nil
+			}
+			trimmedRole := strings.TrimSpace(role)
+			if trimmedRole == "" {
+				trimmedRole = "Member"
+			}
+			options = append(options, map[string]any{
+				"id":   trimmedID,
+				"name": trimmedName,
+				"role": trimmedRole,
+			})
+			return nil
+		},
+		projectUUID,
+	))
+	if err != nil {
+		return nil, wrapRepoError("list task assignee options", err)
+	}
+	return options, nil
+}
+
+func (r *repo) resolveActiveProjectMemberIDs(ctx context.Context, projectUUID string, userIDs []string) ([]string, error) {
+	uniqueIDs := normalizeUniqueStrings(userIDs)
+	if len(uniqueIDs) == 0 {
+		return []string{}, nil
+	}
+
+	active := make(map[string]struct{}, len(uniqueIDs))
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT candidate.user_id::text
+		 FROM (
+		 	SELECT pm.user_id
+		 	FROM project_members pm
+		 	WHERE pm.project_id = $1::uuid
+		 	  AND pm.status = 'Active'::member_status
+		 	  AND pm.user_id::text = ANY($2::text[])
+		 	UNION
+		 	SELECT p.owner_user_id
+		 	FROM projects p
+		 	WHERE p.id = $1::uuid
+		 	  AND p.owner_user_id::text = ANY($2::text[])
+		 ) AS candidate`,
+		func(row storage.RowScanner) error {
+			var userID string
+			if scanErr := row.Scan(&userID); scanErr != nil {
+				return scanErr
+			}
+			active[strings.TrimSpace(userID)] = struct{}{}
+			return nil
+		},
+		projectUUID,
+		uniqueIDs,
+	))
+	if err != nil {
+		return nil, wrapRepoError("resolve active project members", err)
+	}
+
+	for _, userID := range uniqueIDs {
+		if _, ok := active[userID]; !ok {
+			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "assignee must be an active project member")
+		}
+	}
+
+	return uniqueIDs, nil
+}
+
+func (r *repo) replaceTaskAssignees(ctx context.Context, projectUUID, taskID, actorUserID string, assigneeUserIDs []string) error {
+	if err := r.store.Execute(ctx, storage.RelationalExec(
+		`DELETE FROM task_assignees
+		 WHERE project_id = $1::uuid
+		   AND task_id = $2::uuid`,
+		projectUUID,
+		taskID,
+	)); err != nil {
+		return wrapRepoError("clear task assignees", err)
+	}
+
+	for _, userID := range normalizeUniqueStrings(assigneeUserIDs) {
+		if err := r.store.Execute(ctx, storage.RelationalExec(
+			`INSERT INTO task_assignees (task_id, project_id, user_id, assigned_by_user_id)
+			 VALUES ($1::uuid, $2::uuid, $3::uuid, NULLIF($4, '')::uuid)
+			 ON CONFLICT (task_id, user_id)
+			 DO UPDATE SET assigned_at = NOW(), assigned_by_user_id = EXCLUDED.assigned_by_user_id`,
+			taskID,
+			projectUUID,
+			userID,
+			strings.TrimSpace(actorUserID),
+		)); err != nil {
+			return wrapRepoError("insert task assignee", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *repo) listLockedProblemOptions(ctx context.Context, identity projectIdentity) ([]any, error) {
+	options := make([]any, 0, 16)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT p.id::text, p.slug, p.title, p.status::text
+		 FROM problems p
+		 WHERE p.project_id = $1::uuid
+		   AND p.status = 'Locked'::problem_status
+		 ORDER BY p.updated_at DESC
+		 LIMIT 200`,
+		func(row storage.RowScanner) error {
+			var id, slug, title, status string
+			if scanErr := row.Scan(&id, &slug, &title, &status); scanErr != nil {
+				return scanErr
+			}
+			problemID := id
+			if strings.TrimSpace(problemID) == "" || strings.TrimSpace(title) == "" {
+				return nil
+			}
+			options = append(options, map[string]any{
+				"id":     problemID,
+				"title":  strings.TrimSpace(title),
+				"phase":  "Define",
+				"href":   fmt.Sprintf("/project/%s/problems/%s", identity.UUID, problemID),
+				"status": strings.TrimSpace(status),
+			})
+			return nil
+		},
+		identity.UUID,
+	))
+	if err != nil {
+		return nil, wrapRepoError("list locked problem options", err)
+	}
+	return options, nil
+}
+
+func (r *repo) ensureProblemLocked(ctx context.Context, projectUUID, problemID string) error {
+	var status string
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		`SELECT status::text
+		 FROM problems
+		 WHERE project_id = $1::uuid
+		   AND id = $2::uuid
+		 LIMIT 1`,
+		func(row storage.RowScanner) error { return row.Scan(&status) },
+		projectUUID,
+		problemID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperr.New(apperr.CodeNotFound, http.StatusNotFound, "problem not found")
+		}
+		return wrapRepoError("check problem status", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(status), "Locked") {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "idea must link to a locked problem")
+	}
+	return nil
+}
+
+func (r *repo) ensureIdeaSelectedForTask(ctx context.Context, projectUUID, ideaID string) error {
+	var status string
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		`SELECT status::text
+		 FROM ideas
+		 WHERE project_id = $1::uuid
+		   AND id = $2::uuid
+		 LIMIT 1`,
+		func(row storage.RowScanner) error { return row.Scan(&status) },
+		projectUUID,
+		ideaID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperr.New(apperr.CodeNotFound, http.StatusNotFound, "idea not found")
+		}
+		return wrapRepoError("check idea status", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(status), "Selected") {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "task must link to a selected idea")
+	}
+	return nil
+}
+
+func (r *repo) ensureProblemSourceLocked(ctx context.Context, projectUUID, artifactType, artifactID string) error {
+	var table string
+	switch strings.TrimSpace(artifactType) {
+	case "story":
+		table = "stories"
+	case "journey":
+		table = "journeys"
+	default:
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "unsupported linked source type")
+	}
+
+	query := fmt.Sprintf(`SELECT status::text FROM %s WHERE project_id = $1::uuid AND id = $2::uuid LIMIT 1`, table)
+	var status string
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		query,
+		func(row storage.RowScanner) error { return row.Scan(&status) },
+		projectUUID,
+		artifactID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperr.New(apperr.CodeNotFound, http.StatusNotFound, "linked source not found")
+		}
+		return wrapRepoError("check linked source status", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(status), "Locked") {
+		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "problem sources must be locked")
+	}
+	return nil
+}
+
+func (r *repo) listTaskIdeaOptions(ctx context.Context, identity projectIdentity) ([]any, error) {
+	options := make([]any, 0, 16)
+	err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT
+			i.id::text,
+			i.slug,
+			i.title,
+			p.id::text,
+			p.slug,
+			p.title,
+			p.status::text,
+			COALESCE(src.source_type, ''),
+			COALESCE(src.source_id, ''),
+			COALESCE(src.source_slug, ''),
+			COALESCE(src.source_title, ''),
+			COALESCE(src.source_status, '')
+		 FROM ideas i
+		 JOIN problems p ON p.id = i.primary_problem_id
+		 LEFT JOIN LATERAL (
+		 	SELECT
+		 		l.source_type::text AS source_type,
+		 		COALESCE(s.id::text, j.id::text) AS source_id,
+		 		COALESCE(s.slug, j.slug) AS source_slug,
+		 		COALESCE(s.title, j.title) AS source_title,
+		 		COALESCE(s.status::text, j.status::text) AS source_status
+		 	FROM artifact_links l
+		 	LEFT JOIN stories s ON l.source_type = 'story'::artifact_type AND s.id = l.source_id
+		 	LEFT JOIN journeys j ON l.source_type = 'journey'::artifact_type AND j.id = l.source_id
+		 	WHERE l.project_id = i.project_id
+		 	  AND l.target_type = 'problem'::artifact_type
+		 	  AND l.target_id = p.id
+		 	  AND l.source_type IN ('story'::artifact_type, 'journey'::artifact_type)
+		 	ORDER BY l.created_at ASC
+		 	LIMIT 1
+		 ) src ON TRUE
+		 WHERE i.project_id = $1::uuid
+		   AND i.status = 'Selected'::idea_status
+		 ORDER BY i.updated_at DESC
+		 LIMIT 200`,
+		func(row storage.RowScanner) error {
+			var ideaID, ideaSlug, ideaTitle string
+			var problemID, problemSlug, problemTitle, problemStatus string
+			var sourceType, sourceID, sourceSlug, sourceTitle, sourceStatus string
+			if scanErr := row.Scan(
+				&ideaID,
+				&ideaSlug,
+				&ideaTitle,
+				&problemID,
+				&problemSlug,
+				&problemTitle,
+				&problemStatus,
+				&sourceType,
+				&sourceID,
+				&sourceSlug,
+				&sourceTitle,
+				&sourceStatus,
+			); scanErr != nil {
+				return scanErr
+			}
+
+			ideaIdentifier := strings.TrimSpace(ideaID)
+			problemIdentifier := strings.TrimSpace(problemID)
+			if strings.TrimSpace(ideaIdentifier) == "" || strings.TrimSpace(problemIdentifier) == "" {
+				return nil
+			}
+
+			contextType := "Persona"
+			contextPath := "stories"
+			if strings.EqualFold(strings.TrimSpace(sourceType), "journey") {
+				contextType = "User Journey"
+				contextPath = "journeys"
+			}
+
+			contextIdentifier := strings.TrimSpace(sourceID)
+			contextTitle := strings.TrimSpace(sourceTitle)
+			if contextTitle == "" {
+				contextTitle = strings.TrimSpace(problemTitle)
+			}
+
+			contextHref := fmt.Sprintf("/project/%s/problems/%s", identity.UUID, problemIdentifier)
+			if strings.TrimSpace(contextIdentifier) != "" {
+				contextHref = fmt.Sprintf("/project/%s/%s/%s", identity.UUID, contextPath, contextIdentifier)
+			}
+
+			contextStatus := "Active"
+			if strings.EqualFold(strings.TrimSpace(sourceStatus), "Archived") {
+				contextStatus = "Archived"
+			}
+
+			options = append(options, map[string]any{
+				"id":     ideaIdentifier,
+				"title":  strings.TrimSpace(ideaTitle),
+				"phase":  "Ideate",
+				"href":   fmt.Sprintf("/project/%s/ideas/%s", identity.UUID, ideaIdentifier),
+				"status": "Active",
+				"problem": map[string]any{
+					"id":     problemIdentifier,
+					"title":  strings.TrimSpace(problemTitle),
+					"phase":  "Define",
+					"href":   fmt.Sprintf("/project/%s/problems/%s", identity.UUID, problemIdentifier),
+					"status": strings.TrimSpace(problemStatus),
+				},
+				"context": map[string]any{
+					"type":   contextType,
+					"title":  contextTitle,
+					"detail": "",
+					"phase":  "Empathize",
+					"href":   contextHref,
+					"status": contextStatus,
+				},
+			})
+			return nil
+		},
+		identity.UUID,
+	))
+	if err != nil {
+		return nil, wrapRepoError("list task idea options", err)
+	}
+	return options, nil
+}
+
 func painCountOrSentinel(patch map[string]any) int {
 	if _, ok := patch["painPoints"]; !ok {
 		return -1
@@ -2049,13 +2972,6 @@ func cloneMap(in map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
-}
-
-func slugOrID(slug, id string) string {
-	if strings.TrimSpace(slug) != "" {
-		return strings.TrimSpace(slug)
-	}
-	return strings.TrimSpace(id)
 }
 
 func firstNonEmpty(values ...string) string {
@@ -2092,12 +3008,12 @@ func defaultStoryContent(title string) map[string]any {
 		"persona": map[string]any{
 			"name": "", "bio": "", "role": "", "age": 0, "job": "", "edu": "",
 		},
-		"context":    "",
-		"empathyMap": map[string]any{"says": "", "thinks": "", "does": "", "feels": ""},
-		"painPoints": []any{},
-		"hypothesis": []any{},
+		"context":       "",
+		"empathyMap":    map[string]any{"says": "", "thinks": "", "does": "", "feels": ""},
+		"painPoints":    []any{},
+		"hypothesis":    []any{},
 		"addOnSections": []any{},
-		"notes":      "",
+		"notes":         "",
 	}
 }
 
@@ -2190,6 +3106,7 @@ func defaultIdeaContent(title string) map[string]any {
 func defaultTaskContent(title string) map[string]any {
 	return map[string]any{
 		"assignedToId":   "",
+		"assignedToIds":  []any{},
 		"selectedIdeaId": "",
 		"deadline":       "",
 		"hypothesis":     "",
@@ -2205,6 +3122,7 @@ func defaultTaskContent(title string) map[string]any {
 func defaultFeedbackContent(title string) map[string]any {
 	return map[string]any{
 		"description":     "",
+		"status":          "Active",
 		"outcome":         "Needs Iteration",
 		"linkedArtifacts": []any{},
 		"activeModules":   []any{},

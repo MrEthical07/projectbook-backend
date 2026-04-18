@@ -45,7 +45,7 @@ func TestCalendarRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/v1/projects/atlas-2026/calendar", ""},
 		{http.MethodPost, "/api/v1/projects/atlas-2026/calendar", `{"title":"Review","start":"2026-02-20","end":"2026-02-20","allDay":true,"owner":"Ayush","phase":"Prototype","eventKind":"Review"}`},
 		{http.MethodGet, "/api/v1/projects/atlas-2026/calendar/evt-1", ""},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/calendar/evt-1", `{"state":{"title":"Updated"}}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/calendar/evt-1", `{"state":{"title":"Updated"}}`},
 		{http.MethodDelete, "/api/v1/projects/atlas-2026/calendar/evt-1", ""},
 	}
 

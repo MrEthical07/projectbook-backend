@@ -128,7 +128,7 @@ func (s *service) BatchInvites(ctx context.Context, projectID, actorUserID strin
 	}
 
 	response := batchInviteResponse{
-		ProjectID: projectIdentity.Slug,
+		ProjectID: projectIdentity.UUID,
 		Invited:   make([]batchInviteSuccess, 0, len(req.Invites)),
 		Failed:    make([]batchInviteFailure, 0),
 	}

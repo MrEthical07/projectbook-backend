@@ -45,8 +45,8 @@ func TestPagesRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/v1/projects/atlas-2026/pages", ""},
 		{http.MethodPost, "/api/v1/projects/atlas-2026/pages", `{"title":"Research"}`},
 		{http.MethodGet, "/api/v1/projects/atlas-2026/pages/research-notes", ""},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/pages/pg-1", `{"state":{"status":"Draft"}}`},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/pages/pg-1/rename", `{"title":"Updated"}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/pages/pg-1", `{"state":{"status":"Draft"}}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/pages/pg-1/rename", `{"title":"Updated"}`},
 	}
 
 	for _, tc := range tests {

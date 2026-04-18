@@ -14,6 +14,10 @@ import (
 // Service defines project module business workflows.
 type Service interface {
 	Dashboard(ctx context.Context, userID, projectID string) (projectDashboardResponse, error)
+	DashboardSummary(ctx context.Context, userID, projectID string) (projectDashboardSummaryResponse, error)
+	DashboardMyWork(ctx context.Context, userID, projectID string) (projectDashboardMyWorkResponse, error)
+	DashboardEvents(ctx context.Context, userID, projectID string) (projectDashboardEventsResponse, error)
+	DashboardActivity(ctx context.Context, userID, projectID string) (projectDashboardActivityResponse, error)
 	Access(ctx context.Context, userID, projectID, role string, mask uint64) (projectAccessResponse, error)
 	Sidebar(ctx context.Context, userID, projectID string) (projectSidebarResponse, error)
 	GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error)
@@ -40,6 +44,54 @@ func (s *service) Dashboard(ctx context.Context, userID, projectID string) (proj
 	data, err := s.repo.Dashboard(ctx, projectID, userID)
 	if err != nil {
 		return projectDashboardResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) DashboardSummary(ctx context.Context, userID, projectID string) (projectDashboardSummaryResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectDashboardSummaryResponse{}, err
+	}
+
+	data, err := s.repo.DashboardSummary(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardSummaryResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) DashboardMyWork(ctx context.Context, userID, projectID string) (projectDashboardMyWorkResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectDashboardMyWorkResponse{}, err
+	}
+
+	data, err := s.repo.DashboardMyWork(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardMyWorkResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) DashboardEvents(ctx context.Context, userID, projectID string) (projectDashboardEventsResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectDashboardEventsResponse{}, err
+	}
+
+	data, err := s.repo.DashboardEvents(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardEventsResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) DashboardActivity(ctx context.Context, userID, projectID string) (projectDashboardActivityResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectDashboardActivityResponse{}, err
+	}
+
+	data, err := s.repo.DashboardActivity(ctx, projectID, userID)
+	if err != nil {
+		return projectDashboardActivityResponse{}, mapProjectRepoError(err)
 	}
 	return data, nil
 }

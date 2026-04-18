@@ -211,7 +211,7 @@ func (m *Module) Register(r httpx.Router) error {
 			}}),
 		)
 		r.Handle(
-			http.MethodPut,
+			http.MethodPatch,
 			"/api/v1/home/account",
 			httpx.Adapter(m.handler.UpdateAccountSettings),
 			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
@@ -229,7 +229,7 @@ func (m *Module) Register(r httpx.Router) error {
 		r.Handle(http.MethodPost, "/api/v1/home/projects", httpx.Adapter(m.handler.CreateProject), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.RateLimit(limiter, createProjectRule))
 		r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/accept", httpx.Adapter(m.handler.AcceptInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RateLimit(limiter, inviteActionRule))
 		r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/decline", httpx.Adapter(m.handler.DeclineInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RateLimit(limiter, inviteActionRule))
-		r.Handle(http.MethodPut, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.RateLimit(limiter, accountUpdateRule))
+		r.Handle(http.MethodPatch, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.RateLimit(limiter, accountUpdateRule))
 		return nil
 	}
 
@@ -237,14 +237,14 @@ func (m *Module) Register(r httpx.Router) error {
 		r.Handle(http.MethodPost, "/api/v1/home/projects", httpx.Adapter(m.handler.CreateProject), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{{Name: "home.dashboard", UserID: true}, {Name: "home.projects", UserID: true}, {Name: "home.reference", UserID: true}}}))
 		r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/accept", httpx.Adapter(m.handler.AcceptInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{{Name: "home.dashboard", UserID: true}, {Name: "home.invites", UserID: true}, {Name: "home.projects", UserID: true}}}))
 		r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/decline", httpx.Adapter(m.handler.DeclineInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{{Name: "home.invites", UserID: true}, {Name: "home.dashboard", UserID: true}}}))
-		r.Handle(http.MethodPut, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{{Name: "home.account", UserID: true}, {Name: "home.dashboard", UserID: true}}}))
+		r.Handle(http.MethodPatch, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON(), policy.CacheInvalidate(cacheMgr, cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{{Name: "home.account", UserID: true}, {Name: "home.dashboard", UserID: true}}}))
 		return nil
 	}
 
 	r.Handle(http.MethodPost, "/api/v1/home/projects", httpx.Adapter(m.handler.CreateProject), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON())
 	r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/accept", httpx.Adapter(m.handler.AcceptInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()))
 	r.Handle(http.MethodPost, "/api/v1/home/invites/{inviteId}/decline", httpx.Adapter(m.handler.DeclineInvite), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()))
-	r.Handle(http.MethodPut, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON())
+	r.Handle(http.MethodPatch, "/api/v1/home/account", httpx.Adapter(m.handler.UpdateAccountSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.RequireJSON())
 
 	return nil
 }

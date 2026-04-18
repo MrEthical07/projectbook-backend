@@ -42,7 +42,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.ResolvePermissions(resolver),
 		policy.RequirePermission(rbac.PermCalendarView),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/calendar/{eventId}", httpx.Adapter(m.handler.UpdateCalendarEvent),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/calendar/{eventId}", httpx.Adapter(m.handler.UpdateCalendarEvent),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),

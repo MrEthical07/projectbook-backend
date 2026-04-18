@@ -1,7 +1,6 @@
 package sidebar
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,28 +8,21 @@ import (
 
 	"github.com/MrEthical07/superapi/internal/core/app"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/permissions"
 )
 
-type allowResolver struct{}
-
-func (allowResolver) Resolve(_ context.Context, userID, projectID string) (permissions.Resolution, error) {
-	return permissions.Resolution{UserID: userID, ProjectID: projectID, Role: "Member", Mask: 1, UpdatedAtUnix: 1}, nil
-}
-
-func TestSidebarRegisterRequiresResolver(t *testing.T) {
+func TestSidebarRegisterNoLongerRequiresResolver(t *testing.T) {
 	m := &Module{}
 	m.BindDependencies(&app.Dependencies{})
 
 	r := httpx.NewMux()
-	if err := m.Register(r); err == nil {
-		t.Fatal("expected resolver dependency error")
+	if err := m.Register(r); err != nil {
+		t.Fatalf("register: %v", err)
 	}
 }
 
-func TestSidebarRoutesRequireAuth(t *testing.T) {
+func TestSidebarMutationRoutesAreRemoved(t *testing.T) {
 	m := &Module{}
-	m.BindDependencies(&app.Dependencies{PermissionsResolver: allowResolver{}})
+	m.BindDependencies(&app.Dependencies{})
 
 	r := httpx.NewMux()
 	if err := m.Register(r); err != nil {
@@ -43,7 +35,7 @@ func TestSidebarRoutesRequireAuth(t *testing.T) {
 		body   string
 	}{
 		{http.MethodPost, "/api/v1/projects/atlas-2026/sidebar/artifacts", `{"prefix":"stories","title":"Story"}`},
-		{http.MethodPut, "/api/v1/projects/atlas-2026/sidebar/artifacts/st-1/rename", `{"prefix":"stories","title":"Renamed"}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/sidebar/artifacts/st-1/rename", `{"prefix":"stories","title":"Renamed"}`},
 		{http.MethodDelete, "/api/v1/projects/atlas-2026/sidebar/artifacts/st-1", `{"prefix":"stories"}`},
 	}
 
@@ -55,8 +47,8 @@ func TestSidebarRoutesRequireAuth(t *testing.T) {
 		}
 
 		r.ServeHTTP(rr, req)
-		if rr.Code != http.StatusUnauthorized {
-			t.Fatalf("path=%s status=%d want=%d body=%s", tc.path, rr.Code, http.StatusUnauthorized, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("path=%s status=%d want=%d body=%s", tc.path, rr.Code, http.StatusNotFound, rr.Body.String())
 		}
 	}
 }

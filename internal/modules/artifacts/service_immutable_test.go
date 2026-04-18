@@ -32,6 +32,13 @@ func TestEnforceArchiveOnlyForImmutableUpdate(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:      "archived allows restore-only patch",
+			from:      "Archived",
+			patch:     map[string]any{"status": "Draft"},
+			immutable: storyImmutableStatuses,
+			wantErr:   false,
+		},
+		{
 			name:      "non-immutable status allows update",
 			from:      "Draft",
 			patch:     map[string]any{"title": "new title"},
@@ -78,6 +85,13 @@ func TestEnforceArchiveOnlyForImmutableStatusChange(t *testing.T) {
 			to:        "Completed",
 			immutable: taskImmutableStatuses,
 			wantErr:   true,
+		},
+		{
+			name:      "archived allows restore status change",
+			from:      "Archived",
+			to:        "Draft",
+			immutable: problemImmutableStatuses,
+			wantErr:   false,
 		},
 		{
 			name:      "non-immutable status allows transition",

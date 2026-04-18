@@ -7,6 +7,10 @@ import (
 )
 
 var ErrSenderUnavailable = errors.New("email sender unavailable")
+var ErrProviderUnavailable = errors.New("email provider unavailable")
+var ErrRateLimited = errors.New("email provider rate limited")
+var ErrInvalidRecipient = errors.New("email recipient invalid")
+var ErrSenderIdentityRejected = errors.New("email sender identity rejected")
 
 // Flow identifies the transactional email flow type for sender selection.
 type Flow string

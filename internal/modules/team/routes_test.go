@@ -47,8 +47,8 @@ func TestTeamRoutesRequireAuth(t *testing.T) {
 		{name: "list members", method: http.MethodGet, path: "/api/v1/projects/atlas-2026/team/members"},
 		{name: "create invite", method: http.MethodPost, path: "/api/v1/projects/atlas-2026/team/invites", body: `{"email":"newuser@example.com","role":"Editor"}`},
 		{name: "batch invites", method: http.MethodPost, path: "/api/v1/projects/atlas-2026/team/invites/batch", body: `{"invites":[{"email":"a@example.com","role":"Editor"}]}`},
-		{name: "update member", method: http.MethodPut, path: "/api/v1/projects/atlas-2026/team/members/11111111-1111-1111-1111-111111111111/permissions", body: `{"role":"Editor","isCustom":true,"permissionMask":3}`},
-		{name: "update role", method: http.MethodPut, path: "/api/v1/projects/atlas-2026/team/roles/editor/permissions", body: `{"role":"Editor","permissionMask":3}`},
+		{name: "update member", method: http.MethodPatch, path: "/api/v1/projects/atlas-2026/team/members/11111111-1111-1111-1111-111111111111/permissions", body: `{"role":"Editor","isCustom":true,"permissionMask":3}`},
+		{name: "update role", method: http.MethodPatch, path: "/api/v1/projects/atlas-2026/team/roles/editor/permissions", body: `{"role":"Editor","permissionMask":3}`},
 	}
 
 	for _, tc := range tests {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	goauth "github.com/MrEthical07/goAuth"
 	coreemail "github.com/MrEthical07/superapi/internal/core/email"
@@ -101,6 +100,21 @@ func (s *service) Login(ctx context.Context, req loginRequest) (authTokenRespons
 
 	accessToken, refreshToken, err := engine.Login(ctx, normalizeEmail(req.Email), req.Password)
 	if err != nil {
+		if errors.Is(err, goauth.ErrAccountUnverified) {
+			details := map[string]any{}
+
+			// Best effort: issue a fresh verification challenge so the verify page can submit immediately.
+			verificationID, verificationErr := s.issueAndSendVerification(ctx, normalizeEmail(req.Email))
+			if verificationID != "" {
+				details["verificationId"] = verificationID
+			}
+			if verificationErr != nil {
+				details["verificationFlowStatus"] = "unavailable"
+			}
+
+			return authTokenResponse{}, mapAuthTokenError(err, "invalid credentials", details)
+		}
+
 		return authTokenResponse{}, mapAuthTokenError(err, "invalid credentials")
 	}
 
@@ -556,16 +570,27 @@ func buildPasswordChangeEmailHTML(code, changeLink string) string {
 	return strings.TrimSpace(fmt.Sprintf("<p>Your ProjectBook password change code is:</p><p style=\"font-size:24px;font-weight:700;letter-spacing:0.2em;\">%s</p><p>This OTP expires in 15 minutes and can only be used once.</p><p>Open your account settings and enter the code:</p><p><a href=\"%s\">%s</a></p>", escapedCode, escapedLink, escapedLink))
 }
 
-func mapAuthTokenError(err error, invalidMessage string) error {
+func mapAuthTokenError(err error, invalidMessage string, detailOverrides ...map[string]any) error {
 	if err == nil {
 		return nil
 	}
 
 	if errors.Is(err, goauth.ErrAccountUnverified) {
+		details := map[string]any{"reason": "email_unverified"}
+		if len(detailOverrides) > 0 && detailOverrides[0] != nil {
+			for key, value := range detailOverrides[0] {
+				normalizedKey := strings.TrimSpace(key)
+				if normalizedKey == "" || value == nil {
+					continue
+				}
+				details[normalizedKey] = value
+			}
+		}
+
 		return apperr.WithCause(
 			apperr.WithDetails(
 				apperr.New(apperr.CodeForbidden, http.StatusForbidden, "email verification required"),
-				map[string]any{"reason": "email_unverified"},
+				details,
 			),
 			err,
 		)
@@ -655,7 +680,23 @@ func mapEmailDeliveryError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return apperr.WithCause(apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "email delivery unavailable"), err)
+
+	switch {
+	case errors.Is(err, coreemail.ErrRateLimited):
+		return apperr.WithCause(apperr.New(apperr.CodeTooManyRequests, http.StatusTooManyRequests, "email delivery temporarily limited"), err)
+	case errors.Is(err, coreemail.ErrInvalidRecipient):
+		return apperr.WithCause(apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "email address is invalid"), err)
+	case errors.Is(err, coreemail.ErrSenderIdentityRejected):
+		return apperr.WithCause(
+			apperr.WithDetails(
+				apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "email delivery unavailable"),
+				map[string]any{"reason": "sender_identity_unverified"},
+			),
+			err,
+		)
+	default:
+		return apperr.WithCause(apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "email delivery unavailable"), err)
+	}
 }
 
 func mapForgotPasswordError(err error) error {
@@ -692,11 +733,9 @@ func buildAuthTokenResponse(accessToken, refreshToken string) (authTokenResponse
 		return authTokenResponse{}, apperr.WithCause(apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "invalid access token payload"), err)
 	}
 
-	expiresAt := time.Unix(expiresUnix, 0).UTC()
 	return authTokenResponse{
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
-		AccessExpiresUTC:  expiresAt.Format(time.RFC3339),
 		AccessExpiresUnix: expiresUnix,
 	}, nil
 }

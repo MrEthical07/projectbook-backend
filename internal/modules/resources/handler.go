@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 )
 
 type Handler struct {
@@ -17,92 +18,97 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) ListResources(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) ListResources(ctx *httpx.Context, _ httpx.NoBody) (ListResourcesResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return ListResourcesResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return ListResourcesResponse{}, err
 	}
 	query, err := parseListQuery(ctx)
 	if err != nil {
-		return nil, err
+		return ListResourcesResponse{}, err
 	}
 	return h.svc.ListResources(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
-func (h *Handler) CreateResource(ctx *httpx.Context, req createResourceRequest) (httpx.Result[map[string]any], error) {
+func (h *Handler) CreateResource(ctx *httpx.Context, req createResourceRequest) (httpx.Result[ResourceListItem], error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[ResourceListItem]{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[ResourceListItem]{}, err
 	}
 	created, err := h.svc.CreateResource(ctx.Context(), resolveProjectScope(principal, projectID), principal.UserID, req)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[ResourceListItem]{}, err
 	}
-	return httpx.Result[map[string]any]{Status: http.StatusCreated, Data: created}, nil
+	return httpx.Result[ResourceListItem]{Status: http.StatusCreated, Data: created}, nil
 }
 
-func (h *Handler) GetResource(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) GetResource(ctx *httpx.Context, _ httpx.NoBody) (GetResourceResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return GetResourceResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return GetResourceResponse{}, err
 	}
 	resourceID := strings.TrimSpace(ctx.Param("resourceId"))
 	if resourceID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
+		return GetResourceResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
 	}
 	return h.svc.GetResource(ctx.Context(), resolveProjectScope(principal, projectID), resourceID)
 }
 
-func (h *Handler) UpdateResource(ctx *httpx.Context, req updateResourceRequest) (map[string]any, error) {
+func (h *Handler) UpdateResource(ctx *httpx.Context, req updateResourceRequest) (ResourceListItem, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return ResourceListItem{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return ResourceListItem{}, err
 	}
 	resourceID := strings.TrimSpace(ctx.Param("resourceId"))
 	if resourceID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
+		return ResourceListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
 	}
 	return h.svc.UpdateResource(ctx.Context(), resolveProjectScope(principal, projectID), resourceID, principal.UserID, req)
 }
 
-func (h *Handler) UpdateResourceStatus(ctx *httpx.Context, req updateResourceStatusRequest) (map[string]any, error) {
+func (h *Handler) UpdateResourceStatus(ctx *httpx.Context, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return UpdateResourceStatusResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return UpdateResourceStatusResponse{}, err
 	}
 	resourceID := strings.TrimSpace(ctx.Param("resourceId"))
 	if resourceID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
+		return UpdateResourceStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
 	}
 	return h.svc.UpdateResourceStatus(ctx.Context(), resolveProjectScope(principal, projectID), resourceID, principal.UserID, req)
 }
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
-	offset, err := parseOptionalIntQuery(ctx.Query("offset"), 0, "offset")
-	if err != nil {
-		return listQuery{}, err
+	offset := 0
+	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+		decodedOffset, err := pagination.DecodeOffsetCursor(cursor)
+		if err != nil {
+			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
+		}
+		offset = decodedOffset
 	}
-	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 25, "limit")
+
+	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 20, "limit")
 	if err != nil {
 		return listQuery{}, err
 	}

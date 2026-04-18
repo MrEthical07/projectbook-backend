@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 )
 
 type Handler struct {
@@ -17,92 +18,96 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) ListPages(ctx *httpx.Context, _ httpx.NoBody) ([]map[string]any, error) {
+func (h *Handler) ListPages(ctx *httpx.Context, _ httpx.NoBody) (ListPagesResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return ListPagesResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return ListPagesResponse{}, err
 	}
 	query, err := parseListQuery(ctx)
 	if err != nil {
-		return nil, err
+		return ListPagesResponse{}, err
 	}
 	return h.svc.ListPages(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
-func (h *Handler) CreatePage(ctx *httpx.Context, req createPageRequest) (httpx.Result[map[string]any], error) {
+func (h *Handler) CreatePage(ctx *httpx.Context, req createPageRequest) (httpx.Result[PageListItem], error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[PageListItem]{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[PageListItem]{}, err
 	}
 	created, err := h.svc.CreatePage(ctx.Context(), resolveProjectScope(principal, projectID), principal.UserID, req)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[PageListItem]{}, err
 	}
-	return httpx.Result[map[string]any]{Status: http.StatusCreated, Data: created}, nil
+	return httpx.Result[PageListItem]{Status: http.StatusCreated, Data: created}, nil
 }
 
-func (h *Handler) GetPage(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) GetPage(ctx *httpx.Context, _ httpx.NoBody) (GetPageResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return GetPageResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return GetPageResponse{}, err
 	}
-	pageID := strings.TrimSpace(ctx.Param("slug"))
+	pageID := strings.TrimSpace(ctx.Param("pageId"))
 	if pageID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "slug is required")
+		return GetPageResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "pageId is required")
 	}
 	return h.svc.GetPage(ctx.Context(), resolveProjectScope(principal, projectID), pageID)
 }
 
-func (h *Handler) UpdatePage(ctx *httpx.Context, req updatePageRequest) (map[string]any, error) {
+func (h *Handler) UpdatePage(ctx *httpx.Context, req updatePageRequest) (PageListItem, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return PageListItem{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return PageListItem{}, err
 	}
 	pageID := strings.TrimSpace(ctx.Param("pageId"))
 	if pageID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "pageId is required")
+		return PageListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "pageId is required")
 	}
 	return h.svc.UpdatePage(ctx.Context(), resolveProjectScope(principal, projectID), pageID, principal.UserID, req)
 }
 
-func (h *Handler) RenamePage(ctx *httpx.Context, req renamePageRequest) (map[string]any, error) {
+func (h *Handler) RenamePage(ctx *httpx.Context, req renamePageRequest) (RenamePageResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return RenamePageResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return RenamePageResponse{}, err
 	}
 	pageID := strings.TrimSpace(ctx.Param("pageId"))
 	if pageID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "pageId is required")
+		return RenamePageResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "pageId is required")
 	}
 	return h.svc.RenamePage(ctx.Context(), resolveProjectScope(principal, projectID), pageID, principal.UserID, req)
 }
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
-	offset, err := parseOptionalIntQuery(ctx.Query("offset"), 0, "offset")
-	if err != nil {
-		return listQuery{}, err
+	offset := 0
+	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
+		if decodeErr != nil {
+			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
+		}
+		offset = decodedOffset
 	}
-	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 25, "limit")
+	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 20, "limit")
 	if err != nil {
 		return listQuery{}, err
 	}

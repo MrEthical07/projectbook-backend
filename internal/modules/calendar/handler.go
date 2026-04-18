@@ -7,6 +7,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/auth"
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 )
 
 type Handler struct {
@@ -17,92 +18,101 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) ListCalendarData(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) ListCalendarData(ctx *httpx.Context, _ httpx.NoBody) (ListCalendarDataResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return ListCalendarDataResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return ListCalendarDataResponse{}, err
 	}
 	query, err := parseListQuery(ctx)
 	if err != nil {
-		return nil, err
+		return ListCalendarDataResponse{}, err
 	}
 	return h.svc.ListCalendarData(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
-func (h *Handler) CreateCalendarEvent(ctx *httpx.Context, req createCalendarEventRequest) (httpx.Result[map[string]any], error) {
+func (h *Handler) CreateCalendarEvent(ctx *httpx.Context, req createCalendarEventRequest) (httpx.Result[CalendarListEvent], error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[CalendarListEvent]{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[CalendarListEvent]{}, err
 	}
 	created, err := h.svc.CreateCalendarEvent(ctx.Context(), resolveProjectScope(principal, projectID), principal.UserID, req)
 	if err != nil {
-		return httpx.Result[map[string]any]{}, err
+		return httpx.Result[CalendarListEvent]{}, err
 	}
-	return httpx.Result[map[string]any]{Status: http.StatusCreated, Data: created}, nil
+	return httpx.Result[CalendarListEvent]{Status: http.StatusCreated, Data: created}, nil
 }
 
-func (h *Handler) GetCalendarEvent(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) GetCalendarEvent(ctx *httpx.Context, _ httpx.NoBody) (GetCalendarEventResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return GetCalendarEventResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return GetCalendarEventResponse{}, err
 	}
 	eventID := strings.TrimSpace(ctx.Param("eventId"))
 	if eventID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
+		return GetCalendarEventResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
 	}
 	return h.svc.GetCalendarEvent(ctx.Context(), resolveProjectScope(principal, projectID), eventID)
 }
 
-func (h *Handler) UpdateCalendarEvent(ctx *httpx.Context, req updateCalendarEventRequest) (map[string]any, error) {
+func (h *Handler) UpdateCalendarEvent(ctx *httpx.Context, req updateCalendarEventRequest) (UpdateCalendarEventResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return UpdateCalendarEventResponse{}, err
 	}
 	eventID := strings.TrimSpace(ctx.Param("eventId"))
 	if eventID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
+		return UpdateCalendarEventResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
 	}
 	return h.svc.UpdateCalendarEvent(ctx.Context(), resolveProjectScope(principal, projectID), eventID, principal.UserID, req)
 }
 
-func (h *Handler) DeleteCalendarEvent(ctx *httpx.Context, _ httpx.NoBody) (map[string]any, error) {
+func (h *Handler) DeleteCalendarEvent(ctx *httpx.Context, _ httpx.NoBody) (DeleteCalendarEventResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
-		return nil, err
+		return DeleteCalendarEventResponse{}, err
 	}
 	projectID, err := requireProjectID(ctx)
 	if err != nil {
-		return nil, err
+		return DeleteCalendarEventResponse{}, err
 	}
 	eventID := strings.TrimSpace(ctx.Param("eventId"))
 	if eventID == "" {
-		return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
+		return DeleteCalendarEventResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "eventId is required")
 	}
 	return h.svc.DeleteCalendarEvent(ctx.Context(), resolveProjectScope(principal, projectID), eventID, principal.UserID)
 }
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
+	offset := 0
+	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
+		if decodeErr != nil {
+			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
+		}
+		offset = decodedOffset
+	}
+
 	limit, err := parseLimit(ctx.Query("limit"))
 	if err != nil {
 		return listQuery{}, err
 	}
-	return listQuery{Limit: limit}, nil
+	return listQuery{Offset: offset, Limit: limit}, nil
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

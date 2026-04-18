@@ -32,6 +32,15 @@ type createSidebarArtifactRequest struct {
 	Title  string `json:"title"`
 }
 
+type SidebarArtifactResponse struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type SidebarDeleteResponse struct {
+	ID string `json:"id"`
+}
+
 func (r createSidebarArtifactRequest) Validate() error {
 	if _, ok := allowedPrefixes[normalizePrefix(r.Prefix)]; !ok {
 		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid prefix")
@@ -87,4 +96,15 @@ func mapString(item map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func decodeSidebarArtifactResponse(payload map[string]any) SidebarArtifactResponse {
+	return SidebarArtifactResponse{
+		ID:    mapString(payload, "id"),
+		Title: mapString(payload, "title"),
+	}
+}
+
+func decodeSidebarDeleteResponse(payload map[string]any) SidebarDeleteResponse {
+	return SidebarDeleteResponse{ID: mapString(payload, "id")}
 }

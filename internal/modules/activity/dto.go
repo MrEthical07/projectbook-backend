@@ -14,7 +14,23 @@ const (
 )
 
 type listQuery struct {
-	Limit int
+	Offset int
+	Limit  int
+}
+
+type ListProjectActivityResponse struct {
+	Items      []ActivityItem `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+
+type ActivityItem struct {
+	ID       string `json:"id"`
+	User     string `json:"user"`
+	Initials string `json:"initials"`
+	Action   string `json:"action"`
+	Artifact string `json:"artifact"`
+	Href     string `json:"href"`
+	At       string `json:"at"`
 }
 
 func parseLimit(raw string) (int, error) {

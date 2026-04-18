@@ -10,8 +10,7 @@ import (
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/storage"
-	"github.com/MrEthical07/superapi/internal/modules/artifacts"
-	"github.com/MrEthical07/superapi/internal/modules/pages"
+	pagesmod "github.com/MrEthical07/superapi/internal/modules/pages"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,8 +23,30 @@ type Repo interface {
 type repo struct {
 	store         storage.RelationalStore
 	docs          storage.DocumentStore
-	artifactsRepo artifacts.Repo
-	pagesSvc      pages.Service
+	artifactsRepo sidebarArtifactsRepo
+	pagesSvc      sidebarPagesService
+}
+
+type sidebarArtifactsRepo interface {
+	CreateStory(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
+	CreateJourney(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
+	CreateProblem(ctx context.Context, projectID, actorUserID, statement string, content map[string]any) (map[string]any, error)
+	CreateIdea(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
+	CreateTask(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
+	CreateFeedback(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
+
+	UpdateStory(ctx context.Context, projectID, storyID, actorUserID string, patch map[string]any) (map[string]any, error)
+	UpdateJourney(ctx context.Context, projectID, journeyID, actorUserID string, patch map[string]any) (map[string]any, error)
+	UpdateProblem(ctx context.Context, projectID, problemID, actorUserID string, patch map[string]any) (map[string]any, error)
+	UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID string, patch map[string]any) (map[string]any, error)
+	UpdateTask(ctx context.Context, projectID, taskID, actorUserID string, patch map[string]any) (map[string]any, error)
+	UpdateFeedback(ctx context.Context, projectID, feedbackID, actorUserID string, patch map[string]any) (map[string]any, error)
+}
+
+type sidebarPagesService interface {
+	CreatePageForSidebar(ctx context.Context, projectID, actorUserID, title string) (pagesmod.PageListItem, error)
+	RenamePageForSidebar(ctx context.Context, projectID, pageID, actorUserID, title string) (pagesmod.RenamePageResponse, error)
+	DeletePageForSidebar(ctx context.Context, projectID, pageID, actorUserID string) (pagesmod.DeletePageResponse, error)
 }
 
 type projectIdentity struct {
@@ -41,7 +62,7 @@ type artifactSpec struct {
 	Label        string
 }
 
-func NewRepo(store storage.RelationalStore, docs storage.DocumentStore, artifactsRepo artifacts.Repo, pagesSvc pages.Service) Repo {
+func NewRepo(store storage.RelationalStore, docs storage.DocumentStore, artifactsRepo sidebarArtifactsRepo, pagesSvc sidebarPagesService) Repo {
 	return &repo{store: store, docs: docs, artifactsRepo: artifactsRepo, pagesSvc: pagesSvc}
 }
 
@@ -71,7 +92,12 @@ func (r *repo) CreateSidebarArtifact(ctx context.Context, projectID, actorUserID
 	case prefixFeedback:
 		created, err = r.artifactsRepo.CreateFeedback(ctx, projectID, actorUserID, title, nil)
 	case prefixPages:
-		created, err = r.pagesSvc.CreatePageForSidebar(ctx, projectID, actorUserID, title)
+		pageCreated, pageErr := r.pagesSvc.CreatePageForSidebar(ctx, projectID, actorUserID, title)
+		if pageErr != nil {
+			err = pageErr
+			break
+		}
+		created = map[string]any{"id": pageCreated.ID, "title": pageCreated.Title}
 	default:
 		err = apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid prefix")
 	}
@@ -88,9 +114,13 @@ func (r *repo) CreateSidebarArtifact(ctx context.Context, projectID, actorUserID
 	}
 
 	if normalized != prefixPages {
-		if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, id, "created "+spec.Label, map[string]any{
+		artifactUUID, resolveErr := r.resolveArtifactUUID(ctx, identity.UUID, spec.Table, id)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, artifactUUID, "created "+spec.Label, map[string]any{
 			"artifact": outTitle,
-			"href":     fmt.Sprintf("/project/%s/%s/%s", identity.Slug, spec.PathSegment, id),
+			"href":     fmt.Sprintf("/project/%s/%s/%s", identity.UUID, spec.PathSegment, id),
 		}); err != nil {
 			return nil, err
 		}
@@ -125,7 +155,12 @@ func (r *repo) RenameSidebarArtifact(ctx context.Context, projectID, artifactID,
 	case prefixFeedback:
 		updated, err = r.artifactsRepo.UpdateFeedback(ctx, projectID, artifactID, actorUserID, map[string]any{"title": title})
 	case prefixPages:
-		updated, err = r.pagesSvc.RenamePageForSidebar(ctx, projectID, artifactID, actorUserID, title)
+		pageUpdated, pageErr := r.pagesSvc.RenamePageForSidebar(ctx, projectID, artifactID, actorUserID, title)
+		if pageErr != nil {
+			err = pageErr
+			break
+		}
+		updated = map[string]any{"id": pageUpdated.ID, "title": pageUpdated.Title, "lastEdited": pageUpdated.LastEdited}
 	default:
 		err = apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid prefix")
 	}
@@ -142,9 +177,13 @@ func (r *repo) RenameSidebarArtifact(ctx context.Context, projectID, artifactID,
 	}
 
 	if normalized != prefixPages {
-		if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, id, "renamed "+spec.Label, map[string]any{
+		artifactUUID, resolveErr := r.resolveArtifactUUID(ctx, identity.UUID, spec.Table, id)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, artifactUUID, "renamed "+spec.Label, map[string]any{
 			"artifact": outTitle,
-			"href":     fmt.Sprintf("/project/%s/%s/%s", identity.Slug, spec.PathSegment, id),
+			"href":     fmt.Sprintf("/project/%s/%s/%s", identity.UUID, spec.PathSegment, id),
 		}); err != nil {
 			return nil, err
 		}
@@ -169,7 +208,7 @@ func (r *repo) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID,
 		if deleteErr != nil {
 			return nil, wrapRepoError("delete sidebar page", deleteErr)
 		}
-		return map[string]any{"id": mapString(deleted, "id")}, nil
+		return map[string]any{"id": strings.TrimSpace(deleted.ID)}, nil
 	}
 
 	id, title, err := r.deleteArtifactRow(ctx, identity.UUID, spec.Table, artifactID)
@@ -181,7 +220,7 @@ func (r *repo) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID,
 	}
 	if err := r.logActivity(ctx, identity.UUID, actorUserID, spec.ArtifactType, id, "deleted "+spec.Label, map[string]any{
 		"artifact": title,
-		"href":     fmt.Sprintf("/project/%s/%s/%s", identity.Slug, spec.PathSegment, id),
+		"href":     fmt.Sprintf("/project/%s/%s/%s", identity.UUID, spec.PathSegment, id),
 	}); err != nil {
 		return nil, err
 	}
@@ -189,7 +228,7 @@ func (r *repo) DeleteSidebarArtifact(ctx context.Context, projectID, artifactID,
 }
 
 func (r *repo) deleteArtifactRow(ctx context.Context, projectUUID, table, artifactID string) (string, string, error) {
-	query := fmt.Sprintf(`DELETE FROM %s WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) RETURNING id::text, title`, table)
+	query := fmt.Sprintf(`DELETE FROM %s WHERE project_id = $1::uuid AND id::text = $2 RETURNING id::text, title`, table)
 	var id, title string
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(query,
 		func(row storage.RowScanner) error { return row.Scan(&id, &title) },
@@ -203,6 +242,23 @@ func (r *repo) deleteArtifactRow(ctx context.Context, projectUUID, table, artifa
 		return "", "", wrapRepoError("delete artifact row", err)
 	}
 	return id, strings.TrimSpace(title), nil
+}
+
+func (r *repo) resolveArtifactUUID(ctx context.Context, projectUUID, table, artifactID string) (string, error) {
+	query := fmt.Sprintf(`SELECT id::text FROM %s WHERE project_id = $1::uuid AND id::text = $2 LIMIT 1`, table)
+	var id string
+	err := r.store.Execute(ctx, storage.RelationalQueryOne(query,
+		func(row storage.RowScanner) error { return row.Scan(&id) },
+		projectUUID,
+		strings.TrimSpace(artifactID),
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", apperr.New(apperr.CodeNotFound, http.StatusNotFound, "artifact not found")
+		}
+		return "", wrapRepoError("resolve artifact uuid", err)
+	}
+	return strings.TrimSpace(id), nil
 }
 
 func (r *repo) deleteDocument(ctx context.Context, projectUUID, artifactType, artifactID, actorUserID string) error {
@@ -255,7 +311,7 @@ func (r *repo) resolveProjectIdentity(ctx context.Context, projectID string) (pr
 	}
 	var identity projectIdentity
 	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT id::text, slug FROM projects WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+		`SELECT id::text, slug FROM projects WHERE id::text = $1 LIMIT 1`,
 		func(row storage.RowScanner) error { return row.Scan(&identity.UUID, &identity.Slug) },
 		strings.TrimSpace(projectID),
 	))

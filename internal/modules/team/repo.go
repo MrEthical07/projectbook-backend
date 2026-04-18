@@ -79,7 +79,7 @@ func NewRepo(store storage.RelationalStore) Repo {
 const queryResolveTeamProjectIdentity = `
 SELECT id::text, slug
 FROM projects
-WHERE slug = $1 OR id::text = $1
+WHERE id::text = $1
 LIMIT 1
 `
 

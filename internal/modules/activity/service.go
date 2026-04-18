@@ -6,10 +6,11 @@ import (
 	"net/http"
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	"github.com/MrEthical07/superapi/internal/core/pagination"
 )
 
 type Service interface {
-	ListProjectActivity(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error)
+	ListProjectActivity(ctx context.Context, projectID string, query listQuery) (ListProjectActivityResponse, error)
 }
 
 type service struct {
@@ -20,12 +21,24 @@ func NewService(repo Repo) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) ListProjectActivity(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {
+func (s *service) ListProjectActivity(ctx context.Context, projectID string, query listQuery) (ListProjectActivityResponse, error) {
 	items, err := s.repo.ListProjectActivity(ctx, projectID, query)
 	if err != nil {
-		return nil, mapServiceError("list project activity", err)
+		return ListProjectActivityResponse{}, mapServiceError("list project activity", err)
 	}
-	return items, nil
+
+	hasMore := len(items) > query.Limit
+	if hasMore {
+		items = items[:query.Limit]
+	}
+
+	var nextCursor *string
+	if hasMore {
+		cursor := pagination.EncodeOffsetCursor(query.Offset + query.Limit)
+		nextCursor = &cursor
+	}
+
+	return ListProjectActivityResponse{Items: items, NextCursor: nextCursor}, nil
 }
 
 func mapServiceError(action string, err error) error {

@@ -42,7 +42,7 @@ func (m *Module) Register(r httpx.Router) error {
 			VaryBy: cache.CacheVaryBy{
 				ProjectID:   true,
 				PathParams:  []string{"projectId"},
-				QueryParams: []string{"status", "offset", "limit"},
+				QueryParams: []string{"status", "docType", "sort", "order", "cursor", "limit"},
 			},
 		}),
 		policy.CacheControlOptional(cacheMgr, 30*time.Second),
@@ -73,7 +73,7 @@ func (m *Module) Register(r httpx.Router) error {
 		}),
 		policy.CacheControlOptional(cacheMgr, 30*time.Second),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/resources/{resourceId}", httpx.Adapter(m.handler.UpdateResource),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/resources/{resourceId}", httpx.Adapter(m.handler.UpdateResource),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),
@@ -82,7 +82,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.RequirePermission(rbac.PermResourceEdit),
 		policy.CacheInvalidateOptional(cacheMgr, resourceInvalidate),
 	)
-	r.Handle(http.MethodPut, "/api/v1/projects/{projectId}/resources/{resourceId}/status", httpx.Adapter(m.handler.UpdateResourceStatus),
+	r.Handle(http.MethodPatch, "/api/v1/projects/{projectId}/resources/{resourceId}/status", httpx.Adapter(m.handler.UpdateResourceStatus),
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 		policy.ProjectRequired(),
 		policy.ProjectMatchFromPath("projectId"),

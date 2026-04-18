@@ -230,7 +230,7 @@ func (s *service) AcceptInvite(ctx context.Context, userID, inviteID string) (in
 
 	return inviteAcceptResponse{
 		InviteID:  target.InviteID,
-		ProjectID: target.ProjectSlug,
+		ProjectID: target.ProjectUUID,
 	}, nil
 }
 
