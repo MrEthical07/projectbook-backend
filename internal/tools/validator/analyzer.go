@@ -288,7 +288,7 @@ func parsePolicyMetadata(expr ast.Expr) (corepolicy.Metadata, error) {
 		}
 	case "ResolvePermissions":
 		meta.Type = corepolicy.PolicyTypeResolvePermissions
-	case "RateLimit", "RateLimitWithKeyer":
+	case "RateLimit", "RateLimitWithKeyer", "RateLimitOptional":
 		meta.Type = corepolicy.PolicyTypeRateLimit
 	case "CacheRead", "CacheReadOptional":
 		meta.Type = corepolicy.PolicyTypeCacheRead
