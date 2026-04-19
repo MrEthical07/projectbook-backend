@@ -7,19 +7,22 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   release:
-    name: Release + Build + Deploy
     runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # ---------------------------
-      # Setup Node (for semantic-release)
+      # Setup Node
       # ---------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -36,54 +39,55 @@ jobs:
       # ---------------------------
       # Run semantic-release
       # ---------------------------
-      - name: Run semantic-release
+      - name: Semantic Release
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: semantic-release
+        run: |
+          npx semantic-release > release.log 2>&1 || true
+
+          VERSION=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' release.log || true)
+
+          echo "Detected version: $VERSION"
+          echo "new_release_version=$VERSION" >> $GITHUB_OUTPUT
 
       # ---------------------------
-      # Extract version
+      # Stop if no release
       # ---------------------------
-      - name: Get version
-        id: version
+      - name: Check release
+        if: steps.semantic.outputs.new_release_version == ''
         run: |
-          VERSION=$(node -p "require('./package.json').version" || echo "")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      # STOP if no release
-      - name: Check version
-        if: steps.version.outputs.version == ''
-        run: |
-          echo "No release triggered"
-          exit 0
+          echo "No release created. Skipping Docker build/deploy steps."
 
       # ---------------------------
       # Docker Login
       # ---------------------------
       - name: Login to Docker Hub
+        if: steps.semantic.outputs.new_release_version != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # ---------------------------
-      # Build + Push Image
+      # Build + Push
       # ---------------------------
       - name: Build and Push
+        if: steps.semantic.outputs.new_release_version != ''
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}
+            projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
             projectbook07/projectbook-backend:sha-${{ github.sha }}
 
       # ---------------------------
       # Deploy via SSH
       # ---------------------------
       - name: Deploy to VPS
+        if: steps.semantic.outputs.new_release_version != ''
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -92,7 +96,7 @@ jobs:
           script: |
             set -e
 
-            IMAGE="projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}"
+            IMAGE="projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}"
             CONTAINER="projectbook-backend"
 
             echo "Pulling image..."
@@ -126,8 +130,8 @@ jobs:
       # Promote to stable (ONLY if deploy succeeds)
       # ---------------------------
       - name: Tag stable
-        if: success()
+        if: success() && steps.semantic.outputs.new_release_version != ''
         run: |
-          docker pull projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}
-          docker tag projectbook07/projectbook-backend:v${{ steps.version.outputs.version }} projectbook07/projectbook-backend:stable
+          docker pull projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
+          docker tag projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }} projectbook07/projectbook-backend:stable
           docker push projectbook07/projectbook-backend:stable
