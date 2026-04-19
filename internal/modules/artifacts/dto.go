@@ -12,7 +12,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/patchx"
 )
 
-const maxListLimit = 100
+const maxListLimit = 50
 
 var slugSanitizer = regexp.MustCompile(`[^a-z0-9]+`)
 
@@ -742,39 +742,6 @@ func (r updateFeedbackRequest) Validate() error {
 	return nil
 }
 
-type updateProblemStatusRequest struct {
-	Status string `json:"status"`
-}
-
-func (r updateProblemStatusRequest) Validate() error {
-	if !isAllowedStatus(problemStatuses, r.Status) {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid problem status")
-	}
-	return nil
-}
-
-type updateIdeaStatusRequest struct {
-	Status string `json:"status"`
-}
-
-func (r updateIdeaStatusRequest) Validate() error {
-	if !isAllowedStatus(ideaStatuses, r.Status) {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid idea status")
-	}
-	return nil
-}
-
-type updateTaskStatusRequest struct {
-	Status string `json:"status"`
-}
-
-func (r updateTaskStatusRequest) Validate() error {
-	if !isAllowedStatus(taskStatuses, r.Status) {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid task status")
-	}
-	return nil
-}
-
 func parseOptionalIntQuery(raw string, fallback int, name string) (int, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -798,11 +765,6 @@ func normalizeLimit(limit int) int {
 		return maxListLimit
 	}
 	return limit
-}
-
-func isAllowedStatus(allowed map[string]struct{}, raw string) bool {
-	_, ok := normalizeAllowedStatus(allowed, raw)
-	return ok
 }
 
 func normalizeAllowedStatus(allowed map[string]struct{}, raw string) (string, bool) {

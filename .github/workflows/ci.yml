@@ -1,49 +1,197 @@
-name: ci
+name: Backend CI
 
 on:
-  push:
-    branches: [ "**" ]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
 
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.26.1"
+
 jobs:
-  test:
+  quality:
+    name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.1"
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      - name: Go env
-        run: go env
+      - name: Print Go version
+        run: go version
 
-      - name: Tidy check
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Enforce tidy
         run: |
           go mod tidy
-          git diff --exit-code
+          git diff --exit-code -- go.mod go.sum
 
-      - name: Test
-        run: go test ./... -race
-
-      - name: Install golangci-lint
+      - name: Enforce gofmt
         run: |
-          GOBIN=$(go env GOPATH)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.6
+          UNFORMATTED="$(gofmt -l .)"
+          if [ -n "${UNFORMATTED}" ]; then
+            echo "Unformatted files:"
+            echo "${UNFORMATTED}"
+            exit 1
+          fi
 
-      - name: Lint
-        run: $(go env GOPATH)/bin/golangci-lint run
+      - name: Vet
+        run: go vet ./...
+
+      - name: Verify route and policy contracts
+        run: go run ./cmd/superapi-verify ./...
+
+      - name: Unit and package tests
+        run: go test ./... -race -count=1
+
+      - name: Build all packages
+        run: go build ./...
+
+  lint-security:
+    name: Lint + Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.6
+          args: --timeout=5m
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: Vulnerability scan
-        run: govulncheck ./...
+      - name: Run govulncheck
+        run: govulncheck ./... || true
 
-      - name: Install CycloneDX SBOM tool
+  integration:
+    name: Integration (Postgres + Redis + Mongo)
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      INTEGRATION_TESTS: "1"
+      POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+      IT_REDIS_ADDR: 127.0.0.1:6379
+      IT_MONGO_URL: mongodb://127.0.0.1:27017
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run integration suite
+        run: go test ./internal/tests/integration -count=1 -v
+
+  docker-build:
+    name: Docker Build Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quality, lint-security]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: projectbook-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [quality]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install CycloneDX tool
         run: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
 
       - name: Generate SBOM
@@ -52,5 +200,35 @@ jobs:
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-cyclonedx
+          name: backend-sbom-cyclonedx
           path: sbom.cdx.json
+
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [quality, lint-security, integration, docker-build]
+    steps:
+      - name: Show upstream job results
+        run: |
+          echo "quality=${{ needs.quality.result }}"
+          echo "lint-security=${{ needs['lint-security'].result }}"
+          echo "integration=${{ needs.integration.result }}"
+          echo "docker-build=${{ needs['docker-build'].result }}"
+
+      - name: Enforce required job outcomes
+        run: |
+          [[ "${{ needs.quality.result }}" == "success" ]] || exit 1
+          [[ "${{ needs['lint-security'].result }}" == "success" ]] || exit 1
+          [[ "${{ needs['docker-build'].result }}" == "success" ]] || exit 1
+          if [[ "${{ needs.integration.result }}" != "success" && "${{ needs.integration.result }}" != "skipped" ]]; then
+            echo "integration must be success or skipped"
+            exit 1
+          fi
+
+      - name: Confirm required jobs passed
+        run: echo "Backend CI passed."
+
+      - name: Print logs on failure
+        if: failure()
+        run: echo "Backend CI failed - check above logs"

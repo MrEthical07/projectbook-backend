@@ -18,13 +18,19 @@ type Service interface {
 	DashboardMyWork(ctx context.Context, userID, projectID string) (projectDashboardMyWorkResponse, error)
 	DashboardEvents(ctx context.Context, userID, projectID string) (projectDashboardEventsResponse, error)
 	DashboardActivity(ctx context.Context, userID, projectID string) (projectDashboardActivityResponse, error)
+	Overview(ctx context.Context, userID, projectID string) (projectOverviewResponse, error)
+	Search(ctx context.Context, userID, projectID, q string, limit int) (projectSearchResponse, error)
 	Access(ctx context.Context, userID, projectID, role string, mask uint64) (projectAccessResponse, error)
-	Navigation(ctx context.Context, userID, projectID string) (projectNavigationResponse, error)
 	GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error)
 	UpdateSettings(ctx context.Context, projectID string, req updateProjectSettingsRequest) (projectUpdateSettingsResponse, error)
 	Archive(ctx context.Context, projectID string) (projectArchiveResponse, error)
 	Delete(ctx context.Context, projectID string) (projectDeleteResponse, error)
 }
+
+const (
+	defaultSearchLimit = 10
+	maxSearchLimit     = 50
+)
 
 type service struct {
 	store storage.RelationalStore
@@ -41,7 +47,7 @@ func (s *service) Dashboard(ctx context.Context, userID, projectID string) (proj
 		return projectDashboardResponse{}, err
 	}
 
-	data, err := s.repo.Dashboard(ctx, projectID, userID)
+	data, err := s.repo.Dashboard(ctx, projectID)
 	if err != nil {
 		return projectDashboardResponse{}, mapProjectRepoError(err)
 	}
@@ -53,7 +59,7 @@ func (s *service) DashboardSummary(ctx context.Context, userID, projectID string
 		return projectDashboardSummaryResponse{}, err
 	}
 
-	data, err := s.repo.DashboardSummary(ctx, projectID, userID)
+	data, err := s.repo.DashboardSummary(ctx, projectID)
 	if err != nil {
 		return projectDashboardSummaryResponse{}, mapProjectRepoError(err)
 	}
@@ -65,7 +71,7 @@ func (s *service) DashboardMyWork(ctx context.Context, userID, projectID string)
 		return projectDashboardMyWorkResponse{}, err
 	}
 
-	data, err := s.repo.DashboardMyWork(ctx, projectID, userID)
+	data, err := s.repo.DashboardMyWork(ctx, projectID)
 	if err != nil {
 		return projectDashboardMyWorkResponse{}, mapProjectRepoError(err)
 	}
@@ -77,7 +83,7 @@ func (s *service) DashboardEvents(ctx context.Context, userID, projectID string)
 		return projectDashboardEventsResponse{}, err
 	}
 
-	data, err := s.repo.DashboardEvents(ctx, projectID, userID)
+	data, err := s.repo.DashboardEvents(ctx, projectID)
 	if err != nil {
 		return projectDashboardEventsResponse{}, mapProjectRepoError(err)
 	}
@@ -89,9 +95,46 @@ func (s *service) DashboardActivity(ctx context.Context, userID, projectID strin
 		return projectDashboardActivityResponse{}, err
 	}
 
-	data, err := s.repo.DashboardActivity(ctx, projectID, userID)
+	data, err := s.repo.DashboardActivity(ctx, projectID)
 	if err != nil {
 		return projectDashboardActivityResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) Overview(ctx context.Context, userID, projectID string) (projectOverviewResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectOverviewResponse{}, err
+	}
+
+	data, err := s.repo.Overview(ctx, projectID)
+	if err != nil {
+		return projectOverviewResponse{}, mapProjectRepoError(err)
+	}
+	return data, nil
+}
+
+func (s *service) Search(ctx context.Context, userID, projectID, q string, limit int) (projectSearchResponse, error) {
+	if err := requireIdentity(userID, projectID); err != nil {
+		return projectSearchResponse{}, err
+	}
+
+	trimmedQuery := strings.TrimSpace(q)
+	if trimmedQuery == "" {
+		return projectSearchResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "q is required")
+	}
+
+	resolvedLimit := defaultSearchLimit
+	if limit > 0 {
+		resolvedLimit = limit
+	}
+	if resolvedLimit > maxSearchLimit {
+		resolvedLimit = maxSearchLimit
+	}
+
+	data, err := s.repo.Search(ctx, projectID, trimmedQuery, resolvedLimit)
+	if err != nil {
+		return projectSearchResponse{}, mapProjectRepoError(err)
 	}
 	return data, nil
 }
@@ -115,48 +158,6 @@ func (s *service) Access(ctx context.Context, userID, projectID, role string, ma
 		User:        user,
 		Role:        role,
 		Permissions: buildPermissionMatrix(mask),
-	}, nil
-}
-
-func (s *service) Navigation(ctx context.Context, userID, projectID string) (projectNavigationResponse, error) {
-	if err := requireIdentity(userID, projectID); err != nil {
-		return projectNavigationResponse{}, err
-	}
-
-	projects, err := s.repo.ListNavigationProjects(ctx, userID)
-	if err != nil {
-		return projectNavigationResponse{}, mapProjectRepoError(err)
-	}
-
-	projectList := make([]projectNavigationItem, 0, len(projects))
-	var currentProject currentProjectNavigation
-	foundCurrentProject := false
-
-	for _, project := range projects {
-		projectList = append(projectList, projectNavigationItem{
-			ID:   project.ID,
-			Name: project.Name,
-			Icon: project.Icon,
-		})
-
-		if strings.EqualFold(strings.TrimSpace(project.ID), strings.TrimSpace(projectID)) {
-			currentProject = currentProjectNavigation{
-				ID:     project.ID,
-				Name:   project.Name,
-				Status: project.Status,
-				Role:   project.Role,
-			}
-			foundCurrentProject = true
-		}
-	}
-
-	if !foundCurrentProject {
-		return projectNavigationResponse{}, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "project not found")
-	}
-
-	return projectNavigationResponse{
-		CurrentProject: currentProject,
-		ProjectList:    projectList,
 	}, nil
 }
 

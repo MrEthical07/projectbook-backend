@@ -11,7 +11,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/patchx"
 )
 
-const maxListLimit = 100
+const maxListLimit = 50
 
 var slugSanitizer = regexp.MustCompile(`[^a-z0-9]+`)
 
@@ -123,12 +123,6 @@ type GetResourceResponse struct {
 	Meta      ResourceMeta            `json:"meta"`
 }
 
-type UpdateResourceStatusResponse struct {
-	ID          string `json:"id"`
-	Status      string `json:"status"`
-	LastUpdated string `json:"lastUpdated"`
-}
-
 type createResourceRequest struct {
 	Name    string `json:"name"`
 	DocType string `json:"docType"`
@@ -162,19 +156,6 @@ func (r updateResourceRequest) Validate() error {
 		}
 		r.State["status"] = canonicalStatus
 	}
-	return nil
-}
-
-type updateResourceStatusRequest struct {
-	Status string `json:"status"`
-}
-
-func (r updateResourceStatusRequest) Validate() error {
-	canonicalStatus, ok := normalizeAllowedStatus(resourceStatuses, r.Status)
-	if !ok {
-		return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status")
-	}
-	r.Status = canonicalStatus
 	return nil
 }
 
@@ -219,11 +200,6 @@ func normalizeOrder(raw string) string {
 		return "asc"
 	}
 	return "desc"
-}
-
-func isAllowedStatus(allowed map[string]struct{}, raw string) bool {
-	_, ok := normalizeAllowedStatus(allowed, raw)
-	return ok
 }
 
 func normalizeAllowedStatus(allowed map[string]struct{}, raw string) (string, bool) {

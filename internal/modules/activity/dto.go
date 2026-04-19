@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultLimit = 20
-	maxLimit     = 100
+	maxLimit     = 50
 )
 
 type listQuery struct {

@@ -17,8 +17,8 @@ func TestResourceImmutableHelpers(t *testing.T) {
 		}
 	})
 
-	t.Run("archived blocks non-archive status transition", func(t *testing.T) {
-		err := enforceArchiveOnlyForImmutableStatusChange("resource", "Archived", "Active", resourceImmutableStatuses)
+	t.Run("archived allows restore status-only patch", func(t *testing.T) {
+		err := enforceArchiveOnlyForImmutableUpdate("resource", "Archived", map[string]any{"status": "Active"}, resourceImmutableStatuses)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

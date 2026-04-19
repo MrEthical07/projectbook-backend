@@ -6,6 +6,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/modules/artifacts"
 	"github.com/MrEthical07/superapi/internal/modules/auth"
 	"github.com/MrEthical07/superapi/internal/modules/calendar"
+	"github.com/MrEthical07/superapi/internal/modules/feedback"
 	"github.com/MrEthical07/superapi/internal/modules/health"
 	"github.com/MrEthical07/superapi/internal/modules/home"
 	"github.com/MrEthical07/superapi/internal/modules/pages"
@@ -33,6 +34,7 @@ func All() []app.Module {
 		calendar.New(),
 		activity.New(),
 		team.New(),
+		feedback.New(),
 		health.New(),
 		system.New(),
 		// MODULE_LIST

@@ -713,10 +713,29 @@ func queryParamHashSelected(values url.Values, selected []string) (string, error
 	parts := make([]string, 0, len(selected))
 	for _, name := range selected {
 		vals := append([]string(nil), values[name]...)
+		if isCursorLikeQueryParam(name) {
+			hasValue := false
+			for _, raw := range vals {
+				if strings.TrimSpace(raw) != "" {
+					hasValue = true
+					break
+				}
+			}
+			if hasValue {
+				vals = []string{"__present__"}
+			} else {
+				vals = nil
+			}
+		}
 		sort.Strings(vals)
 		parts = append(parts, name+"="+strings.Join(vals, ","))
 	}
 	canonical := strings.Join(parts, "&")
 	hash := sha256.Sum256([]byte(canonical))
 	return hex.EncodeToString(hash[:16]), nil
+}
+
+func isCursorLikeQueryParam(name string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	return normalized == "cursor" || strings.HasSuffix(normalized, ".cursor")
 }

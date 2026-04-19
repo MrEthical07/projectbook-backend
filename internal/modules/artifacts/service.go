@@ -26,19 +26,16 @@ type Service interface {
 	CreateProblem(ctx context.Context, projectID, actorUserID string, req createProblemRequest) (ProblemListItem, error)
 	GetProblem(ctx context.Context, projectID, problemID string) (ProblemPageResponse, error)
 	UpdateProblem(ctx context.Context, projectID, problemID, actorUserID string, req updateProblemRequest) (ProblemListItem, error)
-	UpdateProblemStatus(ctx context.Context, projectID, problemID, actorUserID string, req updateProblemStatusRequest) (ArtifactStatusResponse, error)
 
 	ListIdeas(ctx context.Context, projectID string, query listQuery) (IdeaListResponse, error)
 	CreateIdea(ctx context.Context, projectID, actorUserID string, req createIdeaRequest) (IdeaListItem, error)
 	GetIdea(ctx context.Context, projectID, ideaID string) (IdeaPageResponse, error)
 	UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID string, req updateIdeaRequest) (IdeaListItem, error)
-	UpdateIdeaStatus(ctx context.Context, projectID, ideaID, actorUserID string, req updateIdeaStatusRequest) (ArtifactStatusResponse, error)
 
 	ListTasks(ctx context.Context, projectID string, query listQuery) (TaskListResponse, error)
 	CreateTask(ctx context.Context, projectID, actorUserID string, req createTaskRequest) (TaskListItem, error)
 	GetTask(ctx context.Context, projectID, taskID string) (TaskPageResponse, error)
 	UpdateTask(ctx context.Context, projectID, taskID, actorUserID string, req updateTaskRequest) (TaskListItem, error)
-	UpdateTaskStatus(ctx context.Context, projectID, taskID, actorUserID string, req updateTaskStatusRequest) (ArtifactStatusResponse, error)
 
 	ListFeedback(ctx context.Context, projectID string, query listQuery) (FeedbackListResponse, error)
 	CreateFeedback(ctx context.Context, projectID, actorUserID string, req createFeedbackRequest) (FeedbackListItem, error)
@@ -386,49 +383,6 @@ func (s *service) UpdateProblem(ctx context.Context, projectID, problemID, actor
 	return decodeProblemListItem(updated), nil
 }
 
-func (s *service) UpdateProblemStatus(ctx context.Context, projectID, problemID, actorUserID string, req updateProblemStatusRequest) (ArtifactStatusResponse, error) {
-	if err := req.Validate(); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	current, err := s.repo.GetProblem(ctx, projectID, problemID)
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("load problem before status update", err)
-	}
-	from := nestedString(current, "problem", "status")
-	if err := enforceArchiveOnlyForImmutableStatusChange("problem", from, req.Status, problemImmutableStatuses); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
-		"Draft":    {"Draft": {}, "Locked": {}, "Archived": {}},
-		"Locked":   {"Locked": {}, "Archived": {}},
-		"Archived": {"Archived": {}, "Draft": {}, "Locked": {}},
-	}) {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid problem status transition")
-	}
-
-	var updated map[string]any
-	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
-		if req.Status == "Locked" {
-			result, lockErr := s.repo.LockProblem(txCtx, projectID, problemID, actorUserID)
-			if lockErr != nil {
-				return lockErr
-			}
-			updated = result
-			return nil
-		}
-		result, updateErr := s.repo.UpdateProblemStatus(txCtx, projectID, problemID, req.Status, actorUserID)
-		if updateErr != nil {
-			return updateErr
-		}
-		updated = result
-		return nil
-	})
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("update problem status", err)
-	}
-	return ArtifactStatusResponse{ID: toString(updated["id"]), Status: toString(updated["status"]), LastUpdated: toString(updated["lastUpdated"])}, nil
-}
-
 func (s *service) ListIdeas(ctx context.Context, projectID string, query listQuery) (IdeaListResponse, error) {
 	items, err := s.repo.ListIdeas(ctx, projectID, query)
 	if err != nil {
@@ -498,6 +452,17 @@ func (s *service) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID
 	if err := enforceArchiveOnlyForImmutableUpdate("idea", from, req.State, ideaImmutableStatuses); err != nil {
 		return IdeaListItem{}, err
 	}
+	status := toString(req.State["status"])
+	if status != "" {
+		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
+			"Considered": {"Considered": {}, "Selected": {}, "Rejected": {}, "Archived": {}},
+			"Selected":   {"Selected": {}, "Rejected": {}, "Archived": {}},
+			"Rejected":   {"Rejected": {}, "Archived": {}},
+			"Archived":   {"Archived": {}, "Considered": {}, "Selected": {}, "Rejected": {}},
+		}) {
+			return IdeaListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid idea status transition")
+		}
+	}
 	var updated map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateIdea(txCtx, projectID, ideaID, actorUserID, req.State)
@@ -511,50 +476,6 @@ func (s *service) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID
 		return IdeaListItem{}, mapServiceError("update idea", err)
 	}
 	return decodeIdeaListItem(updated), nil
-}
-
-func (s *service) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, actorUserID string, req updateIdeaStatusRequest) (ArtifactStatusResponse, error) {
-	if err := req.Validate(); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	current, err := s.repo.GetIdea(ctx, projectID, ideaID)
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("load idea before status update", err)
-	}
-	from := nestedString(current, "idea", "status")
-	if err := enforceArchiveOnlyForImmutableStatusChange("idea", from, req.Status, ideaImmutableStatuses); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
-		"Considered": {"Considered": {}, "Selected": {}, "Rejected": {}, "Archived": {}},
-		"Selected":   {"Selected": {}, "Rejected": {}, "Archived": {}},
-		"Rejected":   {"Rejected": {}, "Archived": {}},
-		"Archived":   {"Archived": {}, "Considered": {}, "Selected": {}, "Rejected": {}},
-	}) {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid idea status transition")
-	}
-
-	var updated map[string]any
-	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
-		if req.Status == "Selected" {
-			result, selectErr := s.repo.SelectIdea(txCtx, projectID, ideaID, actorUserID)
-			if selectErr != nil {
-				return selectErr
-			}
-			updated = result
-			return nil
-		}
-		result, updateErr := s.repo.UpdateIdeaStatus(txCtx, projectID, ideaID, req.Status, actorUserID)
-		if updateErr != nil {
-			return updateErr
-		}
-		updated = result
-		return nil
-	})
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("update idea status", err)
-	}
-	return ArtifactStatusResponse{ID: toString(updated["id"]), Status: toString(updated["status"]), LastUpdated: toString(updated["lastUpdated"])}, nil
 }
 
 func (s *service) ListTasks(ctx context.Context, projectID string, query listQuery) (TaskListResponse, error) {
@@ -627,6 +548,17 @@ func (s *service) UpdateTask(ctx context.Context, projectID, taskID, actorUserID
 	if err := enforceArchiveOnlyForImmutableUpdate("task", from, req.State, taskImmutableStatuses); err != nil {
 		return TaskListItem{}, err
 	}
+	status := toString(req.State["status"])
+	if status != "" {
+		if !isAllowedTransition(from, status, map[string]map[string]struct{}{
+			"Planned":     {"Planned": {}, "In Progress": {}, "Abandoned": {}},
+			"In Progress": {"In Progress": {}, "Completed": {}, "Abandoned": {}},
+			"Completed":   {"Completed": {}},
+			"Abandoned":   {"Abandoned": {}},
+		}) {
+			return TaskListItem{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid task status transition")
+		}
+	}
 	var updated map[string]any
 	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
 		result, updateErr := s.repo.UpdateTask(txCtx, projectID, taskID, actorUserID, req.State)
@@ -640,41 +572,6 @@ func (s *service) UpdateTask(ctx context.Context, projectID, taskID, actorUserID
 		return TaskListItem{}, mapServiceError("update task", err)
 	}
 	return decodeTaskListItem(updated), nil
-}
-
-func (s *service) UpdateTaskStatus(ctx context.Context, projectID, taskID, actorUserID string, req updateTaskStatusRequest) (ArtifactStatusResponse, error) {
-	if err := req.Validate(); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	current, err := s.repo.GetTask(ctx, projectID, taskID)
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("load task before status update", err)
-	}
-	from := nestedString(current, "task", "status")
-	if err := enforceArchiveOnlyForImmutableStatusChange("task", from, req.Status, taskImmutableStatuses); err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
-		"Planned":     {"Planned": {}, "In Progress": {}, "Abandoned": {}},
-		"In Progress": {"In Progress": {}, "Completed": {}, "Abandoned": {}},
-		"Completed":   {"Completed": {}},
-		"Abandoned":   {"Abandoned": {}},
-	}) {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid task status transition")
-	}
-	var updated map[string]any
-	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
-		result, updateErr := s.repo.UpdateTaskStatus(txCtx, projectID, taskID, req.Status, actorUserID)
-		if updateErr != nil {
-			return updateErr
-		}
-		updated = result
-		return nil
-	})
-	if err != nil {
-		return ArtifactStatusResponse{}, mapServiceError("update task status", err)
-	}
-	return ArtifactStatusResponse{ID: toString(updated["id"]), Status: toString(updated["status"]), LastUpdated: toString(updated["lastUpdated"])}, nil
 }
 
 func (s *service) ListFeedback(ctx context.Context, projectID string, query listQuery) (FeedbackListResponse, error) {

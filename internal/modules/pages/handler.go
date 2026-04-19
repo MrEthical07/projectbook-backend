@@ -100,22 +100,31 @@ func (h *Handler) RenamePage(ctx *httpx.Context, req renamePageRequest) (RenameP
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 	offset := 0
-	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+	if cursor := queryValue(ctx, "pagination.cursor", "cursor"); cursor != "" {
 		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
 		if decodeErr != nil {
 			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
 		}
 		offset = decodedOffset
 	}
-	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 20, "limit")
+	limit, err := parseOptionalIntQuery(queryValue(ctx, "pagination.limit", "limit"), 20, "limit")
 	if err != nil {
 		return listQuery{}, err
 	}
 	return listQuery{
-		Status: strings.TrimSpace(ctx.Query("status")),
+		Status: queryValue(ctx, "filter.status", "status"),
 		Offset: offset,
 		Limit:  normalizeLimit(limit),
 	}, nil
+}
+
+func queryValue(ctx *httpx.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(ctx.Query(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

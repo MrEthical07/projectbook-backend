@@ -33,21 +33,16 @@ type Repo interface {
 	CreateProblem(ctx context.Context, projectID, actorUserID, statement string, content map[string]any) (map[string]any, error)
 	GetProblem(ctx context.Context, projectID, slug string) (map[string]any, error)
 	UpdateProblem(ctx context.Context, projectID, problemID, actorUserID string, patch map[string]any) (map[string]any, error)
-	LockProblem(ctx context.Context, projectID, problemID, actorUserID string) (map[string]any, error)
-	UpdateProblemStatus(ctx context.Context, projectID, problemID, status, actorUserID string) (map[string]any, error)
 
 	ListIdeas(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error)
 	CreateIdea(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
 	GetIdea(ctx context.Context, projectID, slug string) (map[string]any, error)
 	UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID string, patch map[string]any) (map[string]any, error)
-	SelectIdea(ctx context.Context, projectID, ideaID, actorUserID string) (map[string]any, error)
-	UpdateIdeaStatus(ctx context.Context, projectID, ideaID, status, actorUserID string) (map[string]any, error)
 
 	ListTasks(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error)
 	CreateTask(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
 	GetTask(ctx context.Context, projectID, slug string) (map[string]any, error)
 	UpdateTask(ctx context.Context, projectID, taskID, actorUserID string, patch map[string]any) (map[string]any, error)
-	UpdateTaskStatus(ctx context.Context, projectID, taskID, status, actorUserID string) (map[string]any, error)
 
 	ListFeedback(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error)
 	CreateFeedback(ctx context.Context, projectID, actorUserID, title string, content map[string]any) (map[string]any, error)
@@ -1067,110 +1062,6 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 	}, nil
 }
 
-func (r *repo) LockProblem(ctx context.Context, projectID, problemID, actorUserID string) (map[string]any, error) {
-	identity, err := r.ResolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, status, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE problems
-		 SET status = 'Locked', is_locked = TRUE, updated_at = NOW(), document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid AND id::text = $2
-		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &status, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(problemID),
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "problem not found")
-		}
-		return nil, wrapRepoError("lock problem", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": "Locked"}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": status, "lastUpdated": lastUpdated}, nil
-}
-
-func (r *repo) UpdateProblemStatus(ctx context.Context, projectID, problemID, status, actorUserID string) (map[string]any, error) {
-	identity, err := r.ResolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, outStatus, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE problems
-		 SET status = CASE
-		 	 	WHEN $3::problem_status = 'Archived'::problem_status
-		 	 		AND problems.status <> 'Archived'::problem_status
-		 	 	THEN 'Archived'::problem_status
-		 	 	WHEN problems.status = 'Archived'::problem_status
-		 	 		AND $3::problem_status <> 'Archived'::problem_status
-		 	 	THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
-		 	 	ELSE $3::problem_status
-		 	 END,
-		 	 archived_from_status = CASE
-		 	 	WHEN $3::problem_status = 'Archived'::problem_status
-		 	 		AND problems.status <> 'Archived'::problem_status
-		 	 	THEN problems.status
-		 	 	WHEN problems.status = 'Archived'::problem_status
-		 	 		AND $3::problem_status <> 'Archived'::problem_status
-		 	 	THEN NULL
-		 	 	ELSE problems.archived_from_status
-		 	 END,
-		 	 is_locked = CASE
-		 	 	WHEN (
-		 	 		CASE
-		 	 			WHEN $3::problem_status = 'Archived'::problem_status
-		 	 				AND problems.status <> 'Archived'::problem_status
-		 	 			THEN 'Archived'::problem_status
-		 	 			WHEN problems.status = 'Archived'::problem_status
-		 	 				AND $3::problem_status <> 'Archived'::problem_status
-		 	 			THEN COALESCE(problems.archived_from_status, 'Draft'::problem_status)
-		 	 			ELSE $3::problem_status
-		 	 		END
-		 	 	) = 'Locked'::problem_status
-		 	 	THEN TRUE
-		 	 	ELSE FALSE
-		 	 END,
-		 	 updated_at = NOW(),
-		 	 document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid
-		   AND id::text = $2
-		   AND (
-		 	 status NOT IN ('Locked'::problem_status, 'Archived'::problem_status)
-		 	 OR $3::problem_status = 'Archived'::problem_status
-		 	 OR (
-		 	 	status = 'Archived'::problem_status
-		 	 	AND $3::problem_status <> 'Archived'::problem_status
-		 	 )
-		   )
-		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &outStatus, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(problemID),
-		status,
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "problem not found")
-		}
-		return nil, wrapRepoError("update problem status", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
-}
-
 func (r *repo) ListIdeas(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {
 	identity, err := r.ResolveProjectIdentity(ctx, projectID)
 	if err != nil {
@@ -1336,6 +1227,7 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 	}
 	rawProblemRef, hasProblemRef := patch["selectedProblemId"]
 	problemRef := toString(rawProblemRef)
+	requestedStatus := toString(patch["status"])
 	var primaryProblemID *string
 	if hasProblemRef {
 		if problemRef == "" {
@@ -1351,18 +1243,73 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		primaryProblemID = &resolved
 	}
 
-	var id, slug, title, owner, lastUpdated, status, linkedProblemStatement string
+	var id, slug, title, owner, lastUpdated, outStatus, linkedProblemStatement string
 	var linkedProblemLocked, isOrphan bool
 	var tasksCount, revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE ideas i
 		 SET primary_problem_id = COALESCE($3::uuid, i.primary_problem_id),
+		 	 status = CASE
+		 	 	WHEN NULLIF($4, '')::idea_status = 'Archived'::idea_status
+		 	 		AND i.status <> 'Archived'::idea_status
+		 	 	THEN 'Archived'::idea_status
+		 	 	WHEN NULLIF($4, '')::idea_status IS NOT NULL
+		 	 		AND i.status = 'Archived'::idea_status
+		 	 		AND NULLIF($4, '')::idea_status <> 'Archived'::idea_status
+		 	 	THEN COALESCE(i.archived_from_status, 'Considered'::idea_status)
+		 	 	WHEN NULLIF($4, '')::idea_status IS NOT NULL
+		 	 	THEN NULLIF($4, '')::idea_status
+		 	 	ELSE i.status
+		 	 END,
+		 	 archived_from_status = CASE
+		 	 	WHEN NULLIF($4, '')::idea_status = 'Archived'::idea_status
+		 	 		AND i.status <> 'Archived'::idea_status
+		 	 	THEN i.status
+		 	 	WHEN NULLIF($4, '')::idea_status IS NOT NULL
+		 	 		AND i.status = 'Archived'::idea_status
+		 	 		AND NULLIF($4, '')::idea_status <> 'Archived'::idea_status
+		 	 	THEN NULL
+		 	 	ELSE i.archived_from_status
+		 	 END,
+		 	 selected_at = CASE
+		 	 	WHEN (
+		 	 		CASE
+		 	 			WHEN NULLIF($4, '')::idea_status = 'Archived'::idea_status
+		 	 				AND i.status <> 'Archived'::idea_status
+		 	 			THEN 'Archived'::idea_status
+		 	 			WHEN NULLIF($4, '')::idea_status IS NOT NULL
+		 	 				AND i.status = 'Archived'::idea_status
+		 	 				AND NULLIF($4, '')::idea_status <> 'Archived'::idea_status
+		 	 			THEN COALESCE(i.archived_from_status, 'Considered'::idea_status)
+		 	 			WHEN NULLIF($4, '')::idea_status IS NOT NULL
+		 	 			THEN NULLIF($4, '')::idea_status
+		 	 			ELSE i.status
+		 	 		END
+		 	 	) = 'Selected'::idea_status
+		 	 	THEN COALESCE(i.selected_at, NOW())
+		 	 	ELSE i.selected_at
+		 	 END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE i.project_id = $1::uuid AND i.id::text = $2
 		   AND u.id = i.owner_user_id
-		   AND i.status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
+		   AND (
+		 	 	(NULLIF($4, '')::idea_status IS NULL AND i.status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status))
+		 	 	OR NULLIF($4, '')::idea_status IS NOT NULL
+		   )
+		   AND (
+		 	 	NULLIF($4, '')::idea_status <> 'Selected'::idea_status
+		 	 	OR (
+		 	 		COALESCE($3::uuid, i.primary_problem_id) IS NOT NULL
+		 	 		AND EXISTS (
+		 	 			SELECT 1
+		 	 			FROM problems p
+		 	 			WHERE p.id = COALESCE($3::uuid, i.primary_problem_id)
+		 	 			  AND p.status = 'Locked'::problem_status
+		 	 		)
+		 	 	)
+		   )
 		 RETURNING i.id::text, i.slug, i.title, COALESCE(u.name, ''), COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''),
 		 	 i.status::text,
 		 	 COALESCE((SELECT p.title FROM problems p WHERE p.id = i.primary_problem_id), ''),
@@ -1370,11 +1317,12 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		 	 i.is_orphan,
 		 	 (SELECT COUNT(1) FROM tasks t WHERE t.project_id = i.project_id AND t.primary_idea_id = i.id), i.document_revision`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &slug, &title, &owner, &lastUpdated, &status, &linkedProblemStatement, &linkedProblemLocked, &isOrphan, &tasksCount, &revision)
+			return row.Scan(&id, &slug, &title, &owner, &lastUpdated, &outStatus, &linkedProblemStatement, &linkedProblemLocked, &isOrphan, &tasksCount, &revision)
 		},
 		identity.UUID,
 		strings.TrimSpace(ideaID),
 		primaryProblemID,
+		requestedStatus,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1398,105 +1346,13 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		"title":                  title,
 		"linkedProblemStatement": linkedProblemStatement,
 		"persona":                "",
-		"status":                 status,
+		"status":                 outStatus,
 		"tasksCount":             tasksCount,
 		"owner":                  owner,
 		"lastUpdated":            lastUpdated,
 		"linkedProblemLocked":    linkedProblemLocked,
 		"isOrphan":               isOrphan,
 	}, nil
-}
-
-func (r *repo) SelectIdea(ctx context.Context, projectID, ideaID, actorUserID string) (map[string]any, error) {
-	identity, err := r.ResolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, status, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE ideas i
-		 SET status = 'Selected', selected_at = NOW(), updated_at = NOW(), document_revision = document_revision + 1
-		 WHERE i.project_id = $1::uuid
-		   AND i.id::text = $2
-		   AND i.primary_problem_id IS NOT NULL
-		   AND EXISTS (SELECT 1 FROM problems p WHERE p.id = i.primary_problem_id AND p.status = 'Locked')
-		 RETURNING i.id::text, i.status::text, COALESCE(to_char(i.updated_at, 'YYYY-MM-DD'), ''), i.document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &status, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(ideaID),
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked locked problem is required")
-		}
-		return nil, wrapRepoError("select idea", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": "Selected"}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": status, "lastUpdated": lastUpdated}, nil
-}
-
-func (r *repo) UpdateIdeaStatus(ctx context.Context, projectID, ideaID, status, actorUserID string) (map[string]any, error) {
-	identity, err := r.ResolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, outStatus, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE ideas
-		 SET status = CASE
-		 	 	WHEN $3::idea_status = 'Archived'::idea_status
-		 	 		AND ideas.status <> 'Archived'::idea_status
-		 	 	THEN 'Archived'::idea_status
-		 	 	WHEN ideas.status = 'Archived'::idea_status
-		 	 		AND $3::idea_status <> 'Archived'::idea_status
-		 	 	THEN COALESCE(ideas.archived_from_status, 'Considered'::idea_status)
-		 	 	ELSE $3::idea_status
-		 	 END,
-		 	 archived_from_status = CASE
-		 	 	WHEN $3::idea_status = 'Archived'::idea_status
-		 	 		AND ideas.status <> 'Archived'::idea_status
-		 	 	THEN ideas.status
-		 	 	WHEN ideas.status = 'Archived'::idea_status
-		 	 		AND $3::idea_status <> 'Archived'::idea_status
-		 	 	THEN NULL
-		 	 	ELSE ideas.archived_from_status
-		 	 END,
-		 	 updated_at = NOW(),
-		 	 document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid
-		   AND id::text = $2
-		   AND (
-		 	 status NOT IN ('Selected'::idea_status, 'Rejected'::idea_status, 'Archived'::idea_status)
-		 	 OR $3::idea_status = 'Archived'::idea_status
-		 	 OR (
-		 	 	status = 'Archived'::idea_status
-		 	 	AND $3::idea_status <> 'Archived'::idea_status
-		 	 )
-		   )
-		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &outStatus, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(ideaID),
-		status,
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "idea not found")
-		}
-		return nil, wrapRepoError("update idea status", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
 }
 
 func (r *repo) ListTasks(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {
@@ -1700,6 +1556,7 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 	rawIdeaRef, hasIdeaRef := patch["selectedIdeaId"]
 	ideaRef := toString(rawIdeaRef)
 	deadlineRaw := toString(patch["deadline"])
+	requestedStatus := toString(patch["status"])
 	var primaryIdeaID *string
 	if hasIdeaRef {
 		if ideaRef == "" {
@@ -1733,19 +1590,42 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 		dueAt = parsed
 	}
 
-	var id, slug, title, linkedIdea, linkedProblemStatement, owner, deadline, lastUpdated, status string
+	var id, slug, title, linkedIdea, linkedProblemStatement, owner, deadline, lastUpdated, outStatus string
 	var isOrphan, ideaRejected, hasFeedback bool
 	var revision int
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`UPDATE tasks t
 		 SET primary_idea_id = COALESCE($3::uuid, t.primary_idea_id),
 		 	 due_at = COALESCE($4::date, t.due_at),
+		 	 status = COALESCE(NULLIF($5, '')::task_status, t.status),
+		 	 started_at = CASE
+		 	 	WHEN COALESCE(NULLIF($5, '')::task_status, t.status) = 'In Progress'::task_status AND t.started_at IS NULL
+		 	 	THEN NOW()
+		 	 	ELSE t.started_at
+		 	 END,
+		 	 completed_at = CASE
+		 	 	WHEN COALESCE(NULLIF($5, '')::task_status, t.status) = 'Completed'::task_status
+		 	 	THEN NOW()
+		 	 	ELSE t.completed_at
+		 	 END,
 		 	 updated_at = NOW(),
 		 	 document_revision = document_revision + 1
 		 FROM users u
 		 WHERE t.project_id = $1::uuid AND t.id::text = $2
 		   AND u.id = t.owner_user_id
-		   AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
+		   AND (
+		 	 	(NULLIF($5, '')::task_status IS NULL AND t.status NOT IN ('Completed'::task_status, 'Abandoned'::task_status))
+		 	 	OR NULLIF($5, '')::task_status IS NOT NULL
+		   )
+		   AND (
+		 	 	COALESCE(NULLIF($5, '')::task_status, t.status) <> 'In Progress'::task_status
+		 	 	OR NOT EXISTS (
+		 	 		SELECT 1
+		 	 		FROM ideas i
+		 	 		WHERE i.id = COALESCE($3::uuid, t.primary_idea_id)
+		 	 		  AND i.status = 'Rejected'::idea_status
+		 	 	)
+		   )
 		 RETURNING t.id::text, t.slug, t.title,
 		 	 COALESCE((SELECT i.title FROM ideas i WHERE i.id = t.primary_idea_id), ''),
 		 	 COALESCE((SELECT p.title FROM ideas i JOIN problems p ON p.id = i.primary_problem_id WHERE i.id = t.primary_idea_id), ''),
@@ -1756,12 +1636,13 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 		 	 EXISTS (SELECT 1 FROM feedback f WHERE f.project_id = t.project_id AND f.primary_task_id = t.id),
 		 	 t.document_revision`,
 		func(row storage.RowScanner) error {
-			return row.Scan(&id, &slug, &title, &linkedIdea, &linkedProblemStatement, &owner, &deadline, &lastUpdated, &status, &isOrphan, &ideaRejected, &hasFeedback, &revision)
+			return row.Scan(&id, &slug, &title, &linkedIdea, &linkedProblemStatement, &owner, &deadline, &lastUpdated, &outStatus, &isOrphan, &ideaRejected, &hasFeedback, &revision)
 		},
 		identity.UUID,
 		strings.TrimSpace(taskID),
 		primaryIdeaID,
 		dueAt,
+		requestedStatus,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1798,87 +1679,11 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 		"owner":                  owner,
 		"deadline":               deadline,
 		"lastUpdated":            lastUpdated,
-		"status":                 status,
+		"status":                 outStatus,
 		"ideaRejected":           ideaRejected,
 		"hasFeedback":            hasFeedback,
 		"isOrphan":               isOrphan,
 	}, nil
-}
-
-func (r *repo) UpdateTaskStatus(ctx context.Context, projectID, taskID, status, actorUserID string) (map[string]any, error) {
-	identity, err := r.ResolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, outStatus, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE tasks
-		 SET status = $3::task_status,
-		 	 started_at = CASE WHEN $3::task_status = 'In Progress' AND started_at IS NULL THEN NOW() ELSE started_at END,
-		 	 completed_at = CASE WHEN $3::task_status = 'Completed' THEN NOW() ELSE completed_at END,
-		 	 updated_at = NOW(),
-		 	 document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid
-		   AND id::text = $2
-		   AND status NOT IN ('Completed'::task_status, 'Abandoned'::task_status)
-		   AND (
-			 $3::task_status <> 'In Progress'
-			 OR NOT EXISTS (
-			 	SELECT 1
-			 	FROM ideas i
-			 	WHERE i.id = tasks.primary_idea_id
-			 	  AND i.status = 'Rejected'::idea_status
-			 )
-		   )
-		 RETURNING id::text, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &outStatus, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(taskID),
-		status,
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			if strings.EqualFold(strings.TrimSpace(status), "In Progress") {
-				blocked, checkErr := r.taskBlockedForStart(ctx, identity.UUID, taskID)
-				if checkErr != nil {
-					return nil, checkErr
-				}
-				if blocked {
-					return nil, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cannot move task to In Progress when linked idea is Rejected")
-				}
-			}
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "task not found")
-		}
-		return nil, wrapRepoError("update task status", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
-}
-
-func (r *repo) taskBlockedForStart(ctx context.Context, projectUUID, taskID string) (bool, error) {
-	var blocked bool
-	err := r.store.Execute(ctx, storage.RelationalQueryOne(
-		`SELECT EXISTS(
-			SELECT 1
-			FROM tasks t
-			JOIN ideas i ON i.id = t.primary_idea_id
-			WHERE t.project_id = $1::uuid
-			  AND t.id::text = $2
-			  AND i.status = 'Rejected'::idea_status
-		)`,
-		func(row storage.RowScanner) error { return row.Scan(&blocked) },
-		projectUUID,
-		strings.TrimSpace(taskID),
-	))
-	if err != nil {
-		return false, wrapRepoError("check task start eligibility", err)
-	}
-	return blocked, nil
 }
 
 func (r *repo) ListFeedback(ctx context.Context, projectID string, query listQuery) ([]map[string]any, error) {

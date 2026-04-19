@@ -45,9 +45,10 @@ func TestArtifactsRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/v1/projects/atlas-2026/stories", ""},
 		{http.MethodPost, "/api/v1/projects/atlas-2026/stories", `{"title":"New Story"}`},
 		{http.MethodGet, "/api/v1/projects/atlas-2026/problems", ""},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/problems/problem-1", `{"state":{"status":"Locked"}}`},
 		{http.MethodPost, "/api/v1/projects/atlas-2026/ideas", `{"title":"New Idea"}`},
-		{http.MethodPost, "/api/v1/projects/atlas-2026/ideas/idea-1/select", ""},
-		{http.MethodPatch, "/api/v1/projects/atlas-2026/tasks/task-1/status", `{"status":"In Progress"}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/ideas/idea-1", `{"state":{"status":"Selected"}}`},
+		{http.MethodPatch, "/api/v1/projects/atlas-2026/tasks/task-1", `{"state":{"status":"In Progress"}}`},
 		{http.MethodGet, "/api/v1/projects/atlas-2026/feedback", ""},
 	}
 

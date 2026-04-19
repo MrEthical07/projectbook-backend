@@ -31,7 +31,7 @@ func (h *Handler) ListStories(ctx *httpx.Context, _ httpx.NoBody) (StoryListResp
 	if err != nil {
 		return StoryListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
+	query.Status = queryValue(ctx, "filter.status", "status")
 	return h.svc.ListStories(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -96,7 +96,7 @@ func (h *Handler) ListJourneys(ctx *httpx.Context, _ httpx.NoBody) (JourneyListR
 	if err != nil {
 		return JourneyListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
+	query.Status = queryValue(ctx, "filter.status", "status")
 	return h.svc.ListJourneys(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -161,7 +161,7 @@ func (h *Handler) ListProblems(ctx *httpx.Context, _ httpx.NoBody) (ProblemListR
 	if err != nil {
 		return ProblemListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
+	query.Status = queryValue(ctx, "filter.status", "status")
 	return h.svc.ListProblems(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -213,38 +213,6 @@ func (h *Handler) UpdateProblem(ctx *httpx.Context, req updateProblemRequest) (P
 	return h.svc.UpdateProblem(ctx.Context(), resolveProjectScope(principal, projectID), problemID, principal.UserID, req)
 }
 
-func (h *Handler) LockProblem(ctx *httpx.Context, _ httpx.NoBody) (ArtifactStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	problemID := strings.TrimSpace(ctx.Param("problemId"))
-	if problemID == "" {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "problemId is required")
-	}
-	return h.svc.UpdateProblemStatus(ctx.Context(), resolveProjectScope(principal, projectID), problemID, principal.UserID, updateProblemStatusRequest{Status: "Locked"})
-}
-
-func (h *Handler) UpdateProblemStatus(ctx *httpx.Context, req updateProblemStatusRequest) (ArtifactStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	problemID := strings.TrimSpace(ctx.Param("problemId"))
-	if problemID == "" {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "problemId is required")
-	}
-	return h.svc.UpdateProblemStatus(ctx.Context(), resolveProjectScope(principal, projectID), problemID, principal.UserID, req)
-}
-
 func (h *Handler) ListIdeas(ctx *httpx.Context, _ httpx.NoBody) (IdeaListResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
@@ -258,7 +226,7 @@ func (h *Handler) ListIdeas(ctx *httpx.Context, _ httpx.NoBody) (IdeaListRespons
 	if err != nil {
 		return IdeaListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
+	query.Status = queryValue(ctx, "filter.status", "status")
 	return h.svc.ListIdeas(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -294,22 +262,6 @@ func (h *Handler) GetIdea(ctx *httpx.Context, _ httpx.NoBody) (IdeaPageResponse,
 	return h.svc.GetIdea(ctx.Context(), resolveProjectScope(principal, projectID), ideaID)
 }
 
-func (h *Handler) SelectIdea(ctx *httpx.Context, _ httpx.NoBody) (ArtifactStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	ideaID := strings.TrimSpace(ctx.Param("ideaId"))
-	if ideaID == "" {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "ideaId is required")
-	}
-	return h.svc.UpdateIdeaStatus(ctx.Context(), resolveProjectScope(principal, projectID), ideaID, principal.UserID, updateIdeaStatusRequest{Status: "Selected"})
-}
-
 func (h *Handler) UpdateIdea(ctx *httpx.Context, req updateIdeaRequest) (IdeaListItem, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
@@ -325,23 +277,6 @@ func (h *Handler) UpdateIdea(ctx *httpx.Context, req updateIdeaRequest) (IdeaLis
 	}
 	return h.svc.UpdateIdea(ctx.Context(), resolveProjectScope(principal, projectID), ideaID, principal.UserID, req)
 }
-
-func (h *Handler) UpdateIdeaStatus(ctx *httpx.Context, req updateIdeaStatusRequest) (ArtifactStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	ideaID := strings.TrimSpace(ctx.Param("ideaId"))
-	if ideaID == "" {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "ideaId is required")
-	}
-	return h.svc.UpdateIdeaStatus(ctx.Context(), resolveProjectScope(principal, projectID), ideaID, principal.UserID, req)
-}
-
 func (h *Handler) ListTasks(ctx *httpx.Context, _ httpx.NoBody) (TaskListResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
@@ -355,7 +290,7 @@ func (h *Handler) ListTasks(ctx *httpx.Context, _ httpx.NoBody) (TaskListRespons
 	if err != nil {
 		return TaskListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
+	query.Status = queryValue(ctx, "filter.status", "status")
 	return h.svc.ListTasks(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -407,22 +342,6 @@ func (h *Handler) UpdateTask(ctx *httpx.Context, req updateTaskRequest) (TaskLis
 	return h.svc.UpdateTask(ctx.Context(), resolveProjectScope(principal, projectID), taskID, principal.UserID, req)
 }
 
-func (h *Handler) UpdateTaskStatus(ctx *httpx.Context, req updateTaskStatusRequest) (ArtifactStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return ArtifactStatusResponse{}, err
-	}
-	taskID := strings.TrimSpace(ctx.Param("taskId"))
-	if taskID == "" {
-		return ArtifactStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "taskId is required")
-	}
-	return h.svc.UpdateTaskStatus(ctx.Context(), resolveProjectScope(principal, projectID), taskID, principal.UserID, req)
-}
-
 func (h *Handler) ListFeedback(ctx *httpx.Context, _ httpx.NoBody) (FeedbackListResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
@@ -436,8 +355,8 @@ func (h *Handler) ListFeedback(ctx *httpx.Context, _ httpx.NoBody) (FeedbackList
 	if err != nil {
 		return FeedbackListResponse{}, err
 	}
-	query.Status = strings.TrimSpace(ctx.Query("status"))
-	query.Outcome = strings.TrimSpace(ctx.Query("outcome"))
+	query.Status = queryValue(ctx, "filter.status", "status")
+	query.Outcome = queryValue(ctx, "filter.outcome", "outcome")
 	return h.svc.ListFeedback(ctx.Context(), resolveProjectScope(principal, projectID), query)
 }
 
@@ -491,18 +410,30 @@ func (h *Handler) UpdateFeedback(ctx *httpx.Context, req updateFeedbackRequest) 
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 	offset := 0
-	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+	if cursor := queryValue(ctx, "pagination.cursor", "cursor"); cursor != "" {
 		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
 		if decodeErr != nil {
 			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
 		}
 		offset = decodedOffset
 	}
-	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 20, "limit")
+	limit, err := parseOptionalIntQuery(queryValue(ctx, "pagination.limit", "limit"), 20, "limit")
 	if err != nil {
 		return listQuery{}, err
 	}
 	return listQuery{Offset: offset, Limit: normalizeLimit(limit)}, nil
+}
+
+func queryValue(ctx *httpx.Context, keys ...string) string {
+	if ctx == nil {
+		return ""
+	}
+	for _, key := range keys {
+		if value := strings.TrimSpace(ctx.Query(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

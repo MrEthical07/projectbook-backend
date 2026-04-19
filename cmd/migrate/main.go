@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
+
 	"github.com/MrEthical07/superapi/internal/core/config"
 	"github.com/MrEthical07/superapi/internal/core/db"
 	"github.com/MrEthical07/superapi/internal/core/logx"
@@ -41,6 +43,7 @@ type runner interface {
 
 type runDeps struct {
 	loadConfig func() (*config.Config, error)
+	loadEnv    func() error
 	newLogger  func(cfg logx.Config) (*logx.Logger, error)
 	newRunner  func(dbURL, sourceURL string) (runner, error)
 }
@@ -48,6 +51,7 @@ type runDeps struct {
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, runDeps{
 		loadConfig: config.Load,
+		loadEnv:    loadDotEnv,
 		newLogger:  logx.New,
 		newRunner: func(dbURL, sourceURL string) (runner, error) {
 			return db.NewMigrationRunner(dbURL, sourceURL)
@@ -65,6 +69,12 @@ func run(args []string, out io.Writer, errOut io.Writer, deps runDeps) int {
 	if cmd.showHelp {
 		printUsage(out)
 		return 0
+	}
+
+	if deps.loadEnv != nil {
+		if err := deps.loadEnv(); err != nil {
+			fmt.Fprintf(errOut, "warning: failed to load .env: %v\n", err)
+		}
 	}
 
 	cfg, err := deps.loadConfig()
@@ -271,8 +281,19 @@ func printUsage(out io.Writer) {
 	_, _ = fmt.Fprintln(out, "  force --version=<N> [--path=db/migrations]")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Environment:")
+	_, _ = fmt.Fprintln(out, "  .env and .env.local are loaded automatically when present")
 	_, _ = fmt.Fprintln(out, "  POSTGRES_ENABLED=true")
 	_, _ = fmt.Fprintln(out, "  POSTGRES_URL=postgres://user:pass@host:5432/db?sslmode=disable")
+}
+
+func loadDotEnv() error {
+	envFiles := []string{".env", ".env.local"}
+	for _, envFile := range envFiles {
+		if err := godotenv.Load(envFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("load %s: %w", envFile, err)
+		}
+	}
+	return nil
 }
 
 func init() {

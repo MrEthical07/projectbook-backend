@@ -45,7 +45,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -64,7 +64,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second}),
 		)
 	} else {
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/team/members", httpx.Adapter(m.handler.ListMembers), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermMemberView))

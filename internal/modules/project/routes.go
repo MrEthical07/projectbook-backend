@@ -26,84 +26,13 @@ func (m *Module) Register(r httpx.Router) error {
 
 	limiter := m.runtime.Limiter()
 	cacheMgr := m.runtime.CacheManager()
+	dashboardTTL := 30 * time.Second
+	overviewTTL := 5 * time.Minute
+	projectMetadataTTL := 5 * time.Minute
+	accessTTL := 30 * time.Second
+	payloadMaxBytes := 100 * 1024
 
 	if cacheMgr != nil {
-		r.Handle(
-			http.MethodGet,
-			"/api/v1/projects/{projectId}/dashboard/summary",
-			httpx.Adapter(m.handler.DashboardSummary),
-			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.ProjectRequired(),
-			policy.ProjectMatchFromPath("projectId"),
-			policy.ResolvePermissions(resolver),
-			policy.RequirePermission(rbac.PermProjectView),
-			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 20 * time.Second,
-				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.dashboard.summary", ProjectID: true},
-				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
-			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 20 * time.Second, Vary: []string{"Authorization"}}),
-		)
-		r.Handle(
-			http.MethodGet,
-			"/api/v1/projects/{projectId}/dashboard/my-work",
-			httpx.Adapter(m.handler.DashboardMyWork),
-			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.ProjectRequired(),
-			policy.ProjectMatchFromPath("projectId"),
-			policy.ResolvePermissions(resolver),
-			policy.RequirePermission(rbac.PermProjectView),
-			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 15 * time.Second,
-				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.dashboard.my_work", ProjectID: true},
-				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
-			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
-		)
-		r.Handle(
-			http.MethodGet,
-			"/api/v1/projects/{projectId}/dashboard/events",
-			httpx.Adapter(m.handler.DashboardEvents),
-			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.ProjectRequired(),
-			policy.ProjectMatchFromPath("projectId"),
-			policy.ResolvePermissions(resolver),
-			policy.RequirePermission(rbac.PermProjectView),
-			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 15 * time.Second,
-				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.dashboard.events", ProjectID: true},
-				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
-			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
-		)
-		r.Handle(
-			http.MethodGet,
-			"/api/v1/projects/{projectId}/dashboard/activity",
-			httpx.Adapter(m.handler.DashboardActivity),
-			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.ProjectRequired(),
-			policy.ProjectMatchFromPath("projectId"),
-			policy.ResolvePermissions(resolver),
-			policy.RequirePermission(rbac.PermProjectView),
-			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 15 * time.Second,
-				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.dashboard.activity", ProjectID: true},
-				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
-			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
-		)
 		r.Handle(
 			http.MethodGet,
 			"/api/v1/projects/{projectId}/dashboard",
@@ -114,14 +43,45 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermProjectView),
 			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 30 * time.Second,
+				TTL:      dashboardTTL,
+				MaxBytes: payloadMaxBytes,
 				TagSpecs: []cache.CacheTagSpec{
 					{Name: "project.dashboard", ProjectID: true},
 				},
 				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
+				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: dashboardTTL}),
+		)
+		r.Handle(
+			http.MethodGet,
+			"/api/v1/projects/{projectId}/overview",
+			httpx.Adapter(m.handler.Overview),
+			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+			policy.ProjectRequired(),
+			policy.ProjectMatchFromPath("projectId"),
+			policy.ResolvePermissions(resolver),
+			policy.RequirePermission(rbac.PermProjectView),
+			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
+				TTL:      overviewTTL,
+				MaxBytes: payloadMaxBytes,
+				TagSpecs: []cache.CacheTagSpec{
+					{Name: "project.overview", ProjectID: true},
+				},
+				AllowAuthenticated: true,
+				VaryBy:             cache.CacheVaryBy{ProjectID: true},
+			}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: overviewTTL}),
+		)
+		r.Handle(
+			http.MethodGet,
+			"/api/v1/projects/{projectId}/search",
+			httpx.Adapter(m.handler.Search),
+			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
+			policy.ProjectRequired(),
+			policy.ProjectMatchFromPath("projectId"),
+			policy.ResolvePermissions(resolver),
+			policy.RequirePermission(rbac.PermProjectView),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -132,33 +92,15 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ProjectMatchFromPath("projectId"),
 			policy.ResolvePermissions(resolver),
 			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 30 * time.Second,
+				TTL:      accessTTL,
+				MaxBytes: payloadMaxBytes,
 				TagSpecs: []cache.CacheTagSpec{
 					{Name: "project.access", ProjectID: true},
 				},
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
-		)
-		r.Handle(
-			http.MethodGet,
-			"/api/v1/projects/{projectId}/navigation",
-			httpx.Adapter(m.handler.Navigation),
-			policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
-			policy.ProjectRequired(),
-			policy.ProjectMatchFromPath("projectId"),
-			policy.ResolvePermissions(resolver),
-			policy.RequirePermission(rbac.PermProjectView),
-			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 30 * time.Second,
-				TagSpecs: []cache.CacheTagSpec{
-					{Name: "project.navigation", ProjectID: true},
-				},
-				AllowAuthenticated: true,
-				VaryBy:             cache.CacheVaryBy{ProjectID: true, UserID: true},
-			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: accessTTL}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -170,23 +112,21 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.ResolvePermissions(resolver),
 			policy.RequirePermission(rbac.PermProjectView),
 			policy.CacheRead(cacheMgr, cache.CacheReadConfig{
-				TTL: 60 * time.Second,
+				TTL:      projectMetadataTTL,
+				MaxBytes: payloadMaxBytes,
 				TagSpecs: []cache.CacheTagSpec{
 					{Name: "project.settings", ProjectID: true},
 				},
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{ProjectID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: projectMetadataTTL}),
 		)
 	} else {
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard/summary", httpx.Adapter(m.handler.DashboardSummary), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard/my-work", httpx.Adapter(m.handler.DashboardMyWork), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard/events", httpx.Adapter(m.handler.DashboardEvents), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard/activity", httpx.Adapter(m.handler.DashboardActivity), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/dashboard", httpx.Adapter(m.handler.Dashboard), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
+		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/overview", httpx.Adapter(m.handler.Overview), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
+		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/search", httpx.Adapter(m.handler.Search), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/access", httpx.Adapter(m.handler.Access), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver))
-		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/navigation", httpx.Adapter(m.handler.Navigation), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 		r.Handle(http.MethodGet, "/api/v1/projects/{projectId}/settings", httpx.Adapter(m.handler.GetSettings), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()), policy.ProjectRequired(), policy.ProjectMatchFromPath("projectId"), policy.ResolvePermissions(resolver), policy.RequirePermission(rbac.PermProjectView))
 	}
 
@@ -195,12 +135,8 @@ func (m *Module) Register(r httpx.Router) error {
 	deleteRule := ratelimit.Rule{Limit: 5, Window: time.Minute, Scope: ratelimit.ScopeProject}
 	invalidateProjectTags := cache.CacheInvalidateConfig{TagSpecs: []cache.CacheTagSpec{
 		{Name: "project.dashboard", ProjectID: true},
-		{Name: "project.dashboard.summary", ProjectID: true},
-		{Name: "project.dashboard.my_work", ProjectID: true},
-		{Name: "project.dashboard.events", ProjectID: true},
-		{Name: "project.dashboard.activity", ProjectID: true},
+		{Name: "project.overview", ProjectID: true},
 		{Name: "project.access", ProjectID: true},
-		{Name: "project.navigation", ProjectID: true},
 		{Name: "project.settings", ProjectID: true},
 	}}
 

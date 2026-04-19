@@ -101,7 +101,7 @@ func (m *Module) Register(r httpx.Router) error {
 			policy.RateLimitWithKeyer(limiter, "auth.change_password_confirm", changePasswordRule, ratelimit.KeyByUser()),
 		)
 
-		// Compatibility endpoint kept for performance/load tooling during migration.
+		// Refresh endpoint for rotating access/refresh token pairs.
 		r.Handle(http.MethodPost, "/api/v1/auth/refresh", httpx.Adapter(m.handler.Refresh),
 			policy.RequireJSON(),
 			policy.RateLimitWithKeyer(limiter, "auth.refresh", refreshRule, refreshTokenRateLimitKeyer(16)),
@@ -134,7 +134,7 @@ func (m *Module) Register(r httpx.Router) error {
 		policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()),
 	)
 
-	// Compatibility endpoint kept for performance/load tooling during migration.
+	// Refresh endpoint for rotating access/refresh token pairs.
 	r.Handle(http.MethodPost, "/api/v1/auth/refresh", httpx.Adapter(m.handler.Refresh), policy.RequireJSON())
 
 	r.Handle(

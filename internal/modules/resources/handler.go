@@ -82,25 +82,9 @@ func (h *Handler) UpdateResource(ctx *httpx.Context, req updateResourceRequest) 
 	return h.svc.UpdateResource(ctx.Context(), resolveProjectScope(principal, projectID), resourceID, principal.UserID, req)
 }
 
-func (h *Handler) UpdateResourceStatus(ctx *httpx.Context, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return UpdateResourceStatusResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return UpdateResourceStatusResponse{}, err
-	}
-	resourceID := strings.TrimSpace(ctx.Param("resourceId"))
-	if resourceID == "" {
-		return UpdateResourceStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "resourceId is required")
-	}
-	return h.svc.UpdateResourceStatus(ctx.Context(), resolveProjectScope(principal, projectID), resourceID, principal.UserID, req)
-}
-
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 	offset := 0
-	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+	if cursor := queryValue(ctx, "pagination.cursor", "cursor"); cursor != "" {
 		decodedOffset, err := pagination.DecodeOffsetCursor(cursor)
 		if err != nil {
 			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
@@ -108,18 +92,27 @@ func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 		offset = decodedOffset
 	}
 
-	limit, err := parseOptionalIntQuery(ctx.Query("limit"), 20, "limit")
+	limit, err := parseOptionalIntQuery(queryValue(ctx, "pagination.limit", "limit"), 20, "limit")
 	if err != nil {
 		return listQuery{}, err
 	}
 	return listQuery{
-		Status:  strings.TrimSpace(ctx.Query("status")),
-		DocType: strings.TrimSpace(ctx.Query("docType")),
-		Sort:    normalizeSort(ctx.Query("sort")),
-		Order:   normalizeOrder(ctx.Query("order")),
+		Status:  queryValue(ctx, "filter.status", "status"),
+		DocType: queryValue(ctx, "filter.docType", "docType"),
+		Sort:    normalizeSort(queryValue(ctx, "sorting.sort", "sort")),
+		Order:   normalizeOrder(queryValue(ctx, "sorting.order", "order")),
 		Offset:  offset,
 		Limit:   normalizeLimit(limit),
 	}, nil
+}
+
+func queryValue(ctx *httpx.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(ctx.Query(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

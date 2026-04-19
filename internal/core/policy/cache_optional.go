@@ -27,5 +27,5 @@ func CacheControlOptional(manager *cache.Manager, ttl time.Duration) Policy {
 	if manager == nil {
 		return Noop()
 	}
-	return CacheControl(CacheControlConfig{Private: true, MaxAge: ttl, Vary: []string{"Authorization"}})
+	return CacheControl(CacheControlConfig{Private: true, MaxAge: ttl})
 }

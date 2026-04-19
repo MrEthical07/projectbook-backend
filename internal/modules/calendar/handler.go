@@ -100,7 +100,7 @@ func (h *Handler) DeleteCalendarEvent(ctx *httpx.Context, _ httpx.NoBody) (Delet
 
 func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 	offset := 0
-	if cursor := strings.TrimSpace(ctx.Query("cursor")); cursor != "" {
+	if cursor := queryValue(ctx, "pagination.cursor", "cursor"); cursor != "" {
 		decodedOffset, decodeErr := pagination.DecodeOffsetCursor(cursor)
 		if decodeErr != nil {
 			return listQuery{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "cursor is invalid")
@@ -108,11 +108,20 @@ func parseListQuery(ctx *httpx.Context) (listQuery, error) {
 		offset = decodedOffset
 	}
 
-	limit, err := parseLimit(ctx.Query("limit"))
+	limit, err := parseLimit(queryValue(ctx, "pagination.limit", "limit"))
 	if err != nil {
 		return listQuery{}, err
 	}
 	return listQuery{Offset: offset, Limit: limit}, nil
+}
+
+func queryValue(ctx *httpx.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(ctx.Query(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func requireAuthenticatedPrincipal(ctx *httpx.Context) (auth.AuthContext, error) {

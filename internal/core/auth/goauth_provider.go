@@ -81,6 +81,9 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 	cfg.Result.IncludePermissions = false
 	cfg.Security.EnablePermissionVersionCheck = false
 	cfg.Security.EnableRoleVersionCheck = false
+	// Keep refresh tokens valid across email verification transitions so the
+	// web flow can verify and continue without forcing re-login.
+	cfg.Security.EnableAccountVersionCheck = false
 	cfg.Security.EnforceRefreshRotation = true
 	cfg.Security.EnforceRefreshReuseDetection = true
 	cfg.Security.EnableLoginFailureLimiter = true
@@ -110,7 +113,9 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 	cfg.PasswordReset.EnableConfirmFailureLimiter = true
 	cfg.EmailVerification.Enabled = true
 	cfg.EmailVerification.Strategy = goauth.VerificationOTP
-	cfg.EmailVerification.RequireForLogin = true
+	// Login is allowed before verification; route access is gated by the web layer
+	// until email_verified is true.
+	cfg.EmailVerification.RequireForLogin = false
 	cfg.EmailVerification.VerificationTTL = 15 * time.Minute
 	cfg.EmailVerification.MaxAttempts = 5
 	cfg.EmailVerification.OTPDigits = 6

@@ -1,0 +1,133 @@
+name: Backend Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Release + Build + Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------
+      # Setup Node (for semantic-release)
+      # ---------------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/github
+
+      # ---------------------------
+      # Run semantic-release
+      # ---------------------------
+      - name: Run semantic-release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: semantic-release
+
+      # ---------------------------
+      # Extract version
+      # ---------------------------
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version" || echo "")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # STOP if no release
+      - name: Check version
+        if: steps.version.outputs.version == ''
+        run: |
+          echo "No release triggered"
+          exit 0
+
+      # ---------------------------
+      # Docker Login
+      # ---------------------------
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ---------------------------
+      # Build + Push Image
+      # ---------------------------
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}
+            projectbook07/projectbook-backend:sha-${{ github.sha }}
+
+      # ---------------------------
+      # Deploy via SSH
+      # ---------------------------
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE="projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}"
+            CONTAINER="projectbook-backend"
+
+            echo "Pulling image..."
+            docker pull $IMAGE
+
+            echo "Stopping old container (if exists)..."
+            docker stop $CONTAINER || true
+            docker rm $CONTAINER || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name $CONTAINER \
+              --env-file /opt/projectbook/backend.env \
+              -p 127.0.0.1:8080:8080 \
+              $IMAGE
+
+            echo "Waiting for health..."
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:8080/readyz; then
+                echo "Deployment successful"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Health check failed"
+            docker logs $CONTAINER
+            exit 1
+
+      # ---------------------------
+      # Promote to stable (ONLY if deploy succeeds)
+      # ---------------------------
+      - name: Tag stable
+        if: success()
+        run: |
+          docker pull projectbook07/projectbook-backend:v${{ steps.version.outputs.version }}
+          docker tag projectbook07/projectbook-backend:v${{ steps.version.outputs.version }} projectbook07/projectbook-backend:stable
+          docker push projectbook07/projectbook-backend:stable

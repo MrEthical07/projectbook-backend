@@ -22,13 +22,14 @@ var (
 
 // Repo defines project module persistence operations.
 type Repo interface {
-	Dashboard(ctx context.Context, projectID, userID string) (projectDashboardResponse, error)
-	DashboardSummary(ctx context.Context, projectID, userID string) (projectDashboardSummaryResponse, error)
-	DashboardMyWork(ctx context.Context, projectID, userID string) (projectDashboardMyWorkResponse, error)
-	DashboardEvents(ctx context.Context, projectID, userID string) (projectDashboardEventsResponse, error)
-	DashboardActivity(ctx context.Context, projectID, userID string) (projectDashboardActivityResponse, error)
+	Dashboard(ctx context.Context, projectID string) (projectDashboardResponse, error)
+	DashboardSummary(ctx context.Context, projectID string) (projectDashboardSummaryResponse, error)
+	DashboardMyWork(ctx context.Context, projectID string) (projectDashboardMyWorkResponse, error)
+	DashboardEvents(ctx context.Context, projectID string) (projectDashboardEventsResponse, error)
+	DashboardActivity(ctx context.Context, projectID string) (projectDashboardActivityResponse, error)
+	Overview(ctx context.Context, projectID string) (projectOverviewResponse, error)
+	Search(ctx context.Context, projectID, q string, limit int) (projectSearchResponse, error)
 	GetUser(ctx context.Context, userID string) (accessUser, error)
-	ListNavigationProjects(ctx context.Context, userID string) ([]navigationProjectRecord, error)
 	GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error)
 	UpdateSettings(ctx context.Context, projectID string, patch projectSettingsPatch) (projectUpdateSettingsResponse, error)
 	Archive(ctx context.Context, projectID string) (projectArchiveResponse, error)
@@ -37,14 +38,6 @@ type Repo interface {
 
 type repo struct {
 	store storage.RelationalStore
-}
-
-type navigationProjectRecord struct {
-	ID     string
-	Name   string
-	Icon   string
-	Status string
-	Role   string
 }
 
 type projectIdentity struct {
@@ -211,7 +204,6 @@ SELECT
 	COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), '')
 FROM tasks t
 WHERE t.project_id = $1::uuid
-	AND t.owner_user_id = $2::uuid
 ORDER BY
 	CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END,
 	t.due_at ASC,
@@ -226,24 +218,40 @@ SELECT
 	COALESCE(f.outcome::text, 'Needs Iteration')
 FROM feedback f
 WHERE f.project_id = $1::uuid
-	AND f.owner_user_id = $2::uuid
 ORDER BY f.updated_at DESC
 LIMIT 5
 `
 
-const queryListNavigationProjects = `
+const querySearchProjectArtifacts = `
+WITH normalized AS (
+	SELECT
+		NULLIF(trim($2::text), '') AS q,
+		NULLIF(websearch_to_tsquery('english', trim($2::text))::text, '') AS web_text,
+		NULLIF(plainto_tsquery('english', trim($2::text))::text, '') AS plain_text
+), picked AS (
+	SELECT
+		CASE
+			WHEN q IS NULL THEN NULL::tsquery
+			WHEN web_text IS NOT NULL THEN websearch_to_tsquery('english', q)
+			WHEN plain_text IS NOT NULL THEN plainto_tsquery('english', q)
+			ELSE NULL::tsquery
+		END AS tsq
+	FROM normalized
+)
 SELECT
-	p.id::text,
-	p.name,
-	p.icon,
-	p.status::text,
-	pm.role::text
-FROM project_members pm
-JOIN projects p ON p.id = pm.project_id
-WHERE pm.user_id = $1::uuid
-	AND pm.status = 'Active'
-ORDER BY p.last_updated_at DESC
-LIMIT 50
+	si.artifact_id::text AS id,
+	si.artifact_type,
+	si.title,
+	COALESCE(NULLIF(si.description, ''), '') AS description,
+	COALESCE(si.status, '') AS status,
+	si.href,
+	si.updated_at
+FROM search_index si
+JOIN picked p ON p.tsq IS NOT NULL
+WHERE si.project_id = $1::uuid
+	AND si.search_vector @@ p.tsq
+ORDER BY ts_rank(si.search_vector, p.tsq) DESC, si.updated_at DESC
+LIMIT $3
 `
 
 const queryGetSettingsByProjectID = `
@@ -350,40 +358,42 @@ DELETE FROM projects
 WHERE id = $1::uuid
 `
 
-func (r *repo) Dashboard(ctx context.Context, projectID, userID string) (projectDashboardResponse, error) {
-	summary, err := r.DashboardSummary(ctx, projectID, userID)
+func (r *repo) Dashboard(ctx context.Context, projectID string) (projectDashboardResponse, error) {
+	summary, err := r.DashboardSummary(ctx, projectID)
 	if err != nil {
 		return projectDashboardResponse{}, err
 	}
 
-	myWork, err := r.DashboardMyWork(ctx, projectID, userID)
+	myWork, err := r.DashboardMyWork(ctx, projectID)
 	if err != nil {
 		return projectDashboardResponse{}, err
 	}
 
-	events, err := r.DashboardEvents(ctx, projectID, userID)
+	events, err := r.DashboardEvents(ctx, projectID)
 	if err != nil {
 		return projectDashboardResponse{}, err
 	}
 
-	activity, err := r.DashboardActivity(ctx, projectID, userID)
+	activity, err := r.DashboardActivity(ctx, projectID)
 	if err != nil {
 		return projectDashboardResponse{}, err
 	}
 
 	return projectDashboardResponse{
-		Project:     summary.Project,
-		Me:          myWork.Me,
-		Summary:     summary.Summary,
-		MyTasks:     myWork.MyTasks,
-		MyFeedback:  myWork.MyFeedback,
-		Events:      events.Events,
-		Activity:    activity.Activity,
-		RecentEdits: myWork.RecentEdits,
+		Project:  summary.Project,
+		Summary:  summary.Summary,
+		Events:   events.Events,
+		Activity: activity.Activity,
+		MyWork: projectDashboardMyWorkBlock{
+			FocusUser:   myWork.Me,
+			Tasks:       myWork.MyTasks,
+			Feedback:    myWork.MyFeedback,
+			RecentEdits: myWork.RecentEdits,
+		},
 	}, nil
 }
 
-func (r *repo) DashboardSummary(ctx context.Context, projectID, userID string) (projectDashboardSummaryResponse, error) {
+func (r *repo) DashboardSummary(ctx context.Context, projectID string) (projectDashboardSummaryResponse, error) {
 	if err := r.requireStore(); err != nil {
 		return projectDashboardSummaryResponse{}, err
 	}
@@ -404,7 +414,7 @@ func (r *repo) DashboardSummary(ctx context.Context, projectID, userID string) (
 	}, nil
 }
 
-func (r *repo) DashboardMyWork(ctx context.Context, projectID, userID string) (projectDashboardMyWorkResponse, error) {
+func (r *repo) DashboardMyWork(ctx context.Context, projectID string) (projectDashboardMyWorkResponse, error) {
 	if err := r.requireStore(); err != nil {
 		return projectDashboardMyWorkResponse{}, err
 	}
@@ -414,17 +424,12 @@ func (r *repo) DashboardMyWork(ctx context.Context, projectID, userID string) (p
 		return projectDashboardMyWorkResponse{}, err
 	}
 
-	me, err := r.GetUser(ctx, userID)
+	myTasks, err := r.loadDashboardMyTasks(ctx, identity.UUID)
 	if err != nil {
 		return projectDashboardMyWorkResponse{}, err
 	}
 
-	myTasks, err := r.loadDashboardMyTasks(ctx, identity.UUID, userID)
-	if err != nil {
-		return projectDashboardMyWorkResponse{}, err
-	}
-
-	myFeedback, err := r.loadDashboardMyFeedback(ctx, identity.UUID, userID)
+	myFeedback, err := r.loadDashboardMyFeedback(ctx, identity.UUID)
 	if err != nil {
 		return projectDashboardMyWorkResponse{}, err
 	}
@@ -435,14 +440,14 @@ func (r *repo) DashboardMyWork(ctx context.Context, projectID, userID string) (p
 	}
 
 	return projectDashboardMyWorkResponse{
-		Me:          dashboardUser{ID: me.ID, Name: me.Name, Initials: initialsFromName(me.Name)},
+		Me:          dashboardUser{ID: "project", Name: "Project Team", Initials: "PT"},
 		MyTasks:     myTasks,
 		MyFeedback:  myFeedback,
 		RecentEdits: recentEdits,
 	}, nil
 }
 
-func (r *repo) DashboardEvents(ctx context.Context, projectID, userID string) (projectDashboardEventsResponse, error) {
+func (r *repo) DashboardEvents(ctx context.Context, projectID string) (projectDashboardEventsResponse, error) {
 	if err := r.requireStore(); err != nil {
 		return projectDashboardEventsResponse{}, err
 	}
@@ -460,7 +465,7 @@ func (r *repo) DashboardEvents(ctx context.Context, projectID, userID string) (p
 	return projectDashboardEventsResponse{Events: events}, nil
 }
 
-func (r *repo) DashboardActivity(ctx context.Context, projectID, userID string) (projectDashboardActivityResponse, error) {
+func (r *repo) DashboardActivity(ctx context.Context, projectID string) (projectDashboardActivityResponse, error) {
 	if err := r.requireStore(); err != nil {
 		return projectDashboardActivityResponse{}, err
 	}
@@ -478,6 +483,53 @@ func (r *repo) DashboardActivity(ctx context.Context, projectID, userID string) 
 	return projectDashboardActivityResponse{
 		Activity: activity,
 	}, nil
+}
+
+func (r *repo) Overview(ctx context.Context, projectID string) (projectOverviewResponse, error) {
+	summary, err := r.DashboardSummary(ctx, projectID)
+	if err != nil {
+		return projectOverviewResponse{}, err
+	}
+
+	return projectOverviewResponse{
+		Project: summary.Project,
+		Summary: summary.Summary,
+	}, nil
+}
+
+func (r *repo) Search(ctx context.Context, projectID, q string, limit int) (projectSearchResponse, error) {
+	if err := r.requireStore(); err != nil {
+		return projectSearchResponse{}, err
+	}
+
+	identity, err := r.resolveProjectIdentity(ctx, projectID)
+	if err != nil {
+		return projectSearchResponse{}, err
+	}
+
+	items := make([]projectSearchResultItem, 0, limit)
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(querySearchProjectArtifacts,
+		func(row storage.RowScanner) error {
+			var item projectSearchResultItem
+			var updatedAt time.Time
+			if scanErr := row.Scan(&item.ID, &item.Type, &item.Title, &item.Description, &item.Status, &item.Href, &updatedAt); scanErr != nil {
+				return scanErr
+			}
+			item.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+			item.Description = strings.TrimSpace(item.Description)
+			item.Status = strings.TrimSpace(item.Status)
+			items = append(items, item)
+			return nil
+		},
+		identity.UUID,
+		strings.TrimSpace(q),
+		limit,
+	))
+	if err != nil {
+		return projectSearchResponse{}, wrapRepoError("search project", err)
+	}
+
+	return projectSearchResponse{Query: strings.TrimSpace(q), Items: items}, nil
 }
 
 func (r *repo) loadDashboardSummary(ctx context.Context, projectUUID string) (dashboardSummary, error) {
@@ -551,7 +603,7 @@ func (r *repo) loadDashboardSummary(ctx context.Context, projectUUID string) (da
 	}, nil
 }
 
-func (r *repo) loadDashboardMyTasks(ctx context.Context, projectUUID, userID string) ([]dashboardTask, error) {
+func (r *repo) loadDashboardMyTasks(ctx context.Context, projectUUID string) ([]dashboardTask, error) {
 	items := make([]dashboardTask, 0, 5)
 	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardMyTasks,
 		func(row storage.RowScanner) error {
@@ -564,7 +616,6 @@ func (r *repo) loadDashboardMyTasks(ctx context.Context, projectUUID, userID str
 			return nil
 		},
 		projectUUID,
-		strings.TrimSpace(userID),
 	))
 	if err != nil {
 		return nil, wrapRepoError("list dashboard my tasks", err)
@@ -572,7 +623,7 @@ func (r *repo) loadDashboardMyTasks(ctx context.Context, projectUUID, userID str
 	return items, nil
 }
 
-func (r *repo) loadDashboardMyFeedback(ctx context.Context, projectUUID, userID string) ([]dashboardFeedback, error) {
+func (r *repo) loadDashboardMyFeedback(ctx context.Context, projectUUID string) ([]dashboardFeedback, error) {
 	items := make([]dashboardFeedback, 0, 5)
 	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListDashboardMyFeedback,
 		func(row storage.RowScanner) error {
@@ -585,7 +636,6 @@ func (r *repo) loadDashboardMyFeedback(ctx context.Context, projectUUID, userID 
 			return nil
 		},
 		projectUUID,
-		strings.TrimSpace(userID),
 	))
 	if err != nil {
 		return nil, wrapRepoError("list dashboard my feedback", err)
@@ -678,30 +728,6 @@ func (r *repo) GetUser(ctx context.Context, userID string) (accessUser, error) {
 	}
 
 	return user, nil
-}
-
-func (r *repo) ListNavigationProjects(ctx context.Context, userID string) ([]navigationProjectRecord, error) {
-	if err := r.requireStore(); err != nil {
-		return nil, err
-	}
-
-	projects := make([]navigationProjectRecord, 0, 16)
-	err := r.store.Execute(ctx, storage.RelationalQueryMany(queryListNavigationProjects,
-		func(row storage.RowScanner) error {
-			var item navigationProjectRecord
-			if err := row.Scan(&item.ID, &item.Name, &item.Icon, &item.Status, &item.Role); err != nil {
-				return err
-			}
-			projects = append(projects, item)
-			return nil
-		},
-		strings.TrimSpace(userID),
-	))
-	if err != nil {
-		return nil, wrapRepoError("list navigation projects", err)
-	}
-
-	return projects, nil
 }
 
 func (r *repo) GetSettings(ctx context.Context, projectID string) (projectSettingsResponse, error) {

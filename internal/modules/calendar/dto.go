@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultListLimit = 20
-	maxListLimit     = 100
+	maxListLimit     = 50
 )
 
 var hhmmRegex = regexp.MustCompile(`^(?:[01]\d|2[0-3]):[0-5]\d$`)
@@ -223,22 +223,6 @@ func toString(v any) string {
 func toBool(v any) (bool, bool) {
 	b, ok := v.(bool)
 	return b, ok
-}
-
-func toSlice(v any) []any {
-	s, ok := v.([]any)
-	if ok {
-		return s
-	}
-	stringSlice, ok := v.([]string)
-	if !ok {
-		return nil
-	}
-	out := make([]any, 0, len(stringSlice))
-	for _, item := range stringSlice {
-		out = append(out, item)
-	}
-	return out
 }
 
 func toStringSlice(v any) []string {

@@ -177,6 +177,12 @@ func CacheRead(manager *cache.Manager, cfg cache.CacheReadConfig) Policy {
 				ensureAuthCacheSafety(r)
 			}
 
+			if shouldBypassCursorCache(r, runtime.template.QueryParams) {
+				manager.Observe(route, cacheOutcomeBypass)
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			key, err := manager.BuildReadKeyWithTemplate(r.Context(), r, routePart, runtime.template)
 			if err != nil {
 				manager.Observe(route, cacheOutcomeError)
@@ -402,6 +408,37 @@ func hasAuthPrincipal(r *http.Request) bool {
 		return false
 	}
 	return strings.TrimSpace(principal.UserID) != "" || strings.TrimSpace(principal.ProjectID) != "" || strings.TrimSpace(principal.Role) != ""
+}
+
+func shouldBypassCursorCache(r *http.Request, queryParams []string) bool {
+	if r == nil || r.URL == nil || len(queryParams) == 0 {
+		return false
+	}
+
+	hasCursorKey := false
+	for _, name := range queryParams {
+		switch strings.TrimSpace(strings.ToLower(name)) {
+		case "cursor", "pagination.cursor":
+			hasCursorKey = true
+		}
+		if hasCursorKey {
+			break
+		}
+	}
+
+	if !hasCursorKey {
+		return false
+	}
+
+	query := r.URL.Query()
+	if strings.TrimSpace(query.Get("pagination.cursor")) != "" {
+		return true
+	}
+	if strings.TrimSpace(query.Get("cursor")) != "" {
+		return true
+	}
+
+	return false
 }
 
 func ensureAuthCacheSafety(r *http.Request) {

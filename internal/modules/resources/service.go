@@ -15,7 +15,6 @@ type Service interface {
 	CreateResource(ctx context.Context, projectID, actorUserID string, req createResourceRequest) (ResourceListItem, error)
 	GetResource(ctx context.Context, projectID, resourceID string) (GetResourceResponse, error)
 	UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceRequest) (ResourceListItem, error)
-	UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error)
 }
 
 type service struct {
@@ -104,43 +103,6 @@ func (s *service) UpdateResource(ctx context.Context, projectID, resourceID, act
 	return decodeResourceListItem(updated), nil
 }
 
-func (s *service) UpdateResourceStatus(ctx context.Context, projectID, resourceID, actorUserID string, req updateResourceStatusRequest) (UpdateResourceStatusResponse, error) {
-	if err := req.Validate(); err != nil {
-		return UpdateResourceStatusResponse{}, err
-	}
-	current, err := s.repo.GetResource(ctx, projectID, resourceID)
-	if err != nil {
-		return UpdateResourceStatusResponse{}, mapServiceError("load resource before status update", err)
-	}
-	from := nestedString(current, "resource", "status")
-	if err := enforceArchiveOnlyForImmutableStatusChange("resource", from, req.Status, resourceImmutableStatuses); err != nil {
-		return UpdateResourceStatusResponse{}, err
-	}
-	if !isAllowedTransition(from, req.Status, map[string]map[string]struct{}{
-		"Active":   {"Active": {}, "Archived": {}},
-		"Archived": {"Archived": {}, "Active": {}},
-	}) {
-		return UpdateResourceStatusResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "invalid resource status transition")
-	}
-	var updated map[string]any
-	err = s.store.WithTx(ctx, func(txCtx context.Context) error {
-		result, updateErr := s.repo.UpdateResourceStatus(txCtx, projectID, resourceID, req.Status, actorUserID)
-		if updateErr != nil {
-			return updateErr
-		}
-		updated = result
-		return nil
-	})
-	if err != nil {
-		return UpdateResourceStatusResponse{}, mapServiceError("update resource status", err)
-	}
-	return UpdateResourceStatusResponse{
-		ID:          toString(updated["id"]),
-		Status:      toString(updated["status"]),
-		LastUpdated: toString(updated["lastUpdated"]),
-	}, nil
-}
-
 func mapServiceError(action string, err error) error {
 	if err == nil {
 		return nil
@@ -167,19 +129,6 @@ func enforceArchiveOnlyForImmutableUpdate(entity, from string, patch map[string]
 		return nil
 	}
 	if isRestoreOnlyPatch(from, patch) {
-		return nil
-	}
-	return immutableStateError(entity, from)
-}
-
-func enforceArchiveOnlyForImmutableStatusChange(entity, from, to string, immutableStatuses map[string]struct{}) error {
-	if !isImmutableStatus(from, immutableStatuses) {
-		return nil
-	}
-	if strings.EqualFold(strings.TrimSpace(from), "Archived") && !strings.EqualFold(strings.TrimSpace(to), "Archived") {
-		return nil
-	}
-	if strings.EqualFold(strings.TrimSpace(to), "Archived") {
 		return nil
 	}
 	return immutableStateError(entity, from)

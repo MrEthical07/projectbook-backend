@@ -90,10 +90,11 @@ func (p *StoreUserProvider) CreateUser(ctx context.Context, input goauth.CreateU
 	}
 
 	row, err := p.repo.Create(ctx, CreateStoredUserInput{
-		Identifier:    input.Identifier,
-		Name:          strings.TrimSpace(input.Identifier),
-		PasswordHash:  input.PasswordHash,
-		EmailVerified: input.Status == goauth.AccountActive,
+		Identifier:     input.Identifier,
+		Name:           strings.TrimSpace(input.Identifier),
+		PasswordHash:   input.PasswordHash,
+		AccountVersion: input.AccountVersion,
+		EmailVerified:  input.Status == goauth.AccountActive,
 	})
 	if err != nil {
 		return goauth.UserRecord{}, fmt.Errorf("create user: %w", err)
@@ -166,11 +167,12 @@ func mapUserToRecord(row StoredUser) goauth.UserRecord {
 	}
 
 	return goauth.UserRecord{
-		UserID:       row.ID,
-		Identifier:   row.Email,
-		PasswordHash: row.PasswordHash,
-		Role:         "user",
-		Status:       status,
+		UserID:         row.ID,
+		Identifier:     row.Email,
+		PasswordHash:   row.PasswordHash,
+		Role:           "user",
+		Status:         status,
+		AccountVersion: row.AccountVersion,
 	}
 }
 

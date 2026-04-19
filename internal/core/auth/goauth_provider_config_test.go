@@ -89,6 +89,9 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if cfg.Security.EnableRoleVersionCheck {
 		t.Fatalf("EnableRoleVersionCheck=true want=false")
 	}
+	if cfg.Security.EnableAccountVersionCheck {
+		t.Fatalf("EnableAccountVersionCheck=true want=false")
+	}
 	if !cfg.Security.EnforceRefreshRotation {
 		t.Fatalf("EnforceRefreshRotation=false want=true")
 	}
@@ -150,8 +153,8 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if !cfg.EmailVerification.Enabled {
 		t.Fatalf("EmailVerification.Enabled=false want=true")
 	}
-	if !cfg.EmailVerification.RequireForLogin {
-		t.Fatalf("EmailVerification.RequireForLogin=false want=true")
+	if cfg.EmailVerification.RequireForLogin {
+		t.Fatalf("EmailVerification.RequireForLogin=true want=false")
 	}
 	if cfg.EmailVerification.Strategy != goauth.VerificationOTP {
 		t.Fatalf("EmailVerification.Strategy=%v want=%v", cfg.EmailVerification.Strategy, goauth.VerificationOTP)

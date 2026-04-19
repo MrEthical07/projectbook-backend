@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/policy"
 	"github.com/MrEthical07/superapi/internal/core/ratelimit"
 	"github.com/MrEthical07/superapi/internal/core/storage"
+	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -43,6 +45,13 @@ LEFT JOIN role_permissions rp
 WHERE pm.user_id::text = $1
 	AND pm.status = 'Active'
 ORDER BY p.id::text
+`
+	querySessionContextUserProfile = `
+SELECT
+	email,
+	is_email_verified
+FROM users
+WHERE id = $1::uuid
 `
 )
 
@@ -122,6 +131,8 @@ type sessionContextProjectPermission struct {
 
 type sessionContextResponse struct {
 	UserID              string                            `json:"user_id"`
+	Email               string                            `json:"email,omitempty"`
+	EmailVerified       bool                              `json:"email_verified"`
 	BackendRole         string                            `json:"backend_role,omitempty"`
 	ProjectPermissions  []sessionContextProjectPermission `json:"project_permissions"`
 	SnapshotHash        string                            `json:"snapshot_hash"`
@@ -134,6 +145,8 @@ type sessionContextResponse struct {
 
 type sessionContextTokenClaims struct {
 	UserID             string                            `json:"user_id"`
+	Email              string                            `json:"email,omitempty"`
+	EmailVerified      bool                              `json:"email_verified"`
 	BackendRole        string                            `json:"backend_role,omitempty"`
 	ProjectPermissions []sessionContextProjectPermission `json:"project_permissions"`
 	SnapshotHash       string                            `json:"snapshot_hash,omitempty"`
@@ -163,6 +176,11 @@ func (m *Module) sessionContext(ctx *httpx.Context, _ httpx.NoBody) (sessionCont
 		return sessionContextResponse{}, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
 	}
 
+	email, emailVerified, err := m.readSessionContextUserProfile(ctx.Context(), principal.UserID)
+	if err != nil {
+		return sessionContextResponse{}, err
+	}
+
 	projectPermissions, err := m.listUserProjectPermissions(ctx.Context(), principal.UserID)
 	if err != nil {
 		return sessionContextResponse{}, err
@@ -170,6 +188,8 @@ func (m *Module) sessionContext(ctx *httpx.Context, _ httpx.NoBody) (sessionCont
 
 	response := sessionContextResponse{
 		UserID:             principal.UserID,
+		Email:              email,
+		EmailVerified:      emailVerified,
 		BackendRole:        principal.Role,
 		ProjectPermissions: projectPermissions,
 		ExpiresInSeconds:   sessionContextTokenTTLSeconds,
@@ -203,6 +223,8 @@ func buildSessionContextToken(response sessionContextResponse, now time.Time) (s
 
 	claims := sessionContextTokenClaims{
 		UserID:             strings.TrimSpace(response.UserID),
+		Email:              strings.TrimSpace(response.Email),
+		EmailVerified:      response.EmailVerified,
 		BackendRole:        strings.TrimSpace(response.BackendRole),
 		ProjectPermissions: response.ProjectPermissions,
 		SnapshotHash:       strings.TrimSpace(response.SnapshotHash),
@@ -330,13 +352,46 @@ func (m *Module) listUserProjectPermissions(ctx context.Context, userID string) 
 	return projectPermissions, nil
 }
 
+func (m *Module) readSessionContextUserProfile(ctx context.Context, userID string) (string, bool, error) {
+	store := m.runtime.RelationalStore()
+	if store == nil {
+		// Fail open in local/no-store modes to avoid blocking authenticated flows.
+		return "", true, nil
+	}
+
+	var email string
+	var emailVerified bool
+	err := store.Execute(ctx, storage.RelationalQueryOne(
+		querySessionContextUserProfile,
+		func(row storage.RowScanner) error {
+			return row.Scan(&email, &emailVerified)
+		},
+		userID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, apperr.New(apperr.CodeUnauthorized, http.StatusUnauthorized, "authentication required")
+		}
+		return "", false, apperr.WithCause(
+			apperr.New(apperr.CodeDependencyFailure, http.StatusServiceUnavailable, "session profile unavailable"),
+			err,
+		)
+	}
+
+	return strings.TrimSpace(email), emailVerified, nil
+}
+
 func buildSessionContextHash(response sessionContextResponse) (string, error) {
 	hashInput := struct {
 		UserID             string                            `json:"user_id"`
+		Email              string                            `json:"email,omitempty"`
+		EmailVerified      bool                              `json:"email_verified"`
 		BackendRole        string                            `json:"backend_role,omitempty"`
 		ProjectPermissions []sessionContextProjectPermission `json:"project_permissions"`
 	}{
 		UserID:             response.UserID,
+		Email:              response.Email,
+		EmailVerified:      response.EmailVerified,
 		BackendRole:        response.BackendRole,
 		ProjectPermissions: response.ProjectPermissions,
 	}

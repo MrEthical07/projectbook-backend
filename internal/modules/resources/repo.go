@@ -23,7 +23,6 @@ type Repo interface {
 	CreateResource(ctx context.Context, projectID, actorUserID, name, docType string) (map[string]any, error)
 	GetResource(ctx context.Context, projectID, resourceID string) (map[string]any, error)
 	UpdateResource(ctx context.Context, projectID, resourceID, actorUserID string, state map[string]any) (map[string]any, error)
-	UpdateResourceStatus(ctx context.Context, projectID, resourceID, status, actorUserID string) (map[string]any, error)
 }
 
 type repo struct {
@@ -313,6 +312,7 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 	}
 	name := firstNonEmpty(toString(state["name"]), toString(state["title"]))
 	docType := toString(state["docType"])
+	requestedStatus := toString(state["status"])
 
 	var id, slug, outName, fileType, outDocType, owner, status, lastUpdated string
 	var revision int
@@ -320,12 +320,42 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 		`UPDATE resources r
 		 SET title = COALESCE(NULLIF($3, ''), r.title),
 		     doc_type = COALESCE(NULLIF($4, ''), r.doc_type),
+		     status = CASE
+		      	WHEN NULLIF($5, '')::resource_status = 'Archived'::resource_status
+		      		AND r.status <> 'Archived'::resource_status
+		      	THEN 'Archived'::resource_status
+		      	WHEN r.status = 'Archived'::resource_status
+		      		AND NULLIF($5, '')::resource_status IS NOT NULL
+		      		AND NULLIF($5, '')::resource_status <> 'Archived'::resource_status
+		      	THEN COALESCE(r.archived_from_status, 'Active'::resource_status)
+		      	WHEN NULLIF($5, '')::resource_status IS NOT NULL
+		      	THEN NULLIF($5, '')::resource_status
+		      	ELSE r.status
+		     END,
+		     archived_from_status = CASE
+		      	WHEN NULLIF($5, '')::resource_status = 'Archived'::resource_status
+		      		AND r.status <> 'Archived'::resource_status
+		      	THEN r.status
+		      	WHEN r.status = 'Archived'::resource_status
+		      		AND NULLIF($5, '')::resource_status IS NOT NULL
+		      		AND NULLIF($5, '')::resource_status <> 'Archived'::resource_status
+		      	THEN NULL
+		      	ELSE r.archived_from_status
+		     END,
 		     updated_at = NOW(),
 		     document_revision = r.document_revision + 1
 		 FROM users u
 		 WHERE r.project_id = $1::uuid AND r.id::text = $2
 		   AND u.id = r.owner_user_id
-		   AND r.status <> 'Archived'::resource_status
+		   AND (
+		    	(NULLIF($5, '')::resource_status IS NULL AND r.status <> 'Archived'::resource_status)
+		    	OR NULLIF($5, '')::resource_status = 'Archived'::resource_status
+		    	OR (
+		    		r.status = 'Archived'::resource_status
+		    		AND NULLIF($5, '')::resource_status IS NOT NULL
+		    		AND NULLIF($5, '')::resource_status <> 'Archived'::resource_status
+		    	)
+		   )
 		 RETURNING r.id::text, r.slug, r.title, r.file_type, r.doc_type, COALESCE(u.name, ''),
 		           r.status::text, COALESCE(to_char(r.updated_at, 'YYYY-MM-DD'), ''), r.document_revision`,
 		func(row storage.RowScanner) error {
@@ -335,6 +365,7 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 		strings.TrimSpace(resourceID),
 		name,
 		docType,
+		requestedStatus,
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -373,72 +404,6 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 		"linkedCount": linkedCount,
 		"status":      status,
 	}, nil
-}
-
-func (r *repo) UpdateResourceStatus(ctx context.Context, projectID, resourceID, status, actorUserID string) (map[string]any, error) {
-	identity, err := r.resolveProjectIdentity(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	var id, slug, name, outStatus, lastUpdated string
-	var revision int
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
-		`UPDATE resources
-		 SET status = CASE
-		 	 	WHEN $3::resource_status = 'Archived'::resource_status
-		 	 		AND resources.status <> 'Archived'::resource_status
-		 	 	THEN 'Archived'::resource_status
-		 	 	WHEN resources.status = 'Archived'::resource_status
-		 	 		AND $3::resource_status <> 'Archived'::resource_status
-		 	 	THEN COALESCE(resources.archived_from_status, 'Active'::resource_status)
-		 	 	ELSE $3::resource_status
-		 	 END,
-		 	 archived_from_status = CASE
-		 	 	WHEN $3::resource_status = 'Archived'::resource_status
-		 	 		AND resources.status <> 'Archived'::resource_status
-		 	 	THEN resources.status
-		 	 	WHEN resources.status = 'Archived'::resource_status
-		 	 		AND $3::resource_status <> 'Archived'::resource_status
-		 	 	THEN NULL
-		 	 	ELSE resources.archived_from_status
-		 	 END,
-		     updated_at = NOW(),
-		     document_revision = document_revision + 1
-		 WHERE project_id = $1::uuid
-		   AND id::text = $2
-		   AND (
-		 	 status <> 'Archived'::resource_status
-		 	 OR $3::resource_status = 'Archived'::resource_status
-		 	 OR (
-		 	 	status = 'Archived'::resource_status
-		 	 	AND $3::resource_status <> 'Archived'::resource_status
-		 	 )
-		   )
-		 RETURNING id::text, slug, title, status::text, COALESCE(to_char(updated_at, 'YYYY-MM-DD'), ''), document_revision`,
-		func(row storage.RowScanner) error {
-			return row.Scan(&id, &slug, &name, &outStatus, &lastUpdated, &revision)
-		},
-		identity.UUID,
-		strings.TrimSpace(resourceID),
-		status,
-	))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.New(apperr.CodeNotFound, http.StatusNotFound, "resource not found")
-		}
-		return nil, wrapRepoError("update resource status", err)
-	}
-	if err := r.upsertDocument(ctx, identity.UUID, id, revision, actorUserID, map[string]any{"status": outStatus}); err != nil {
-		return nil, err
-	}
-	if err := r.logActivity(ctx, identity.UUID, actorUserID, id, "changed Resource status", map[string]any{
-		"artifact": name,
-		"href":     fmt.Sprintf("/project/%s/resources/%s", identity.UUID, id),
-		"status":   outStatus,
-	}); err != nil {
-		return nil, err
-	}
-	return map[string]any{"id": id, "status": outStatus, "lastUpdated": lastUpdated}, nil
 }
 
 func (r *repo) insertResourceVersion(ctx context.Context, resourceID, projectUUID, title, actorUserID string, revision int) error {

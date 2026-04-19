@@ -57,14 +57,18 @@ func (r projectSettingsPatch) Validate() error {
 }
 
 type projectDashboardResponse struct {
-	Project     dashboardProject      `json:"project"`
-	Me          dashboardUser         `json:"me"`
-	Summary     dashboardSummary      `json:"summary"`
-	MyTasks     []dashboardTask       `json:"myTasks"`
-	MyFeedback  []dashboardFeedback   `json:"myFeedback"`
-	Events      []dashboardEvent      `json:"events"`
-	Activity    []dashboardActivity   `json:"activity"`
-	RecentEdits []dashboardRecentEdit `json:"recentEdits"`
+	Project  dashboardProject            `json:"project"`
+	Summary  dashboardSummary            `json:"summary"`
+	Events   []dashboardEvent            `json:"events"`
+	Activity []dashboardActivity         `json:"activity"`
+	MyWork   projectDashboardMyWorkBlock `json:"my_work"`
+}
+
+type projectDashboardMyWorkBlock struct {
+	FocusUser   dashboardUser         `json:"focus_user"`
+	Tasks       []dashboardTask       `json:"tasks"`
+	Feedback    []dashboardFeedback   `json:"feedback"`
+	RecentEdits []dashboardRecentEdit `json:"recent_edits"`
 }
 
 type projectDashboardSummaryResponse struct {
@@ -85,6 +89,26 @@ type projectDashboardEventsResponse struct {
 
 type projectDashboardActivityResponse struct {
 	Activity []dashboardActivity `json:"activity"`
+}
+
+type projectOverviewResponse struct {
+	Project dashboardProject `json:"project"`
+	Summary dashboardSummary `json:"summary"`
+}
+
+type projectSearchResponse struct {
+	Query string                    `json:"query"`
+	Items []projectSearchResultItem `json:"items"`
+}
+
+type projectSearchResultItem struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Href        string `json:"href"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 type dashboardSummary struct {
@@ -192,24 +216,6 @@ type permissionSet struct {
 	Delete       bool `json:"delete"`
 	Archive      bool `json:"archive"`
 	StatusChange bool `json:"statusChange"`
-}
-
-type projectNavigationResponse struct {
-	CurrentProject currentProjectNavigation `json:"current_project"`
-	ProjectList    []projectNavigationItem  `json:"project_list"`
-}
-
-type currentProjectNavigation struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Role   string `json:"role"`
-}
-
-type projectNavigationItem struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Icon string `json:"icon"`
 }
 
 type projectSettingsResponse struct {

@@ -34,7 +34,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -49,7 +49,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true, QueryParams: []string{"limit", "offset"}},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 30 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -64,7 +64,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -79,7 +79,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 20 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 20 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -94,7 +94,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true, QueryParams: []string{"limit"}},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -109,7 +109,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true, QueryParams: []string{"limit", "type", "projectId"}},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -124,7 +124,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true, QueryParams: []string{"limit"}},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 15 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -139,7 +139,7 @@ func (m *Module) Register(r httpx.Router) error {
 				AllowAuthenticated: true,
 				VaryBy:             cache.CacheVaryBy{UserID: true},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 60 * time.Second}),
 		)
 		r.Handle(
 			http.MethodGet,
@@ -155,7 +155,7 @@ func (m *Module) Register(r httpx.Router) error {
 				SharedAuthenticated: true,
 				VaryBy:              cache.CacheVaryBy{},
 			}),
-			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Minute, Vary: []string{"Authorization"}}),
+			policy.CacheControl(policy.CacheControlConfig{Private: true, MaxAge: 5 * time.Minute}),
 		)
 	} else {
 		r.Handle(http.MethodGet, "/api/v1/home/dashboard", httpx.Adapter(m.handler.Dashboard), policy.AuthRequired(m.runtime.AuthEngine(), m.runtime.AuthMode()))

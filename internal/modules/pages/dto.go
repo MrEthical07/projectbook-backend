@@ -12,7 +12,7 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/patchx"
 )
 
-const maxListLimit = 100
+const maxListLimit = 50
 
 var slugSanitizer = regexp.MustCompile(`[^a-z0-9]+`)
 
@@ -174,11 +174,6 @@ func normalizeLimit(limit int) int {
 		return maxListLimit
 	}
 	return limit
-}
-
-func isAllowedStatus(allowed map[string]struct{}, raw string) bool {
-	_, ok := normalizeAllowedStatus(allowed, raw)
-	return ok
 }
 
 func normalizeAllowedStatus(allowed map[string]struct{}, raw string) (string, bool) {

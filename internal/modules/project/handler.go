@@ -2,6 +2,7 @@ package project
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/MrEthical07/superapi/internal/core/auth"
@@ -80,6 +81,45 @@ func (h *Handler) DashboardActivity(ctx *httpx.Context, _ httpx.NoBody) (project
 	return h.svc.DashboardActivity(ctx.Context(), principal.UserID, projectID)
 }
 
+func (h *Handler) Overview(ctx *httpx.Context, _ httpx.NoBody) (projectOverviewResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectOverviewResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectOverviewResponse{}, err
+	}
+	return h.svc.Overview(ctx.Context(), principal.UserID, projectID)
+}
+
+func (h *Handler) Search(ctx *httpx.Context, _ httpx.NoBody) (projectSearchResponse, error) {
+	principal, err := requireAuthenticatedPrincipal(ctx)
+	if err != nil {
+		return projectSearchResponse{}, err
+	}
+	projectID, err := requireProjectID(ctx)
+	if err != nil {
+		return projectSearchResponse{}, err
+	}
+	query := strings.TrimSpace(ctx.Query("q"))
+	if query == "" {
+		return projectSearchResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "q is required")
+	}
+
+	limit := 0
+	limitRaw := strings.TrimSpace(ctx.Query("limit"))
+	if limitRaw != "" {
+		parsedLimit, parseErr := strconv.Atoi(limitRaw)
+		if parseErr != nil || parsedLimit <= 0 {
+			return projectSearchResponse{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "limit must be a positive integer")
+		}
+		limit = parsedLimit
+	}
+
+	return h.svc.Search(ctx.Context(), principal.UserID, projectID, query, limit)
+}
+
 func (h *Handler) Access(ctx *httpx.Context, _ httpx.NoBody) (projectAccessResponse, error) {
 	principal, err := requireAuthenticatedPrincipal(ctx)
 	if err != nil {
@@ -90,18 +130,6 @@ func (h *Handler) Access(ctx *httpx.Context, _ httpx.NoBody) (projectAccessRespo
 		return projectAccessResponse{}, err
 	}
 	return h.svc.Access(ctx.Context(), principal.UserID, projectID, principal.Role, principal.PermissionMask)
-}
-
-func (h *Handler) Navigation(ctx *httpx.Context, _ httpx.NoBody) (projectNavigationResponse, error) {
-	principal, err := requireAuthenticatedPrincipal(ctx)
-	if err != nil {
-		return projectNavigationResponse{}, err
-	}
-	projectID, err := requireProjectID(ctx)
-	if err != nil {
-		return projectNavigationResponse{}, err
-	}
-	return h.svc.Navigation(ctx.Context(), principal.UserID, projectID)
 }
 
 func (h *Handler) GetSettings(ctx *httpx.Context, _ httpx.NoBody) (projectSettingsResponse, error) {
