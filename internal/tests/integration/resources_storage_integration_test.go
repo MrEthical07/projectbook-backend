@@ -90,9 +90,9 @@ func TestIntegrationResourcesPersistenceAndInvalidation(t *testing.T) {
 	tag := fmt.Sprintf("resources.project|path.projectId=%s", url.QueryEscape(project.Slug))
 	versionBefore := h.cacheTagVersion(t, tag)
 
-	updateStatusPath := "/api/v1/projects/" + project.Slug + "/resources/" + resourceSlug + "/status"
-	updateResp := h.requestJSON(t, http.MethodPut, updateStatusPath, owner.AccessToken, map[string]any{
-		"status": "Archived",
+	updateStatusPath := "/api/v1/projects/" + project.Slug + "/resources/" + resourceSlug
+	updateResp := h.requestJSON(t, http.MethodPatch, updateStatusPath, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Archived"},
 	})
 	if updateResp.Status != http.StatusOK || !updateResp.Envelope.Success {
 		t.Fatalf("update resource status failed status=%d body=%s", updateResp.Status, updateResp.Body)

@@ -74,13 +74,13 @@ func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
 
 	renamePath := "/api/v1/projects/" + project.Slug + "/pages/" + pageSlug + "/rename"
 	renamedTitle := "Integration Page Renamed"
-	renameResp := h.requestJSON(t, http.MethodPut, renamePath, owner.AccessToken, map[string]any{"title": renamedTitle})
+	renameResp := h.requestJSON(t, http.MethodPatch, renamePath, owner.AccessToken, map[string]any{"title": renamedTitle})
 	if renameResp.Status != http.StatusOK || !renameResp.Envelope.Success {
 		t.Fatalf("rename page status=%d body=%s", renameResp.Status, renameResp.Body)
 	}
 
 	updatePath := "/api/v1/projects/" + project.Slug + "/pages/" + pageSlug
-	archiveResp := h.requestJSON(t, http.MethodPut, updatePath, owner.AccessToken, map[string]any{
+	archiveResp := h.requestJSON(t, http.MethodPatch, updatePath, owner.AccessToken, map[string]any{
 		"state": map[string]any{"status": "Archived"},
 	})
 	if archiveResp.Status != http.StatusOK || !archiveResp.Envelope.Success {
@@ -101,7 +101,7 @@ func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
 		t.Fatalf("page document content.status=%q want=Archived", gotStatus)
 	}
 
-	renameArchivedResp := h.requestJSON(t, http.MethodPut, renamePath, owner.AccessToken, map[string]any{"title": "Should Fail"})
+	renameArchivedResp := h.requestJSON(t, http.MethodPatch, renamePath, owner.AccessToken, map[string]any{"title": "Should Fail"})
 	if renameArchivedResp.Status != http.StatusBadRequest || renameArchivedResp.Envelope.Success {
 		t.Fatalf("rename archived page status=%d body=%s", renameArchivedResp.Status, renameArchivedResp.Body)
 	}
@@ -117,12 +117,12 @@ func queryPageStateBySlug(t *testing.T, h *integrationHarness, projectUUID, page
 
 	err := h.pgPool.QueryRow(
 		context.Background(),
-		`SELECT id::text, status::text, is_orphan, document_revision FROM pages WHERE project_id = $1::uuid AND slug = $2`,
+		`SELECT id::text, status::text, is_orphan, document_revision FROM pages WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`,
 		projectUUID,
 		pageSlug,
 	).Scan(&id, &status, &isOrphan, &revision)
 	if err != nil {
-		t.Fatalf("query page state for slug=%s: %v", pageSlug, err)
+		t.Fatalf("query page state for identifier=%s: %v", pageSlug, err)
 	}
 
 	return id, status, isOrphan, revision
