@@ -1031,7 +1031,7 @@ func buildRequestBodySchema(route Route) map[string]any {
 
 func fallbackResponseJSON(route Route) string {
 	respType := unwrapResultType(route.RespType)
-	data := map[string]any{}
+	var data map[string]any
 	trimmed := strings.TrimSpace(respType)
 	switch {
 	case strings.HasPrefix(trimmed, "[]"):

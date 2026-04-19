@@ -323,6 +323,10 @@ func (h *integrationHarness) startAPI(ctx context.Context) error {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	h.baseURL = "http://" + addr
 	h.metricsAuthToken = "it-metrics-token"
+	authTestSharedSecret := strings.TrimSpace(os.Getenv("AUTH_TEST_SHARED_SECRET"))
+	if authTestSharedSecret == "" {
+		authTestSharedSecret = "integration-test-shared-secret"
+	}
 
 	cmdCtx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(cmdCtx, "go", "run", "./cmd/api")
@@ -346,6 +350,7 @@ func (h *integrationHarness) startAPI(ctx context.Context) error {
 		"MONGO_BOOTSTRAP_ENABLED": "true",
 		"AUTH_ENABLED":            "true",
 		"AUTH_MODE":               "hybrid",
+		"AUTH_TEST_SHARED_SECRET": authTestSharedSecret,
 		"RATELIMIT_ENABLED":       "true",
 		"CACHE_ENABLED":           "true",
 		"PERMISSIONS_ENABLED":     "true",
