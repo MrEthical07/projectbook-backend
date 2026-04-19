@@ -322,7 +322,7 @@ func (h *integrationHarness) startAPI(ctx context.Context) error {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	h.baseURL = "http://" + addr
-	h.metricsAuthToken = "it-metrics-token"
+	h.metricsAuthToken = "integration-metrics-auth-token-2026"
 	authTestSharedSecret := strings.TrimSpace(os.Getenv("AUTH_TEST_SHARED_SECRET"))
 	if authTestSharedSecret == "" {
 		authTestSharedSecret = "integration-test-shared-secret"
@@ -334,6 +334,7 @@ func (h *integrationHarness) startAPI(ctx context.Context) error {
 	cmd.Stdout = &h.apiStdout
 	cmd.Stderr = &h.apiStderr
 	cmd.Env = mergeEnv(os.Environ(), map[string]string{
+		"APP_PROFILE":             "dev",
 		"APP_ENV":                 "dev",
 		"HTTP_ADDR":               addr,
 		"LOG_LEVEL":               "warn",
@@ -354,6 +355,7 @@ func (h *integrationHarness) startAPI(ctx context.Context) error {
 		"RATELIMIT_ENABLED":       "true",
 		"CACHE_ENABLED":           "true",
 		"PERMISSIONS_ENABLED":     "true",
+		"PERMISSIONS_CONTEXT_SECRET": "integration-permissions-context-secret-2026",
 		"METRICS_ENABLED":         "true",
 		"METRICS_AUTH_TOKEN":      h.metricsAuthToken,
 	})
@@ -651,15 +653,24 @@ func (h *integrationHarness) createProject(t *testing.T, ownerToken, name string
 	}
 
 	data := mustDataMap(t, resp)
-	slug := mustString(t, data["projectId"], "projectId")
-
-	var projectUUID string
-	err := h.pgPool.QueryRow(context.Background(), `SELECT id::text FROM projects WHERE slug = $1`, slug).Scan(&projectUUID)
-	if err != nil {
-		t.Fatalf("lookup project uuid for slug %s: %v", slug, err)
+	projectIdentifier := mustString(t, data["projectId"], "projectId")
+	if projectData, ok := data["project"].(map[string]any); ok {
+		if id := strings.TrimSpace(maybeString(projectData["id"])); id != "" {
+			projectIdentifier = id
+		}
 	}
 
-	return projectFixture{Slug: slug, UUID: projectUUID}
+	var projectUUID string
+	err := h.pgPool.QueryRow(
+		context.Background(),
+		`SELECT id::text FROM projects WHERE id::text = $1 OR slug = $1 LIMIT 1`,
+		projectIdentifier,
+	).Scan(&projectUUID)
+	if err != nil {
+		t.Fatalf("lookup project uuid for projectId %s: %v body=%s", projectIdentifier, err, resp.Body)
+	}
+
+	return projectFixture{Slug: projectIdentifier, UUID: projectUUID}
 }
 
 func (h *integrationHarness) upsertCustomMember(t *testing.T, projectUUID, userID string, permissionMask uint64) {
@@ -697,12 +708,12 @@ func (h *integrationHarness) findResourceUUID(t *testing.T, projectUUID, slug st
 
 	var resourceID string
 	err := h.pgPool.QueryRow(context.Background(),
-		`SELECT id::text FROM resources WHERE project_id = $1::uuid AND slug = $2`,
+		`SELECT id::text FROM resources WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`,
 		projectUUID,
 		slug,
 	).Scan(&resourceID)
 	if err != nil {
-		t.Fatalf("find resource id by slug=%s: %v", slug, err)
+		t.Fatalf("find resource id by identifier=%s: %v", slug, err)
 	}
 
 	return resourceID
@@ -793,6 +804,14 @@ func mustString(t *testing.T, value any, field string) string {
 	text, ok := value.(string)
 	if !ok || strings.TrimSpace(text) == "" {
 		t.Fatalf("%s is not a non-empty string", field)
+	}
+	return strings.TrimSpace(text)
+}
+
+func maybeString(value any) string {
+	text, ok := value.(string)
+	if !ok {
+		return ""
 	}
 	return strings.TrimSpace(text)
 }

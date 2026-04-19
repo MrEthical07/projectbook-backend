@@ -58,7 +58,7 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	}
 	_ = mustFindArtifactDocument(t, h, "story_documents", storyUUID)
 
-	storyLockResp := h.requestJSON(t, http.MethodPut, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
+	storyLockResp := h.requestJSON(t, http.MethodPatch, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
 		"story": map[string]any{"status": "Locked"},
 	})
 	if storyLockResp.Status != http.StatusOK || !storyLockResp.Envelope.Success {
@@ -69,14 +69,14 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 		t.Fatalf("story status=%q want=Locked", storyStatus)
 	}
 
-	storyImmutable := h.requestJSON(t, http.MethodPut, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
+	storyImmutable := h.requestJSON(t, http.MethodPatch, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
 		"story": map[string]any{"title": "Should Fail"},
 	})
 	if storyImmutable.Status != http.StatusBadRequest || storyImmutable.Envelope.Success {
 		t.Fatalf("locked story mutation status=%d body=%s", storyImmutable.Status, storyImmutable.Body)
 	}
 
-	storyArchive := h.requestJSON(t, http.MethodPut, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
+	storyArchive := h.requestJSON(t, http.MethodPatch, base+"/stories/"+storySlug, owner.AccessToken, map[string]any{
 		"story": map[string]any{"status": "Archived"},
 	})
 	if storyArchive.Status != http.StatusOK || !storyArchive.Envelope.Success {
@@ -95,13 +95,13 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	}
 	_ = mustFindArtifactDocument(t, h, "journey_documents", journeyUUID)
 
-	journeyArchive := h.requestJSON(t, http.MethodPut, base+"/journeys/"+journeySlug, owner.AccessToken, map[string]any{
+	journeyArchive := h.requestJSON(t, http.MethodPatch, base+"/journeys/"+journeySlug, owner.AccessToken, map[string]any{
 		"journey": map[string]any{"status": "Archived"},
 	})
 	if journeyArchive.Status != http.StatusOK || !journeyArchive.Envelope.Success {
 		t.Fatalf("archive journey status=%d body=%s", journeyArchive.Status, journeyArchive.Body)
 	}
-	journeyImmutable := h.requestJSON(t, http.MethodPut, base+"/journeys/"+journeySlug, owner.AccessToken, map[string]any{
+	journeyImmutable := h.requestJSON(t, http.MethodPatch, base+"/journeys/"+journeySlug, owner.AccessToken, map[string]any{
 		"journey": map[string]any{"title": "Forbidden"},
 	})
 	if journeyImmutable.Status != http.StatusBadRequest || journeyImmutable.Envelope.Success {
@@ -120,7 +120,9 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	}
 	_ = mustFindArtifactDocument(t, h, "problem_documents", problemUUID)
 
-	problemLock := h.requestJSON(t, http.MethodPost, base+"/problems/"+problemSlug+"/lock", owner.AccessToken, nil)
+	problemLock := h.requestJSON(t, http.MethodPatch, base+"/problems/"+problemSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Locked"},
+	})
 	if problemLock.Status != http.StatusOK || !problemLock.Envelope.Success {
 		t.Fatalf("lock problem status=%d body=%s", problemLock.Status, problemLock.Body)
 	}
@@ -141,18 +143,22 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	}
 	_ = mustFindArtifactDocument(t, h, "idea_documents", ideaUUID)
 
-	ideaLink := h.requestJSON(t, http.MethodPut, base+"/ideas/"+ideaSlug, owner.AccessToken, map[string]any{
+	ideaLink := h.requestJSON(t, http.MethodPatch, base+"/ideas/"+ideaSlug, owner.AccessToken, map[string]any{
 		"state": map[string]any{"selectedProblemId": problemSlug},
 	})
 	if ideaLink.Status != http.StatusOK || !ideaLink.Envelope.Success {
 		t.Fatalf("link idea to problem status=%d body=%s", ideaLink.Status, ideaLink.Body)
 	}
 
-	ideaSelect := h.requestJSON(t, http.MethodPost, base+"/ideas/"+ideaSlug+"/select", owner.AccessToken, nil)
+	ideaSelect := h.requestJSON(t, http.MethodPatch, base+"/ideas/"+ideaSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Selected"},
+	})
 	if ideaSelect.Status != http.StatusOK || !ideaSelect.Envelope.Success {
 		t.Fatalf("select idea status=%d body=%s", ideaSelect.Status, ideaSelect.Body)
 	}
-	ideaReject := h.requestJSON(t, http.MethodPut, base+"/ideas/"+ideaSlug+"/status", owner.AccessToken, map[string]any{"status": "Rejected"})
+	ideaReject := h.requestJSON(t, http.MethodPatch, base+"/ideas/"+ideaSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Rejected"},
+	})
 	if ideaReject.Status != http.StatusBadRequest || ideaReject.Envelope.Success {
 		t.Fatalf("reject selected idea status=%d body=%s", ideaReject.Status, ideaReject.Body)
 	}
@@ -162,25 +168,35 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 		t.Fatalf("create rejected-branch idea status=%d body=%s", ideaRejectedCreate.Status, ideaRejectedCreate.Body)
 	}
 	ideaRejectedSlug := mustString(t, mustDataMap(t, ideaRejectedCreate)["id"], "idea.rejected.id")
-	ideaRejectAllowed := h.requestJSON(t, http.MethodPut, base+"/ideas/"+ideaRejectedSlug+"/status", owner.AccessToken, map[string]any{"status": "Rejected"})
+	ideaRejectAllowed := h.requestJSON(t, http.MethodPatch, base+"/ideas/"+ideaRejectedSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Rejected"},
+	})
 	if ideaRejectAllowed.Status != http.StatusOK || !ideaRejectAllowed.Envelope.Success {
 		t.Fatalf("reject considered idea status=%d body=%s", ideaRejectAllowed.Status, ideaRejectAllowed.Body)
 	}
 
-	ideaImmutable := h.requestJSON(t, http.MethodPut, base+"/ideas/"+ideaRejectedSlug, owner.AccessToken, map[string]any{
+	ideaImmutable := h.requestJSON(t, http.MethodPatch, base+"/ideas/"+ideaRejectedSlug, owner.AccessToken, map[string]any{
 		"state": map[string]any{"title": "Should Fail"},
 	})
 	if ideaImmutable.Status != http.StatusBadRequest || ideaImmutable.Envelope.Success {
 		t.Fatalf("immutable idea update status=%d body=%s", ideaImmutable.Status, ideaImmutable.Body)
 	}
 
-	problemArchive := h.requestJSON(t, http.MethodPut, base+"/problems/"+problemSlug+"/status", owner.AccessToken, map[string]any{"status": "Archived"})
+	problemArchive := h.requestJSON(t, http.MethodPatch, base+"/problems/"+problemSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Archived"},
+	})
 	if problemArchive.Status != http.StatusOK || !problemArchive.Envelope.Success {
 		t.Fatalf("archive problem status=%d body=%s", problemArchive.Status, problemArchive.Body)
 	}
-	problemRelock := h.requestJSON(t, http.MethodPost, base+"/problems/"+problemSlug+"/lock", owner.AccessToken, nil)
-	if problemRelock.Status != http.StatusBadRequest || problemRelock.Envelope.Success {
+	problemRelock := h.requestJSON(t, http.MethodPatch, base+"/problems/"+problemSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Locked"},
+	})
+	if problemRelock.Status != http.StatusOK || !problemRelock.Envelope.Success {
 		t.Fatalf("relock archived problem status=%d body=%s", problemRelock.Status, problemRelock.Body)
+	}
+	_, relockedProblemStatus := queryProblemLockState(t, h, project.UUID, problemSlug)
+	if relockedProblemStatus != "Locked" {
+		t.Fatalf("relocked problem status=%q want=Locked", relockedProblemStatus)
 	}
 
 	taskCreate := h.requestJSON(t, http.MethodPost, base+"/tasks", owner.AccessToken, map[string]any{"title": "Integration Task"})
@@ -195,15 +211,21 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	}
 	_ = mustFindArtifactDocument(t, h, "task_documents", taskUUID)
 
-	taskProgress := h.requestJSON(t, http.MethodPut, base+"/tasks/"+taskSlug+"/status", owner.AccessToken, map[string]any{"status": "In Progress"})
+	taskProgress := h.requestJSON(t, http.MethodPatch, base+"/tasks/"+taskSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "In Progress"},
+	})
 	if taskProgress.Status != http.StatusOK || !taskProgress.Envelope.Success {
 		t.Fatalf("task in-progress status=%d body=%s", taskProgress.Status, taskProgress.Body)
 	}
-	taskComplete := h.requestJSON(t, http.MethodPut, base+"/tasks/"+taskSlug+"/status", owner.AccessToken, map[string]any{"status": "Completed"})
+	taskComplete := h.requestJSON(t, http.MethodPatch, base+"/tasks/"+taskSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Completed"},
+	})
 	if taskComplete.Status != http.StatusOK || !taskComplete.Envelope.Success {
 		t.Fatalf("task completed status=%d body=%s", taskComplete.Status, taskComplete.Body)
 	}
-	taskBack := h.requestJSON(t, http.MethodPut, base+"/tasks/"+taskSlug+"/status", owner.AccessToken, map[string]any{"status": "Planned"})
+	taskBack := h.requestJSON(t, http.MethodPatch, base+"/tasks/"+taskSlug, owner.AccessToken, map[string]any{
+		"state": map[string]any{"status": "Planned"},
+	})
 	if taskBack.Status != http.StatusBadRequest || taskBack.Envelope.Success {
 		t.Fatalf("task invalid transition status=%d body=%s", taskBack.Status, taskBack.Body)
 	}
@@ -217,7 +239,7 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	feedbackUUID, _ := queryFeedbackStateBySlug(t, h, project.UUID, feedbackSlug)
 	_ = mustFindArtifactDocument(t, h, "feedback_documents", feedbackUUID)
 
-	feedbackUpdate := h.requestJSON(t, http.MethodPut, base+"/feedback/"+feedbackSlug, owner.AccessToken, map[string]any{
+	feedbackUpdate := h.requestJSON(t, http.MethodPatch, base+"/feedback/"+feedbackSlug, owner.AccessToken, map[string]any{
 		"state": map[string]any{"outcome": "Validated"},
 	})
 	if feedbackUpdate.Status != http.StatusOK || !feedbackUpdate.Envelope.Success {
@@ -276,7 +298,7 @@ func TestIntegrationCalendarEventLifecycle(t *testing.T) {
 		t.Fatalf("list calendar events status=%d body=%s", listResp.Status, listResp.Body)
 	}
 	listData := mustDataMap(t, listResp)
-	events := mustSliceField(t, listData, "events")
+	events := mustSliceField(t, listData, "items")
 	if len(events) == 0 {
 		t.Fatal("expected at least one calendar event in list")
 	}
@@ -286,7 +308,7 @@ func TestIntegrationCalendarEventLifecycle(t *testing.T) {
 		t.Fatalf("get calendar event status=%d body=%s", getResp.Status, getResp.Body)
 	}
 
-	updateResp := h.requestJSON(t, http.MethodPut, base+"/"+eventID, owner.AccessToken, map[string]any{
+	updateResp := h.requestJSON(t, http.MethodPatch, base+"/"+eventID, owner.AccessToken, map[string]any{
 		"state": map[string]any{
 			"title":       "Integration Calendar Event Updated",
 			"phase":       "Ideate",
@@ -392,7 +414,7 @@ func TestIntegrationTeamHomeAndProjectLifecycle(t *testing.T) {
 	}
 
 	editorMask := queryRoleMask(t, h, project.UUID, "Editor")
-	memberUpdateResp := h.requestJSON(t, http.MethodPut, teamBase+"/members/"+memberID+"/permissions", owner.AccessToken, map[string]any{
+	memberUpdateResp := h.requestJSON(t, http.MethodPatch, teamBase+"/members/"+memberID+"/permissions", owner.AccessToken, map[string]any{
 		"role":           "Editor",
 		"isCustom":       true,
 		"permissionMask": editorMask,
@@ -410,7 +432,7 @@ func TestIntegrationTeamHomeAndProjectLifecycle(t *testing.T) {
 	}
 
 	viewerMask := queryRoleMask(t, h, project.UUID, "Viewer")
-	roleUpdateResp := h.requestJSON(t, http.MethodPut, teamBase+"/roles/viewer/permissions", owner.AccessToken, map[string]any{
+	roleUpdateResp := h.requestJSON(t, http.MethodPatch, teamBase+"/roles/viewer/permissions", owner.AccessToken, map[string]any{
 		"role":           "Viewer",
 		"permissionMask": viewerMask,
 	})
@@ -473,7 +495,7 @@ func TestIntegrationTeamHomeAndProjectLifecycle(t *testing.T) {
 	}
 	assertHomeProjectPresent(t, mustDataSlice(t, inviteeProjectsResp), project.Slug)
 
-	accountUpdate := h.requestJSON(t, http.MethodPut, "/api/v1/home/account", owner.AccessToken, map[string]any{
+	accountUpdate := h.requestJSON(t, http.MethodPatch, "/api/v1/home/account", owner.AccessToken, map[string]any{
 		"settings": map[string]any{
 			"displayName":        "Integration Owner Updated",
 			"bio":                "Owner bio",
@@ -568,10 +590,10 @@ func queryArtifactStateBySlug(t *testing.T, h *integrationHarness, table, projec
 		t.Fatalf("unsupported artifact table %q", table)
 	}
 
-	query := fmt.Sprintf(`SELECT id::text, status::text, document_revision FROM %s WHERE project_id = $1::uuid AND slug = $2`, table)
+	query := fmt.Sprintf(`SELECT id::text, status::text, document_revision FROM %s WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`, table)
 	err := h.pgPool.QueryRow(context.Background(), query, projectUUID, slug).Scan(&id, &status, &revision)
 	if err != nil {
-		t.Fatalf("query artifact state table=%s slug=%s: %v", table, slug, err)
+		t.Fatalf("query artifact state table=%s identifier=%s: %v", table, slug, err)
 	}
 
 	return id, status, revision
@@ -581,12 +603,12 @@ func queryProblemLockState(t *testing.T, h *integrationHarness, projectUUID, slu
 	t.Helper()
 	err := h.pgPool.QueryRow(
 		context.Background(),
-		`SELECT is_locked, status::text FROM problems WHERE project_id = $1::uuid AND slug = $2`,
+		`SELECT is_locked, status::text FROM problems WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`,
 		projectUUID,
 		slug,
 	).Scan(&locked, &status)
 	if err != nil {
-		t.Fatalf("query problem lock state slug=%s: %v", slug, err)
+		t.Fatalf("query problem lock state identifier=%s: %v", slug, err)
 	}
 	return locked, status
 }
@@ -595,12 +617,12 @@ func queryFeedbackOutcome(t *testing.T, h *integrationHarness, projectUUID, slug
 	t.Helper()
 	err := h.pgPool.QueryRow(
 		context.Background(),
-		`SELECT COALESCE(outcome::text, ''), document_revision FROM feedback WHERE project_id = $1::uuid AND slug = $2`,
+		`SELECT COALESCE(outcome::text, ''), document_revision FROM feedback WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`,
 		projectUUID,
 		slug,
 	).Scan(&outcome, &revision)
 	if err != nil {
-		t.Fatalf("query feedback outcome slug=%s: %v", slug, err)
+		t.Fatalf("query feedback outcome identifier=%s: %v", slug, err)
 	}
 	return outcome, revision
 }
@@ -609,12 +631,12 @@ func queryFeedbackStateBySlug(t *testing.T, h *integrationHarness, projectUUID, 
 	t.Helper()
 	err := h.pgPool.QueryRow(
 		context.Background(),
-		`SELECT id::text, document_revision FROM feedback WHERE project_id = $1::uuid AND slug = $2`,
+		`SELECT id::text, document_revision FROM feedback WHERE project_id = $1::uuid AND (id::text = $2 OR slug = $2) LIMIT 1`,
 		projectUUID,
 		slug,
 	).Scan(&id, &revision)
 	if err != nil {
-		t.Fatalf("query feedback state slug=%s: %v", slug, err)
+		t.Fatalf("query feedback state identifier=%s: %v", slug, err)
 	}
 	return id, revision
 }

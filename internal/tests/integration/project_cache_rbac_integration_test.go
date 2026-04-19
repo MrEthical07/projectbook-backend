@@ -46,7 +46,7 @@ func TestIntegrationProjectSettingsRBACAndCache(t *testing.T) {
 		t.Fatalf("owner first settings read status=%d body=%s", ownerFirst.Status, ownerFirst.Body)
 	}
 	cacheControl := ownerFirst.Header.Get("Cache-Control")
-	if !strings.Contains(cacheControl, "private") || !strings.Contains(cacheControl, "max-age=60") {
+	if !strings.Contains(cacheControl, "private") || !strings.Contains(cacheControl, "max-age=300") {
 		t.Fatalf("unexpected Cache-Control header: %q", cacheControl)
 	}
 
@@ -74,7 +74,7 @@ func TestIntegrationProjectSettingsRBACAndCache(t *testing.T) {
 
 	updatedName := "RBAC Cache Integration Updated"
 	updatedDescription := fmt.Sprintf("updated-at-%d", time.Now().UnixNano())
-	updateResp := h.requestJSON(t, http.MethodPut, settingsPath, owner.AccessToken, map[string]any{
+	updateResp := h.requestJSON(t, http.MethodPatch, settingsPath, owner.AccessToken, map[string]any{
 		"settings": map[string]any{
 			"projectName":        updatedName,
 			"projectDescription": updatedDescription,
