@@ -85,7 +85,6 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.64.6
           args: --timeout=5m
 
       - name: Install govulncheck
@@ -136,6 +135,7 @@ jobs:
 
     env:
       INTEGRATION_TESTS: "1"
+      AUTH_TEST_SHARED_SECRET: "ci-integration-shared-secret"
       POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
       IT_REDIS_ADDR: 127.0.0.1:6379
       IT_MONGO_URL: mongodb://127.0.0.1:27017
