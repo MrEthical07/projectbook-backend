@@ -44,7 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release > release.log 2>&1 || true
+          npx semantic-release | tee release.log
 
           VERSION=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' release.log || true)
 
@@ -83,55 +83,55 @@ jobs:
             projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
             projectbook07/projectbook-backend:sha-${{ github.sha }}
 
-      # ---------------------------
-      # Deploy via SSH
-      # ---------------------------
-      - name: Deploy to VPS
-        if: steps.semantic.outputs.new_release_version != ''
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
+      # # ---------------------------
+      # # Deploy via SSH
+      # # ---------------------------
+      # - name: Deploy to VPS
+      #   if: steps.semantic.outputs.new_release_version != ''
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.VPS_HOST }}
+      #     username: ${{ secrets.VPS_USER }}
+      #     key: ${{ secrets.VPS_SSH_KEY }}
+      #     script: |
+      #       set -e
 
-            IMAGE="projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}"
-            CONTAINER="projectbook-backend"
+      #       IMAGE="projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}"
+      #       CONTAINER="projectbook-backend"
 
-            echo "Pulling image..."
-            docker pull $IMAGE
+      #       echo "Pulling image..."
+      #       docker pull $IMAGE
 
-            echo "Stopping old container (if exists)..."
-            docker stop $CONTAINER || true
-            docker rm $CONTAINER || true
+      #       echo "Stopping old container (if exists)..."
+      #       docker stop $CONTAINER || true
+      #       docker rm $CONTAINER || true
 
-            echo "Starting new container..."
-            docker run -d \
-              --name $CONTAINER \
-              --env-file /opt/projectbook/backend.env \
-              -p 127.0.0.1:8080:8080 \
-              $IMAGE
+      #       echo "Starting new container..."
+      #       docker run -d \
+      #         --name $CONTAINER \
+      #         --env-file /opt/projectbook/backend.env \
+      #         -p 127.0.0.1:8080:8080 \
+      #         $IMAGE
 
-            echo "Waiting for health..."
-            for i in {1..30}; do
-              if curl -fsS http://127.0.0.1:8080/readyz; then
-                echo "Deployment successful"
-                exit 0
-              fi
-              sleep 2
-            done
+      #       echo "Waiting for health..."
+      #       for i in {1..30}; do
+      #         if curl -fsS http://127.0.0.1:8080/readyz; then
+      #           echo "Deployment successful"
+      #           exit 0
+      #         fi
+      #         sleep 2
+      #       done
 
-            echo "Health check failed"
-            docker logs $CONTAINER
-            exit 1
+      #       echo "Health check failed"
+      #       docker logs $CONTAINER
+      #       exit 1
 
-      # ---------------------------
-      # Promote to stable (ONLY if deploy succeeds)
-      # ---------------------------
-      - name: Tag stable
-        if: success() && steps.semantic.outputs.new_release_version != ''
-        run: |
-          docker pull projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
-          docker tag projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }} projectbook07/projectbook-backend:stable
-          docker push projectbook07/projectbook-backend:stable
+      # # ---------------------------
+      # # Promote to stable (ONLY if deploy succeeds)
+      # # ---------------------------
+      # - name: Tag stable
+      #   if: success() && steps.semantic.outputs.new_release_version != ''
+      #   run: |
+      #     docker pull projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
+      #     docker tag projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }} projectbook07/projectbook-backend:stable
+      #     docker push projectbook07/projectbook-backend:stable
