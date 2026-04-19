@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       # ---------------------------
       # Setup Node
@@ -84,55 +85,72 @@ jobs:
             projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
             projectbook07/projectbook-backend:sha-${{ github.sha }}
 
-      # # ---------------------------
-      # # Deploy via SSH
-      # # ---------------------------
-      # - name: Deploy to VPS
-      #   if: steps.semantic.outputs.new_release_version != ''
-      #   uses: appleboy/ssh-action@v1.0.3
-      #   with:
-      #     host: ${{ secrets.VPS_HOST }}
-      #     username: ${{ secrets.VPS_USER }}
-      #     key: ${{ secrets.VPS_SSH_KEY }}
-      #     script: |
-      #       set -e
+      # ---------------------------
+      # Deploy via SSH
+      # ---------------------------
+      - name: Deploy to VPS
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
 
-      #       IMAGE="projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}"
-      #       CONTAINER="projectbook-backend"
+            IMAGE="projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}"
+            CONTAINER="projectbook-backend"
+            NEW_CONTAINER="projectbook-backend-new"
 
-      #       echo "Pulling image..."
-      #       docker pull $IMAGE
+            echo "Pulling image..."
+            docker pull $IMAGE
 
-      #       echo "Stopping old container (if exists)..."
-      #       docker stop $CONTAINER || true
-      #       docker rm $CONTAINER || true
+            echo "Starting new container..."
+            docker run -d \
+              --name $NEW_CONTAINER \
+              --restart unless-stopped \
+              --env-file /opt/projectbook/backend.env \
+              -p 127.0.0.1:8081:8080 \
+              $IMAGE
 
-      #       echo "Starting new container..."
-      #       docker run -d \
-      #         --name $CONTAINER \
-      #         --env-file /opt/projectbook/backend.env \
-      #         -p 127.0.0.1:8080:8080 \
-      #         $IMAGE
+            echo "Waiting for health..."
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:8081/readyz; then
+                echo "New container healthy"
+                break
+              fi
+              sleep 2
+            done
 
-      #       echo "Waiting for health..."
-      #       for i in {1..30}; do
-      #         if curl -fsS http://127.0.0.1:8080/readyz; then
-      #           echo "Deployment successful"
-      #           exit 0
-      #         fi
-      #         sleep 2
-      #       done
+            if ! curl -fsS http://127.0.0.1:8081/readyz; then
+              echo "New container failed"
+              docker logs $NEW_CONTAINER
+              docker rm -f $NEW_CONTAINER
+              exit 1
+            fi
 
-      #       echo "Health check failed"
-      #       docker logs $CONTAINER
-      #       exit 1
+            echo "Replacing old container..."
 
-      # # ---------------------------
-      # # Promote to stable (ONLY if deploy succeeds)
-      # # ---------------------------
-      # - name: Tag stable
-      #   if: success() && steps.semantic.outputs.new_release_version != ''
-      #   run: |
-      #     docker pull projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
-      #     docker tag projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }} projectbook07/projectbook-backend:stable
-      #     docker push projectbook07/projectbook-backend:stable
+            docker stop $CONTAINER || true
+            docker rm $CONTAINER || true
+
+            docker run -d \
+              --name $CONTAINER \
+              --restart unless-stopped \
+              --env-file /opt/projectbook/backend.env \
+              -p 127.0.0.1:8080:8080 \
+              $IMAGE
+
+            docker rm -f $NEW_CONTAINER
+
+            echo "Deployment complete"
+
+      # ---------------------------
+      # Promote to stable (ONLY if deploy succeeds)
+      # ---------------------------
+      - name: Tag stable
+        if: success() && steps.semantic.outputs.new_release_version != ''
+        run: |
+          docker pull projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }}
+          docker tag projectbook07/projectbook-backend:v${{ steps.semantic.outputs.new_release_version }} projectbook07/projectbook-backend:stable
+          docker push projectbook07/projectbook-backend:stable
