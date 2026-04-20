@@ -133,6 +133,11 @@ Equivalent explicit full-mode toggles are shown in .env.example:
 - CACHE_ENABLED=true
 - PERMISSIONS_ENABLED=true
 
+CORS configuration notes:
+- `allowedOrigins` (comma-separated) controls which browser origins are accepted.
+- `denyOrigins` (optional, comma-separated) explicitly blocks origins before allow-list checks.
+- localhost origins are accepted by default for development unless explicitly denied.
+
 ## How To Build APIs
 
 1. Create a module
