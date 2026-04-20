@@ -2,6 +2,16 @@
 
 All notable changes to this template are documented in this file.
 
+## v0.7.12 (2026-04-20)
+
+### Changed
+- CORS origin configuration now supports `allowedOrigins` and `denyOrigins` env variables in addition to legacy `HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS` and `HTTP_MIDDLEWARE_CORS_DENY_ORIGINS` aliases.
+- CORS now allows localhost origins by default (`localhost`, `127.0.0.1`, `::1`) to improve local frontend/backend integration out of the box.
+- Deny-list precedence is preserved: origins listed in `denyOrigins` are blocked even when they are localhost.
+
+### Documentation
+- Updated `.env.example`, environment-variable reference, and README notes to document the new CORS origin behavior and env naming.
+
 ## v0.7.11 (2026-04-18)
 
 ### Breaking Changes

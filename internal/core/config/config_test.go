@@ -74,6 +74,41 @@ func TestLoadSupportsRedisURLAlias(t *testing.T) {
 	}
 }
 
+func TestLoadSupportsCORSAllowedOriginsAlias(t *testing.T) {
+	t.Setenv("allowedOrigins", "https://app.example.com,https://admin.example.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := len(cfg.HTTP.Middleware.CORS.AllowOrigins), 2; got != want {
+		t.Fatalf("AllowOrigins length=%d want=%d", got, want)
+	}
+	if got, want := cfg.HTTP.Middleware.CORS.AllowOrigins[0], "https://app.example.com"; got != want {
+		t.Fatalf("AllowOrigins[0]=%q want=%q", got, want)
+	}
+	if got, want := cfg.HTTP.Middleware.CORS.AllowOrigins[1], "https://admin.example.com"; got != want {
+		t.Fatalf("AllowOrigins[1]=%q want=%q", got, want)
+	}
+}
+
+func TestLoadSupportsCORSDenyOriginsAlias(t *testing.T) {
+	t.Setenv("denyOrigins", "https://blocked.example.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := len(cfg.HTTP.Middleware.CORS.DenyOrigins), 1; got != want {
+		t.Fatalf("DenyOrigins length=%d want=%d", got, want)
+	}
+	if got, want := cfg.HTTP.Middleware.CORS.DenyOrigins[0], "https://blocked.example.com"; got != want {
+		t.Fatalf("DenyOrigins[0]=%q want=%q", got, want)
+	}
+}
+
 func TestLintRejectsEnabledRedisWithoutAddr(t *testing.T) {
 	t.Setenv("REDIS_ENABLED", "true")
 

@@ -93,14 +93,22 @@ Explicit env values override profile defaults.
 | Variable | Default |
 |---|---|
 | `HTTP_MIDDLEWARE_CORS_ENABLED` | `true` |
-| `HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS` | empty |
-| `HTTP_MIDDLEWARE_CORS_DENY_ORIGINS` | empty |
+| `allowedOrigins` | empty |
+| `denyOrigins` | empty |
+| `HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS` | alias fallback for `allowedOrigins` |
+| `HTTP_MIDDLEWARE_CORS_DENY_ORIGINS` | alias fallback for `denyOrigins` |
 | `HTTP_MIDDLEWARE_CORS_ALLOW_METHODS` | empty |
 | `HTTP_MIDDLEWARE_CORS_ALLOW_HEADERS` | empty |
 | `HTTP_MIDDLEWARE_CORS_EXPOSE_HEADERS` | empty |
 | `HTTP_MIDDLEWARE_CORS_ALLOW_CREDENTIALS` | `false` |
 | `HTTP_MIDDLEWARE_CORS_MAX_AGE` | `0` |
 | `HTTP_MIDDLEWARE_CORS_ALLOW_PRIVATE_NETWORK` | `false` |
+
+CORS origin behavior:
+- `allowedOrigins` is a comma-separated allow-list for browser origins.
+- `denyOrigins` is optional and evaluated before the allow-list.
+- localhost origins (`localhost`, `127.0.0.1`, `::1`) are allowed by default for local development.
+- If a localhost origin is explicitly listed in `denyOrigins`, it is blocked.
 
 ## 6. Logging
 

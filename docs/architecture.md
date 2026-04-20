@@ -90,6 +90,11 @@ Execution order (outermost to innermost):
 
 This order is intentional for diagnostics, safety, and policy correctness.
 
+CORS origin policy notes:
+- Browser origins are controlled via `allowedOrigins` (with legacy `HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS` alias support).
+- `denyOrigins` is optional and evaluated before the allow-list.
+- Localhost origins are allowed by default for development unless explicitly denied.
+
 ## 5. Route Policy System
 
 Policies are route-scoped middleware decorators under `internal/core/policy`.

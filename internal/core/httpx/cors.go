@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +45,8 @@ func CORS(cfg config.CORSConfig) func(http.Handler) http.Handler {
 				return
 			}
 
-			if isDeniedOrigin(origin, denyOrigins) || !isAllowedOrigin(origin, allowOrigins, allowAll, cfg.AllowCredentials) {
+			allowedOrigin := isAllowedOrigin(origin, allowOrigins, allowAll, cfg.AllowCredentials) || isLocalhostOrigin(origin)
+			if isDeniedOrigin(origin, denyOrigins) || !allowedOrigin {
 				if isPreflight(r) {
 					rid := requestid.FromContext(r.Context())
 					response.Error(w, apperr.New(apperr.CodeForbidden, http.StatusForbidden, "origin not allowed"), rid)
@@ -135,6 +137,18 @@ func isAllowedOrigin(origin string, allow map[string]struct{}, allowAll bool, al
 	}
 	_, ok := allow[strings.ToLower(origin)]
 	return ok
+}
+
+func isLocalhostOrigin(origin string) bool {
+	u, err := url.Parse(strings.TrimSpace(origin))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+	hostname := strings.TrimSpace(u.Hostname())
+	if strings.EqualFold(hostname, "localhost") {
+		return true
+	}
+	return hostname == "127.0.0.1" || hostname == "::1"
 }
 
 func normalizeTokens(values []string, fallback []string) []string {

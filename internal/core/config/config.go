@@ -413,8 +413,8 @@ func Load() (*Config, error) {
 				},
 				CORS: CORSConfig{
 					Enabled:             getBool("HTTP_MIDDLEWARE_CORS_ENABLED", true),
-					AllowOrigins:        getCSV("HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS", nil),
-					DenyOrigins:         getCSV("HTTP_MIDDLEWARE_CORS_DENY_ORIGINS", nil),
+					AllowOrigins:        getCSVAlias([]string{"allowedOrigins", "HTTP_MIDDLEWARE_CORS_ALLOW_ORIGINS"}, nil),
+					DenyOrigins:         getCSVAlias([]string{"denyOrigins", "HTTP_MIDDLEWARE_CORS_DENY_ORIGINS"}, nil),
 					AllowMethods:        getCSV("HTTP_MIDDLEWARE_CORS_ALLOW_METHODS", nil),
 					AllowHeaders:        getCSV("HTTP_MIDDLEWARE_CORS_ALLOW_HEADERS", nil),
 					ExposeHeaders:       getCSV("HTTP_MIDDLEWARE_CORS_EXPOSE_HEADERS", nil),
@@ -1276,6 +1276,38 @@ func getCSV(key string, fallback []string) []string {
 		return fallback
 	}
 	return out
+}
+
+func getCSVAlias(keys []string, fallback []string) []string {
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		v := os.Getenv(key)
+		if strings.TrimSpace(v) == "" {
+			if profileValue, ok := profileDefaultValue(key); ok {
+				v = profileValue
+			}
+		}
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+
+		parts := strings.Split(v, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			trimmed := strings.TrimSpace(p)
+			if trimmed == "" {
+				continue
+			}
+			out = append(out, trimmed)
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+
+	return fallback
 }
 
 func lintBoolEnv(key string) error {
