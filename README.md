@@ -138,40 +138,8 @@ CORS configuration notes:
 - `denyOrigins` (optional, comma-separated) explicitly blocks origins before allow-list checks.
 - localhost origins are accepted by default for development unless explicitly denied.
 
-## How To Build APIs
-
-1. Create a module
-
-```bash
-make module name=projects
-```
-
-Expected output:
-
-```text
-generated module "projects" (package="projects" route=/api/v1/projects)
-```
-
-2. Confirm module wiring
-
-internal/modules/modules.go is updated automatically with import + projects.New() entry.
-
-3. Verify and run
-
-```bash
-go test ./internal/devx/modulegen ./internal/modules/projects
-go run ./cmd/superapi-verify ./internal/modules/projects
-go run ./cmd/api
-```
-
-4. Add handlers and service logic in the generated module files.
-
-5. Add repositories that execute store operations and keep query logic inside repository.
-
-Guides:
-- Module workflows: [docs/workflows/README.md](docs/workflows/README.md)
-- Route details snapshot: [docs/routeDetails.md](docs/routeDetails.md)
-- Contributor playbook: [AGENTS.md](AGENTS.md)
+### Note
+For a production deployment, ensure all environment variables are properly set and that Postgres, Redis, and MongoDB are running and accessible with the provided connection details before starting the backend application. It is recommended to set all env variables properly before testing the frontend application, as the frontend relies on the backend API for authentication and data operations.
 
 ## Docs Navigation
 
