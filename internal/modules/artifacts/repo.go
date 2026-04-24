@@ -799,7 +799,7 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			continue
 		}
 
-		sourceTypeRaw := firstNonEmpty(toString(source["type"]), toString(source["artifactType"]))
+		sourceTypeRaw := firstNonEmpty(toString(source["artifactType"]), toString(source["type"]))
 		normalizedType, ok := normalizeArtifactType(sourceTypeRaw)
 		if !ok || (normalizedType != "story" && normalizedType != "journey") {
 			continue
@@ -826,7 +826,8 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 		linkedSourcesPayload = append(linkedSourcesPayload, map[string]any{
 			"id":    sourceID,
 			"title": sourceTitle,
-			"type":  typeLabel,
+			"type":  normalizedType,
+			"label": typeLabel,
 			"href":  fmt.Sprintf("/project/%s/%s/%s", identity.UUID, hrefPrefix, sourceID),
 		})
 
@@ -2123,7 +2124,7 @@ func (r *repo) replaceProblemSourceLinks(ctx context.Context, projectUUID, probl
 		if item == nil {
 			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked source entry must be an object")
 		}
-		typeRaw := firstNonEmpty(toString(item["type"]), toString(item["artifactType"]))
+		typeRaw := firstNonEmpty(toString(item["artifactType"]), toString(item["type"]))
 		normalized, ok := normalizeArtifactType(typeRaw)
 		if !ok || (normalized != "story" && normalized != "journey") {
 			return apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "linked source type must be story or journey")
