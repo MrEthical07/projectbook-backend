@@ -62,8 +62,12 @@ var feedbackOutcomes = map[string]struct{}{
 var artifactTypeMap = map[string]string{
 	"story":             "story",
 	"stories":           "story",
+	"user story":        "story",
+	"user stories":      "story",
 	"journey":           "journey",
 	"journeys":          "journey",
+	"user journey":      "journey",
+	"user journeys":     "journey",
 	"problem":           "problem",
 	"problems":          "problem",
 	"problem statement": "problem",
