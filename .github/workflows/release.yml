@@ -108,6 +108,7 @@ jobs:
             echo "Starting new container..."
             docker run -d \
               --name $NEW_CONTAINER \
+              --network projectbook-net \
               --restart unless-stopped \
               --env-file /opt/projectbook/backend.env \
               -p 127.0.0.1:8081:8080 \
@@ -136,6 +137,7 @@ jobs:
 
             docker run -d \
               --name $CONTAINER \
+              --network projectbook-net \
               --restart unless-stopped \
               --env-file /opt/projectbook/backend.env \
               -p 127.0.0.1:8080:8080 \
