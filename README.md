@@ -4,7 +4,7 @@
 
 # ProjectBook Backend
 
-Production-grade Go backend for ProjectBook.
+Policy-driven, production-grade Go backend for ProjectBook
 
 ## Repository Context
 
@@ -28,6 +28,19 @@ Start here:
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Authentication: [docs/auth.md](docs/auth.md)
 
+## Role in System
+
+This backend is the enforcement layer of ProjectBook.
+
+It is responsible for:
+- enforcing permissions and policies
+- maintaining data integrity
+- controlling all data access and mutations
+
+All operations must pass through this backend.
+There are no alternative execution paths or bypass mechanisms.
+
+
 ## Data Layer Architecture
 
 Enforced flow:
@@ -43,16 +56,117 @@ Hard rules:
 - one storage type per module (relational or document)
 - transaction API exists at store layer and is used only for write paths; services define the boundary via store.WithTx and repositories perform all store execution calls inside that scope
 
-## Features
+## System Constraints
 
-- Module system for explicit, composable API domains
-- Strict startup validation for runtime and policy configuration
-- goAuth integration for route-level authentication workflows
-- Redis-backed response cache with dynamic TagSpecs invalidation and Redis-backed rate limiting
-- Browser/proxy cache directives with policy.CacheControl(...)
-- Observability stack: metrics, tracing, and structured logs
-- Store-first data layer contracts in internal/core/storage
-- Built-in scaffolder for generating production-oriented modules
+The backend enforces strict architectural boundaries:
+
+- Handlers never access database or store directly
+- Services define transaction boundaries but do not execute queries
+- Repositories exclusively own all data access logic
+- No cross-module access outside defined runtime wiring
+- All requests pass through a strictly ordered policy pipeline before execution
+- Policy stages execute in a strictly defined and validated order
+
+Forbidden patterns:
+- Direct database access outside repositories
+- Custom authentication or permission checks outside policy stack
+- Bypassing cache identity dimensions for authenticated data
+- Defining transactions outside service layer
+- Accessing dependencies outside module runtime container
+
+The policy pipeline is enforced at runtime and validated at startup.
+These constraints are enforced through code structure, policy layers, and startup validation—not developer convention.
+
+
+## System Guarantees
+
+ProjectBook enforces the following guarantees:
+
+- All data access passes through controlled repository/store boundaries
+- No direct database access from handlers or UI layers
+- Permissions are enforced consistently across all operations
+- Artifact relationships remain explicit and traceable
+- System behavior is deterministic under defined inputs
+- Cache correctness enforced via bump-miss atomic invalidation
+- Authentication and authorization always validated before execution
+
+These guarantees are enforced by architecture, not convention.
+
+## Tradeoffs
+
+This architecture introduces deliberate tradeoffs:
+
+- Increased rigidity due to strict module and data boundaries
+- Higher complexity in policy wiring and middleware composition
+- Reduced flexibility for custom execution paths due to enforced policy pipeline
+- Additional operational overhead from hybrid persistence (PostgreSQL + MongoDB)
+
+These tradeoffs are intentional to ensure consistency, security, and enforceable system behavior.
+
+## Request Lifecycle
+
+1. API request reaches handler
+2. Policy pipeline executes in strict order:
+   auth → project scope → permission resolution → RBAC → rate limiting → caching
+3. Handler validates request input
+4. Service defines transaction boundaries
+5. Repository executes data operations via store
+6. Store interacts with database
+7. Response is returned through the same controlled path
+
+No request can bypass policy enforcement or data boundaries.
+All execution follows a single controlled path enforced by the policy pipeline.
+
+
+## Core Capabilities
+
+- Policy-driven request pipeline enforcing authentication, authorization, and rate limiting
+- Store-first data architecture with strict repository boundaries
+- Module-based API structure with explicit domain separation
+- Bitmask-based RBAC with constant-time permission evaluation
+- Redis-backed caching with bump-miss invalidation model
+- Hybrid persistence (PostgreSQL + MongoDB) aligned to data shape requirements
+- Observability stack providing metrics, tracing, and structured logging across all modules
+- Strict startup validation ensuring safe runtime configuration
+
+## Permission Model
+
+- Bitmask-based RBAC system using uint64 permission masks
+- Role defaults combined with per-member overrides
+- Permissions resolved per request for (user, project) context
+- Enforced in policy pipeline before handler execution
+
+Permission evaluation is constant-time and consistent across all operations.
+
+## Failure Handling
+
+- Fail-fast startup: application does not boot on invalid configuration
+- Transaction failures trigger automatic rollback
+- Cache failures fall back to controlled execution modes (fail-open or fail-closed)
+- Standardized error structure (`AppError`) ensures consistent error handling
+
+System behavior under failure is explicit and controlled.
+
+
+## Cache System
+
+- Redis-backed cache with explicit route opt-in
+- Bump-Miss invalidation model using atomic tag versioning
+- Writes trigger version increments, forcing immediate cache misses
+- Cache keys derived from canonical request context (project, user, params)
+
+This ensures strong cache correctness without relying on TTL-based expiration.
+
+
+## Philosophy
+
+- Secure by default in production-sensitive paths
+- Explicit policies over implicit behavior
+- Fail-fast validation at startup for unsafe configurations
+- One enforced data-layer architecture over compatibility layers
+
+This backend prioritizes enforceability over flexibility.
+
 
 ## Acknowledgments
 
@@ -152,13 +266,6 @@ For a production deployment, ensure all environment variables are properly set a
 - Workflows: [docs/workflows/README.md](docs/workflows/README.md)
 - Test docs: [docs/test/README.md](docs/test/README.md)
 - Contributor playbook: [AGENTS.md](AGENTS.md)
-
-## Philosophy
-
-- Secure by default in production-sensitive paths
-- Explicit policies over implicit behavior
-- Fail-fast validation at startup for unsafe configurations
-- One enforced data-layer architecture over compatibility layers
 
 ## Versioning And Updates
 
