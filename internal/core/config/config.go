@@ -456,7 +456,7 @@ func Load() (*Config, error) {
 			Enabled:            getBool("CACHE_ENABLED", true),
 			FailOpen:           getBool("CACHE_FAIL_OPEN", cacheFailOpenDefault),
 			DefaultMaxBytes:    getInt("CACHE_DEFAULT_MAX_BYTES", 256*1024),
-			TagVersionCacheTTL: getDuration("CACHE_TAG_VERSION_CACHE_TTL", 250*time.Millisecond),
+			TagVersionCacheTTL: getDuration("CACHE_TAG_VERSION_CACHE_TTL", 0*time.Millisecond),
 		},
 		Permissions: PermissionsConfig{
 			Enabled:         getBool("PERMISSIONS_ENABLED", true),
@@ -1094,9 +1094,11 @@ func SensitiveFallbackWarnings(c *Config) []string {
 
 	warnings := make([]string, 0, 4)
 	permissionSecret := strings.TrimSpace(os.Getenv(permissionContextSecretEnvKey))
-	if permissionSecret == "" {
+	switch permissionSecret {
+	case "":
 		warnings = append(warnings, "PROJECTBOOK_PERMISSION_CONTEXT_SECRET is unset; runtime is using development fallback signing behavior")
-	} else if permissionSecret == permissionContextDevFallbackSecret {
+
+	case permissionContextDevFallbackSecret:
 		warnings = append(warnings, "PROJECTBOOK_PERMISSION_CONTEXT_SECRET is set to the known development fallback value")
 	}
 

@@ -9,6 +9,8 @@ import (
 
 	apperr "github.com/MrEthical07/superapi/internal/core/errors"
 	"github.com/MrEthical07/superapi/internal/core/patchx"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const maxListLimit = 50
@@ -231,13 +233,35 @@ func toString(v any) string {
 }
 
 func toSlice(v any) []any {
-	s, _ := v.([]any)
-	return s
+	switch val := v.(type) {
+	case []any:
+		return val
+	case primitive.A:
+		return []any(val)
+	case *[]any:
+		if val != nil {
+			return *val
+		}
+	case *primitive.A:
+		if val != nil {
+			return []any(*val)
+		}
+	}
+	return []any{}
 }
 
 func toMap(v any) map[string]any {
-	m, _ := v.(map[string]any)
-	return m
+	switch val := v.(type) {
+	case map[string]any:
+		return val
+	case bson.M:
+		return map[string]any(val)
+	case *bson.M:
+		if val != nil {
+			return map[string]any(*val)
+		}
+	}
+	return nil
 }
 
 func asStringSlice(values []any) []string {

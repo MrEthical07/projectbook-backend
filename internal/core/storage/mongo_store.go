@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -109,16 +110,31 @@ func (e mongoDocumentExecutor) Run(ctx context.Context, command string, payload 
 	case "find_one":
 		filter := extractMongoFilterPayload(payload)
 		result := collection.FindOne(ctx, filter)
+
 		if err := result.Err(); err != nil {
 			return err
 		}
 		if out == nil {
 			return nil
 		}
-		return result.Decode(out)
+
+		var raw map[string]any
+		if err := result.Decode(&raw); err != nil {
+			return err
+		}
+
+		normalized := normalizeBSON(raw)
+
+		if outMap, ok := out.(*map[string]any); ok {
+			*outMap = normalized.(map[string]any)
+			return nil
+		}
+
+		return fmt.Errorf("unsupported output type for find_one")
 
 	case "find_many":
 		findPayload := parseMongoFindPayload(payload)
+
 		cursor, err := collection.Find(ctx, findPayload.filter, findPayload.options...)
 		if err != nil {
 			return err
@@ -128,7 +144,23 @@ func (e mongoDocumentExecutor) Run(ctx context.Context, command string, payload 
 		if out == nil {
 			return nil
 		}
-		return cursor.All(ctx, out)
+
+		var raw []map[string]any
+		if err := cursor.All(ctx, &raw); err != nil {
+			return err
+		}
+
+		normalized := make([]map[string]any, len(raw))
+		for i, doc := range raw {
+			normalized[i] = normalizeBSON(doc).(map[string]any)
+		}
+
+		if outSlice, ok := out.(*[]map[string]any); ok {
+			*outSlice = normalized
+			return nil
+		}
+
+		return fmt.Errorf("unsupported output type for find_many")
 
 	case "update_one":
 		mutationPayload, err := parseMongoMutationPayload(payload)
@@ -209,12 +241,21 @@ func extractMongoFilterPayload(payload any) any {
 	if payload == nil {
 		return bson.D{}
 	}
-	if payloadMap, ok := payload.(map[string]any); ok {
-		if filter, exists := payloadMap["filter"]; exists {
+
+	switch val := payload.(type) {
+	case map[string]any:
+		if filter, exists := val["filter"]; exists {
 			return filter
 		}
+		return val
+	case bson.M:
+		if filter, exists := val["filter"]; exists {
+			return filter
+		}
+		return val
+	default:
+		return payload
 	}
-	return payload
 }
 
 type mongoMutationPayload struct {
@@ -224,9 +265,15 @@ type mongoMutationPayload struct {
 }
 
 func parseMongoMutationPayload(payload any) (mongoMutationPayload, error) {
-	payloadMap, ok := payload.(map[string]any)
-	if !ok {
-		return mongoMutationPayload{}, errors.New("update_one payload must be map[string]any with filter and update")
+	var payloadMap map[string]any
+
+	switch val := payload.(type) {
+	case map[string]any:
+		payloadMap = val
+	case bson.M:
+		payloadMap = map[string]any(val)
+	default:
+		return mongoMutationPayload{}, errors.New("update_one payload must be map-like")
 	}
 
 	filter, hasFilter := payloadMap["filter"]
@@ -250,9 +297,15 @@ type mongoReplacePayload struct {
 }
 
 func parseMongoReplacePayload(payload any) (mongoReplacePayload, error) {
-	payloadMap, ok := payload.(map[string]any)
-	if !ok {
-		return mongoReplacePayload{}, errors.New("replace_one payload must be map[string]any with filter and document")
+	var payloadMap map[string]any
+
+	switch val := payload.(type) {
+	case map[string]any:
+		payloadMap = val
+	case bson.M:
+		payloadMap = map[string]any(val)
+	default:
+		return mongoReplacePayload{}, errors.New("replace_one payload must be map-like")
 	}
 
 	filter, hasFilter := payloadMap["filter"]
@@ -279,8 +332,14 @@ func parseMongoFindPayload(payload any) mongoFindPayload {
 		return mongoFindPayload{filter: bson.D{}}
 	}
 
-	payloadMap, ok := payload.(map[string]any)
-	if !ok {
+	var payloadMap map[string]any
+
+	switch val := payload.(type) {
+	case map[string]any:
+		payloadMap = val
+	case bson.M:
+		payloadMap = map[string]any(val)
+	default:
 		return mongoFindPayload{filter: payload}
 	}
 
@@ -293,4 +352,39 @@ func parseMongoFindPayload(payload any) mongoFindPayload {
 	}
 
 	return findPayload
+}
+
+func normalizeBSON(v any) any {
+	switch val := v.(type) {
+	case bson.M:
+		out := make(map[string]any)
+		for k, v := range val {
+			out[k] = normalizeBSON(v)
+		}
+		return out
+
+	case map[string]any:
+		out := make(map[string]any)
+		for k, v := range val {
+			out[k] = normalizeBSON(v)
+		}
+		return out
+
+	case primitive.A:
+		out := make([]any, len(val))
+		for i, v := range val {
+			out[i] = normalizeBSON(v)
+		}
+		return out
+
+	case []any:
+		out := make([]any, len(val))
+		for i, v := range val {
+			out[i] = normalizeBSON(v)
+		}
+		return out
+
+	default:
+		return val
+	}
 }

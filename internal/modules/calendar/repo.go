@@ -32,6 +32,15 @@ type projectIdentity struct {
 	Slug string
 }
 
+type LinkedArtifact struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Type   string `json:"type"`  // "task" | "idea" | "problem"
+	Phase  string `json:"phase"` // "Prototype" | "Ideate" | "Define"
+	Href   string `json:"href"`
+	Status string `json:"status"` // "Active" | "Archived"
+}
+
 type calendarRecord struct {
 	ID              string
 	Title           string
@@ -47,7 +56,7 @@ type calendarRecord struct {
 	Description     string
 	Location        string
 	EventKind       string
-	LinkedArtifacts []string
+	LinkedArtifacts []LinkedArtifact
 	Tags            []string
 	SourceTitle     string
 	CreatedAt       string
@@ -118,13 +127,86 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 		nextCursor = &cursor
 	}
 
+	linkedArtifactOptions := make([]LinkedArtifact, 0)
+	// TASKS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM tasks
+	 WHERE project_id = $1::uuid AND status = 'Completed'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "task",
+				Phase:  "Prototype",
+				Href:   fmt.Sprintf("/project/%s/tasks/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch task options", err)
+	}
+
+	// IDEAS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM ideas
+	 WHERE project_id = $1 AND status = 'Selected'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "idea",
+				Phase:  "Ideate",
+				Href:   fmt.Sprintf("/project/%s/ideas/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch idea options", err)
+	}
+
+	// PROBLEMS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM problems
+	 WHERE project_id = $1 AND status = 'Locked'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "problem",
+				Phase:  "Define",
+				Href:   fmt.Sprintf("/project/%s/problem-statement/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch problem options", err)
+	}
+
 	return ListCalendarDataResponse{
 		Items:      rows,
 		NextCursor: nextCursor,
 		Reference: CalendarReference{
 			PhaseChoices:          defaultPhaseChoices,
 			ManualKinds:           defaultManualKinds,
-			LinkedArtifactOptions: []string{},
+			LinkedArtifactOptions: linkedArtifactOptions,
 		},
 	}, nil
 }
@@ -146,7 +228,7 @@ func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID s
 	if err != nil {
 		return CalendarListEvent{}, err
 	}
-	linkedJSON, err := encodeArrayJSON(req.LinkedArtifacts)
+	linkedJSON, err := encodeLinkedArtifactsJSON(req.LinkedArtifacts)
 	if err != nil {
 		return CalendarListEvent{}, err
 	}
@@ -237,7 +319,7 @@ func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID s
 		Phase:           phase,
 		ArtifactType:    "Manual",
 		CreatedAt:       createdAt,
-		LinkedArtifacts: []string{},
+		LinkedArtifacts: []LinkedArtifact{},
 		Tags:            []string{},
 	}
 	if !outAllDay {
@@ -277,10 +359,84 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 		event.EndTime = rec.EndTime
 	}
 	if event.LinkedArtifacts == nil {
-		event.LinkedArtifacts = []string{}
+		event.LinkedArtifacts = make([]LinkedArtifact, 0)
 	}
 	if event.Tags == nil {
 		event.Tags = []string{}
+	}
+
+	linkedArtifactOptions := make([]LinkedArtifact, 0)
+
+	// TASKS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM tasks
+	 WHERE project_id = $1::uuid AND status = 'Completed'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "task",
+				Phase:  "Prototype",
+				Href:   fmt.Sprintf("/project/%s/tasks/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch task options", err)
+	}
+
+	// IDEAS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM ideas
+	 WHERE project_id = $1 AND status = 'Selected'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "idea",
+				Phase:  "Ideate",
+				Href:   fmt.Sprintf("/project/%s/ideas/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch idea options", err)
+	}
+
+	// PROBLEMS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT id::text, title FROM problems
+	 WHERE project_id = $1 AND status = 'Locked'`,
+		func(row storage.RowScanner) error {
+			var id, title string
+			if err := row.Scan(&id, &title); err != nil {
+				return err
+			}
+			linkedArtifactOptions = append(linkedArtifactOptions, LinkedArtifact{
+				ID:     id,
+				Title:  title,
+				Type:   "problem",
+				Phase:  "Define",
+				Href:   fmt.Sprintf("/project/%s/problem-statement/%s", projectID, id),
+				Status: "Active",
+			})
+			return nil
+		},
+		identity.UUID,
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch problem options", err)
 	}
 
 	return GetCalendarEventResponse{
@@ -288,7 +444,7 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 		Reference: CalendarReference{
 			PhaseChoices:          defaultPhaseChoices,
 			ManualKinds:           defaultManualKinds,
-			LinkedArtifactOptions: []string{},
+			LinkedArtifactOptions: linkedArtifactOptions,
 		},
 	}, nil
 }
@@ -313,7 +469,7 @@ func (r *repo) UpdateCalendarEvent(ctx context.Context, projectID, eventID, acto
 	if err != nil {
 		return UpdateCalendarEventResponse{}, err
 	}
-	linkedJSON, err := encodeArrayJSON(updated.LinkedArtifacts)
+	linkedJSON, err := encodeLinkedArtifactsJSON(updated.LinkedArtifacts)
 	if err != nil {
 		return UpdateCalendarEventResponse{}, err
 	}
@@ -483,7 +639,7 @@ func scanCalendarRecord(row storage.RowScanner) (calendarRecord, error) {
 	); err != nil {
 		return calendarRecord{}, err
 	}
-	rec.LinkedArtifacts = decodeArrayJSON(linkedRaw)
+	rec.LinkedArtifacts = decodeLinkedArtifactsJSON(linkedRaw)
 	rec.Tags = decodeArrayJSON(tagsRaw)
 	return rec, nil
 }
@@ -551,8 +707,38 @@ func mergeCalendarPatch(current calendarRecord, patch map[string]any) (calendarR
 	if endTime, ok := patch["endTime"].(string); ok {
 		out.EndTime = strings.TrimSpace(endTime)
 	}
-	if links := toStringSlice(patch["linkedArtifacts"]); links != nil {
-		out.LinkedArtifacts = links
+	if rawLinks, ok := patch["linkedArtifacts"]; ok {
+		items := toSlice(rawLinks)
+
+		parsed := make([]LinkedArtifact, 0, len(items))
+
+		for _, raw := range items {
+			obj := toMap(raw)
+			if obj == nil {
+				continue
+			}
+
+			id := toString(obj["id"])
+			artifactType := strings.ToLower(toString(obj["type"]))
+
+			if id == "" {
+				continue
+			}
+			if artifactType != "task" && artifactType != "idea" && artifactType != "problem" {
+				continue
+			}
+
+			parsed = append(parsed, LinkedArtifact{
+				ID:     id,
+				Title:  toString(obj["title"]),
+				Type:   artifactType,
+				Phase:  toString(obj["phase"]),
+				Href:   toString(obj["href"]),
+				Status: toString(obj["status"]),
+			})
+		}
+
+		out.LinkedArtifacts = parsed
 	}
 	if tags := toStringSlice(patch["tags"]); tags != nil {
 		out.Tags = tags
@@ -615,6 +801,65 @@ func buildEventTimestamps(startDateRaw, endDateRaw string, allDay bool, startTim
 		return time.Time{}, time.Time{}, apperr.New(apperr.CodeBadRequest, http.StatusBadRequest, "end must not be before start")
 	}
 	return start, end, nil
+}
+
+func toSlice(value any) []any {
+	if value == nil {
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []any:
+		return v
+
+	case []map[string]any:
+		out := make([]any, len(v))
+		for i := range v {
+			out[i] = v[i]
+		}
+		return out
+
+	default:
+		return nil
+	}
+}
+
+func toMap(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+
+	switch v := value.(type) {
+	case map[string]any:
+		return v
+
+	default:
+		return nil
+	}
+}
+func encodeLinkedArtifactsJSON(items []LinkedArtifact) (string, error) {
+	if items == nil {
+		items = []LinkedArtifact{}
+	}
+	bytes, err := json.Marshal(items)
+	if err != nil {
+		return "", apperr.WithCause(
+			apperr.New(apperr.CodeInternal, http.StatusInternalServerError, "failed to encode linked artifacts"),
+			err,
+		)
+	}
+	return string(bytes), nil
+}
+
+func decodeLinkedArtifactsJSON(raw []byte) []LinkedArtifact {
+	if len(raw) == 0 {
+		return []LinkedArtifact{}
+	}
+	var items []LinkedArtifact
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return []LinkedArtifact{}
+	}
+	return items
 }
 
 func encodeArrayJSON(items []string) (string, error) {

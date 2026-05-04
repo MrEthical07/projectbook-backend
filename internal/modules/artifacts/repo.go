@@ -12,6 +12,8 @@ import (
 	"github.com/MrEthical07/superapi/internal/core/patchx"
 	"github.com/MrEthical07/superapi/internal/core/storage"
 	"github.com/jackc/pgx/v5"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -713,6 +715,7 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 	if err != nil {
 		return nil, err
 	}
+
 	var id, foundSlug, statement, status, ownerName, createdAt, lastUpdated string
 	err = r.store.Execute(ctx, storage.RelationalQueryOne(
 		`SELECT p.id::text, p.slug, p.title, p.status::text, COALESCE(u.name, ''), COALESCE(to_char(p.created_at, 'YYYY-MM-DD'), ''), COALESCE(to_char(p.updated_at, 'YYYY-MM-DD'), '')
@@ -738,6 +741,30 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 		return nil, err
 	}
 
+	// ---------- SAFE HELPERS ----------
+	asSlice := func(v any) []any {
+		switch val := v.(type) {
+		case []any:
+			return val
+		case primitive.A:
+			return []any(val)
+		default:
+			return []any{}
+		}
+	}
+
+	asMap := func(v any) map[string]any {
+		switch val := v.(type) {
+		case map[string]any:
+			return val
+		case bson.M:
+			return map[string]any(val)
+		default:
+			return nil
+		}
+	}
+
+	// ---------- OPTIONS ----------
 	storyOptions := make([]any, 0)
 	stories, err := r.ListStories(ctx, identity.UUID, listQuery{Offset: 0, Limit: 100})
 	if err != nil {
@@ -780,6 +807,9 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 		})
 	}
 
+	// ---------- RESOLUTION ----------
+	linkedSources := asSlice(content["linkedSources"])
+
 	linkedSourcesPayload := make([]any, 0)
 	sourcePainPoints := make([]any, 0)
 	sourcePersonas := make([]any, 0)
@@ -787,9 +817,8 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 	journeyPainInsights := make([]any, 0)
 	sourceContextChunks := make([]string, 0)
 
-	linkedSources, _ := content["linkedSources"].([]any)
 	for _, raw := range linkedSources {
-		source := toMap(raw)
+		source := asMap(raw)
 		if source == nil {
 			continue
 		}
@@ -831,51 +860,42 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			"href":  fmt.Sprintf("/project/%s/%s/%s", identity.UUID, hrefPrefix, sourceID),
 		})
 
-		resolvedID, resolveErr := r.resolveArtifactIDByIdentifier(ctx, identity.UUID, normalizedType, sourceID)
-		if resolveErr != nil {
+		resolvedID, err := r.resolveArtifactIDByIdentifier(ctx, identity.UUID, normalizedType, sourceID)
+		if err != nil {
 			continue
 		}
 
-		sourceContent, loadErr := r.loadLatestContent(ctx, identity.UUID, normalizedType, resolvedID, map[string]any{})
-		if loadErr != nil {
+		sourceContent, err := r.loadLatestContent(ctx, identity.UUID, normalizedType, resolvedID, map[string]any{})
+		if err != nil {
 			continue
 		}
 
-		persona := toMap(sourceContent["persona"])
-		personaName := strings.TrimSpace(toString(persona["name"]))
-		personaBio := strings.TrimSpace(toString(persona["bio"]))
-		if personaName != "" {
-			sourcePersonas = append(sourcePersonas, map[string]any{
-				"name":        personaName,
-				"description": personaBio,
-			})
-		}
-
-		if normalizedType == "story" {
-			painPoints, _ := sourceContent["painPoints"].([]any)
-			for pointIndex, point := range painPoints {
-				text := strings.TrimSpace(toString(point))
-				if text == "" {
-					continue
-				}
-				pointID := fmt.Sprintf("%s:story:%d", sourceID, pointIndex+1)
-				sourcePainPoints = append(sourcePainPoints, map[string]any{
-					"id":          pointID,
-					"text":        text,
-					"sourceLabel": sourceTitle,
-				})
-				sourcePainInsights = append(sourcePainInsights, map[string]any{
-					"id":          pointID,
-					"text":        text,
-					"sourceLabel": sourceTitle,
+		persona := asMap(sourceContent["persona"])
+		if persona != nil {
+			name := strings.TrimSpace(toString(persona["name"]))
+			if name != "" {
+				sourcePersonas = append(sourcePersonas, map[string]any{
+					"name":        name,
+					"description": strings.TrimSpace(toString(persona["bio"])),
 				})
 			}
 		}
 
+		if normalizedType == "story" {
+			for i, p := range asSlice(sourceContent["painPoints"]) {
+				text := strings.TrimSpace(toString(p))
+				if text == "" {
+					continue
+				}
+				id := fmt.Sprintf("%s:story:%d", sourceID, i+1)
+				sourcePainPoints = append(sourcePainPoints, map[string]any{"id": id, "text": text, "sourceLabel": sourceTitle})
+				sourcePainInsights = append(sourcePainInsights, map[string]any{"id": id, "text": text, "sourceLabel": sourceTitle})
+			}
+		}
+
 		if normalizedType == "journey" {
-			stages, _ := sourceContent["stages"].([]any)
-			for stageIndex, stageRaw := range stages {
-				stage := toMap(stageRaw)
+			for si, stageRaw := range asSlice(sourceContent["stages"]) {
+				stage := asMap(stageRaw)
 				if stage == nil {
 					continue
 				}
@@ -883,21 +903,19 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 				if stageName == "" {
 					stageName = "Stage"
 				}
-				stagePainPoints, _ := stage["painPoints"].([]any)
-				for painPointIndex, painPointRaw := range stagePainPoints {
-					text := strings.TrimSpace(toString(painPointRaw))
+
+				for pi, p := range asSlice(stage["painPoints"]) {
+					text := strings.TrimSpace(toString(p))
 					if text == "" {
 						continue
 					}
-					pointID := fmt.Sprintf("%s:journey:%d:%d", sourceID, stageIndex+1, painPointIndex+1)
+					id := fmt.Sprintf("%s:journey:%d:%d", sourceID, si+1, pi+1)
 					sourcePainPoints = append(sourcePainPoints, map[string]any{
-						"id":          pointID,
-						"text":        text,
+						"id": id, "text": text,
 						"sourceLabel": fmt.Sprintf("%s / %s", sourceTitle, stageName),
 					})
 					journeyPainInsights = append(journeyPainInsights, map[string]any{
-						"id":          pointID,
-						"text":        text,
+						"id": id, "text": text,
 						"journeyName": sourceTitle,
 						"stageName":   stageName,
 					})
@@ -905,13 +923,19 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			}
 		}
 
-		sourceContext := strings.TrimSpace(toString(sourceContent["context"]))
-		if sourceContext != "" {
-			sourceContextChunks = append(sourceContextChunks, fmt.Sprintf("%s: %s", sourceLabelPrefix, sourceContext))
+		ctxText := strings.TrimSpace(toString(sourceContent["context"]))
+		if ctxText != "" {
+			sourceContextChunks = append(sourceContextChunks, fmt.Sprintf("%s: %s", sourceLabelPrefix, ctxText))
 		}
 	}
 
-	sourceContextSummary := strings.Join(sourceContextChunks, "\n")
+	// ---------- RESPONSE ----------
+	payload := cloneMap(content)
+
+	// IMPORTANT: only override if we successfully processed
+	if len(linkedSourcesPayload) > 0 {
+		payload["linkedSources"] = linkedSourcesPayload
+	}
 
 	return map[string]any{
 		"problem": map[string]any{
@@ -929,18 +953,14 @@ func (r *repo) GetProblem(ctx context.Context, projectID, slug string) (map[stri
 			"lastEditedAt": lastUpdated,
 			"lastUpdated":  lastUpdated,
 		},
-		"detail": func() map[string]any {
-			payload := cloneMap(content)
-			payload["linkedSources"] = linkedSourcesPayload
-			return payload
-		}(),
+		"detail": payload,
 		"reference": map[string]any{
 			"storyOptions":     storyOptions,
 			"journeyOptions":   journeyOptions,
 			"sourcePainPoints": sourcePainPoints,
 			"sourceInsights": map[string]any{
 				"personas":          sourcePersonas,
-				"context":           sourceContextSummary,
+				"context":           strings.Join(sourceContextChunks, "\n"),
 				"painPoints":        sourcePainInsights,
 				"journeyPainPoints": journeyPainInsights,
 			},
@@ -1832,6 +1852,103 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	if err != nil {
 		return nil, err
 	}
+
+	// ----------------------------
+	// TASK OPTIONS
+	// ----------------------------
+	var taskOptions []map[string]any
+
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT t.id::text, t.title, t.status::text
+		 FROM tasks t
+		 WHERE t.project_id = $1::uuid
+		 AND t.status = 'Completed'::task_status`,
+		func(row storage.RowScanner) error {
+			var tid, ttitle, tstatus string
+			if err := row.Scan(&tid, &ttitle, &tstatus); err != nil {
+				return err
+			}
+
+			taskOptions = append(taskOptions, map[string]any{
+				"id":     tid,
+				"title":  ttitle,
+				"type":   "task",
+				"phase":  "Prototype",
+				"href":   fmt.Sprintf("/project/%s/tasks/%s", projectID, tid),
+				"status": tstatus,
+			})
+			return nil
+		},
+		identity.UUID,
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	// ----------------------------
+	// IDEA OPTIONS
+	// ----------------------------
+	var ideaOptions []map[string]any
+
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT i.id::text, i.title, i.status::text
+		 FROM ideas i
+		 WHERE i.project_id = $1::uuid
+		AND i.status = 'Selected'::idea_status`,
+		func(row storage.RowScanner) error {
+			var iid, ititle, istatus string
+			if err := row.Scan(&iid, &ititle, &istatus); err != nil {
+				return err
+			}
+
+			ideaOptions = append(ideaOptions, map[string]any{
+				"id":     iid,
+				"title":  ititle,
+				"type":   "idea",
+				"phase":  "Ideate",
+				"href":   fmt.Sprintf("/project/%s/ideas/%s", projectID, iid),
+				"status": istatus,
+			})
+			return nil
+		},
+		identity.UUID,
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	// ----------------------------
+	// PROBLEM OPTIONS
+	// ----------------------------
+	problemOptions := make([]map[string]any, 0)
+
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+		`SELECT p.id::text, p.title, p.status::text
+		 FROM problems p
+		 WHERE p.project_id = $1::uuid
+		 AND p.status = 'Locked'::problem_status`,
+		func(row storage.RowScanner) error {
+			var pid, ptitle, pstatus string
+			if err := row.Scan(&pid, &ptitle, &pstatus); err != nil {
+				return err
+			}
+
+			problemOptions = append(problemOptions, map[string]any{
+				"id":     pid,
+				"title":  ptitle,
+				"type":   "problem",
+				"phase":  "Define",
+				"href":   fmt.Sprintf("/project/%s/problem-statement/%s", projectID, pid),
+				"status": pstatus,
+			})
+			return nil
+		},
+		identity.UUID,
+	))
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]any{
 		"feedback": map[string]any{
 			"id":          id,
@@ -1850,8 +1967,13 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 			"lastEditedAt": updatedDate,
 			"lastUpdated":  updatedDate,
 		},
-		"detail":    content,
-		"reference": map[string]any{"taskOptions": []any{}, "ideaOptions": []any{}, "problemOptions": []any{}, "permissions": map[string]any{}},
+		"detail": content,
+		"reference": map[string]any{
+			"taskOptions":    taskOptions,
+			"ideaOptions":    ideaOptions,
+			"problemOptions": problemOptions,
+			"permissions":    map[string]any{},
+		},
 	}, nil
 }
 
