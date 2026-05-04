@@ -1858,10 +1858,10 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	// ----------------------------
 	var taskOptions []map[string]any
 
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT t.id::text, t.title, t.status::text
 		 FROM tasks t
-		 WHERE t.project_id = $1
+		 WHERE t.project_id = $1::uuid
 		 AND t.status = 'Completed'::task_status`,
 		func(row storage.RowScanner) error {
 			var tid, ttitle, tstatus string
@@ -1890,10 +1890,10 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	// ----------------------------
 	var ideaOptions []map[string]any
 
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT i.id::text, i.title, i.status::text
 		 FROM ideas i
-		 WHERE i.project_id = $1
+		 WHERE i.project_id = $1::uuid
 		AND i.status = 'Selected'::idea_status`,
 		func(row storage.RowScanner) error {
 			var iid, ititle, istatus string
@@ -1920,12 +1920,12 @@ func (r *repo) GetFeedback(ctx context.Context, projectID, slug string) (map[str
 	// ----------------------------
 	// PROBLEM OPTIONS
 	// ----------------------------
-	var problemOptions []map[string]any
+	problemOptions := make([]map[string]any, 0)
 
-	err = r.store.Execute(ctx, storage.RelationalQueryOne(
+	err = r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT p.id::text, p.title, p.status::text
 		 FROM problems p
-		 WHERE p.project_id = $1
+		 WHERE p.project_id = $1::uuid
 		 AND p.status = 'Locked'::problem_status`,
 		func(row storage.RowScanner) error {
 			var pid, ptitle, pstatus string

@@ -127,12 +127,11 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 		nextCursor = &cursor
 	}
 
-	var linkedArtifactOptions []LinkedArtifact
-
+	linkedArtifactOptions := make([]LinkedArtifact, 0)
 	// TASKS
 	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM tasks
-	 WHERE project_id = $1 AND status = 'Completed'`,
+	 WHERE project_id = $1::uuid AND status = 'Completed'`,
 		func(row storage.RowScanner) error {
 			var id, title string
 			if err := row.Scan(&id, &title); err != nil {
@@ -360,18 +359,18 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 		event.EndTime = rec.EndTime
 	}
 	if event.LinkedArtifacts == nil {
-		event.LinkedArtifacts = []LinkedArtifact{}
+		event.LinkedArtifacts = make([]LinkedArtifact, 0)
 	}
 	if event.Tags == nil {
 		event.Tags = []string{}
 	}
 
-	var linkedArtifactOptions []LinkedArtifact
+	linkedArtifactOptions := make([]LinkedArtifact, 0)
 
 	// TASKS
 	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM tasks
-	 WHERE project_id = $1 AND status = 'Completed'`,
+	 WHERE project_id = $1::uuid AND status = 'Completed'`,
 		func(row storage.RowScanner) error {
 			var id, title string
 			if err := row.Scan(&id, &title); err != nil {
