@@ -129,7 +129,8 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 
 	var linkedArtifactOptions []LinkedArtifact
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// TASKS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM tasks
 	 WHERE project_id = $1 AND status = 'Completed'`,
 		func(row storage.RowScanner) error {
@@ -148,9 +149,12 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch task options", err)
+	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// IDEAS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM ideas
 	 WHERE project_id = $1 AND status = 'Selected'`,
 		func(row storage.RowScanner) error {
@@ -169,9 +173,12 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch idea options", err)
+	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// PROBLEMS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM problems
 	 WHERE project_id = $1 AND status = 'Locked'`,
 		func(row storage.RowScanner) error {
@@ -190,7 +197,9 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return ListCalendarDataResponse{}, wrapRepoError("fetch problem options", err)
+	}
 
 	return ListCalendarDataResponse{
 		Items:      rows,
@@ -359,7 +368,8 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 
 	var linkedArtifactOptions []LinkedArtifact
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// TASKS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM tasks
 	 WHERE project_id = $1 AND status = 'Completed'`,
 		func(row storage.RowScanner) error {
@@ -378,9 +388,12 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch task options", err)
+	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// IDEAS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM ideas
 	 WHERE project_id = $1 AND status = 'Selected'`,
 		func(row storage.RowScanner) error {
@@ -399,9 +412,12 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch idea options", err)
+	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+	// PROBLEMS
+	if err := r.store.Execute(ctx, storage.RelationalQueryMany(
 		`SELECT id::text, title FROM problems
 	 WHERE project_id = $1 AND status = 'Locked'`,
 		func(row storage.RowScanner) error {
@@ -420,7 +436,9 @@ func (r *repo) GetCalendarEvent(ctx context.Context, projectID, eventID string) 
 			return nil
 		},
 		identity.UUID,
-	))
+	)); err != nil {
+		return GetCalendarEventResponse{}, wrapRepoError("fetch problem options", err)
+	}
 
 	return GetCalendarEventResponse{
 		Event: event,
