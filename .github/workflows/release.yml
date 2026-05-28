@@ -1,15 +1,18 @@
 name: Backend Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Backend CI"]
+    branches: [main]
+    types:
+      - completed
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     runs-on: ubuntu-latest
 
     outputs:
@@ -21,6 +24,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       # ---------------------------
       # Setup Node
