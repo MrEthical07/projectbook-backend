@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MrEthical07/superapi/internal/tools/routedocgen"
+	"github.com/MrEthical07/projectbook-backend/internal/tools/routedocgen"
 )
 
 func main() {
