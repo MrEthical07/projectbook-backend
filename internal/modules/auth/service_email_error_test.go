@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	coreemail "github.com/MrEthical07/superapi/internal/core/email"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	coreemail "github.com/MrEthical07/projectbook-backend/internal/core/email"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 )
 
 func TestMapEmailDeliveryErrorRateLimited(t *testing.T) {

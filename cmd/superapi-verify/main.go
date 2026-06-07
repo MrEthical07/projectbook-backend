@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/tools/validator"
+	"github.com/MrEthical07/projectbook-backend/internal/tools/validator"
 )
 
 func main() {

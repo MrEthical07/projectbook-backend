@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // Router is the abstraction modules use to register routes.

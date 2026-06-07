@@ -1,9 +1,9 @@
 package health
 
 import (
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/core/metrics"
-	"github.com/MrEthical07/superapi/internal/core/readiness"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/core/metrics"
+	"github.com/MrEthical07/projectbook-backend/internal/core/readiness"
 )
 
 // Module exposes liveness/readiness endpoints and optional readiness metrics.

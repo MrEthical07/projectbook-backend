@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 func TestLogoutRequiresAuth(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // RequestTimeout enforces per-request context deadline for downstream handlers.

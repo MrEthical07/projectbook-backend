@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/logx"
-	"github.com/MrEthical07/superapi/internal/core/netx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/netx"
 )
 
 // AccessLog emits structured request logs with sampling and slow/error overrides.

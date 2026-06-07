@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // RateLimit applies route-level throttling using default rule key resolution.

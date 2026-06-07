@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
 )
 
 // Handler contains HTTP transport handlers for home routes.

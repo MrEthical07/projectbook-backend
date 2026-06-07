@@ -3,9 +3,9 @@ package system
 import (
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/core/modulekit"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/core/modulekit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 // Module provides system utility routes.

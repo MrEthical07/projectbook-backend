@@ -13,7 +13,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 // Service owns tracer construction and shutdown for the process.
@@ -78,7 +78,7 @@ func NewWithProvider(provider trace.TracerProvider, shutdownFn func(context.Cont
 	}
 	return &Service{
 		enabled:    true,
-		tracer:     provider.Tracer("superapi/http"),
+		tracer:     provider.Tracer("projectbook/http"),
 		shutdownFn: shutdownFn,
 	}
 }
@@ -91,10 +91,10 @@ func (s *Service) Enabled() bool {
 // Tracer returns the HTTP tracer used by middleware and handlers.
 func (s *Service) Tracer() trace.Tracer {
 	if s == nil {
-		return otel.Tracer("superapi/http")
+		return otel.Tracer("projectbook/http")
 	}
 	if s.tracer == nil {
-		return otel.Tracer("superapi/http")
+		return otel.Tracer("projectbook/http")
 	}
 	return s.tracer
 }

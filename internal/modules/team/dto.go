@@ -5,8 +5,8 @@ import (
 	"net/mail"
 	"strings"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 const maxBatchInvites = 100

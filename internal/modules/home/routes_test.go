@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
 )
 
 func TestHomeRoutesRequireAuth(t *testing.T) {

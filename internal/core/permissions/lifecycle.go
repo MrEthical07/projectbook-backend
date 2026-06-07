@@ -8,8 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/rbac"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 const querySeedRolePermissionMask = `

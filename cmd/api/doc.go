@@ -1,2 +1,2 @@
-// Command api starts the SuperAPI HTTP server using environment-driven configuration.
+// Command api starts the Projectbook HTTP server using environment-driven configuration.
 package main

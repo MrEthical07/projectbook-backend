@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 )
 

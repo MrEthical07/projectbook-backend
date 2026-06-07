@@ -4,14 +4,14 @@ import (
 	goauth "github.com/MrEthical07/goAuth"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/config"
-	coreemail "github.com/MrEthical07/superapi/internal/core/email"
-	"github.com/MrEthical07/superapi/internal/core/permissions"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	coreemail "github.com/MrEthical07/projectbook-backend/internal/core/email"
+	"github.com/MrEthical07/projectbook-backend/internal/core/permissions"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 // Runtime gives modules a single injected surface for optional infrastructure

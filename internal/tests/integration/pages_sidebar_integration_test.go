@@ -19,8 +19,8 @@ func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
 	listPath := "/api/v1/projects/" + project.Slug + "/pages"
 	route := "/api/v1/projects/{projectId}/pages"
 
-	missBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 
 	firstList := h.requestJSON(t, http.MethodGet, listPath, owner.AccessToken, nil)
 	if firstList.Status != http.StatusOK || !firstList.Envelope.Success {
@@ -32,8 +32,8 @@ func TestIntegrationPagesLifecycleAndInvalidation(t *testing.T) {
 		t.Fatalf("second pages list status=%d body=%s", secondList.Status, secondList.Body)
 	}
 
-	missAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 	if missAfter < missBefore+1 {
 		t.Fatalf("expected pages cache miss increment: before=%.0f after=%.0f", missBefore, missAfter)
 	}

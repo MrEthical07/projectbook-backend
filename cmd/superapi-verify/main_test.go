@@ -13,8 +13,8 @@ func TestRunReturnsFailureForInvalidRoutes(t *testing.T) {
 	source := `package sample
 import (
 	"net/http"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
 )
 func register(r httpx.Router, h http.Handler) {
 	r.Handle(http.MethodGet, "/api/v1/projects/{id}", h,
@@ -51,9 +51,9 @@ import (
 	"net/http"
 	"time"
 	goauth "github.com/MrEthical07/goAuth"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter) {
 	r.Handle(http.MethodGet, "/api/v1/projects/{project_id}", h,

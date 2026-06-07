@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	corepolicy "github.com/MrEthical07/superapi/internal/core/policy"
+	corepolicy "github.com/MrEthical07/projectbook-backend/internal/core/policy"
 )
 
 // Diagnostic reports one static route-policy validation issue.

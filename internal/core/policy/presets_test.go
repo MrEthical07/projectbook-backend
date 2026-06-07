@@ -9,9 +9,9 @@ import (
 	goauth "github.com/MrEthical07/goAuth"
 	"github.com/alicebob/miniredis/v2"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 type presetAllowLimiter struct{}

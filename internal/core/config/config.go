@@ -478,7 +478,7 @@ func Load() (*Config, error) {
 		},
 		Postgres: PostgresConfig{
 			Enabled:            getBool("POSTGRES_ENABLED", true),
-			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable"),
+			URL:                getenvAlias([]string{"POSTGRES_URL", "DATABASE_URL"}, "postgres://projectbook:projectbook@127.0.0.1:5432/projectbook?sslmode=disable"),
 			MaxConns:           getInt32("POSTGRES_MAX_CONNS", 10),
 			MinConns:           getInt32("POSTGRES_MIN_CONNS", 0),
 			ConnMaxLifetime:    getDuration("POSTGRES_CONN_MAX_LIFETIME", 30*time.Minute),

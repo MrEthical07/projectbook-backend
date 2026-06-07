@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"reflect"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // NoBody marks request handlers that do not accept a JSON request payload.

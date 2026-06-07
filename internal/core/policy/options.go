@@ -5,9 +5,9 @@ import (
 	"time"
 
 	goauth "github.com/MrEthical07/goAuth"
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 // PresetOption mutates preset behavior used by ProjectRead/ProjectWrite/PublicRead.

@@ -13,11 +13,11 @@ import (
 	goauth "github.com/MrEthical07/goAuth"
 	"github.com/redis/go-redis/v9"
 
-	coreauth "github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/db"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	coreauth "github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/db"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 type tokenOutput struct {
@@ -143,9 +143,9 @@ func buildEngine(redisClient redis.UniversalClient, mode coreauth.Mode, userProv
 		cfg.JWT.SigningMethod = "hs256"
 		cfg.JWT.PrivateKey = []byte(sharedSecret)
 		cfg.JWT.PublicKey = []byte(sharedSecret)
-		cfg.JWT.Issuer = "superapi-perf"
-		cfg.JWT.Audience = "superapi-perf"
-		cfg.JWT.KeyID = "superapi-perf-key"
+		cfg.JWT.Issuer = "projectbook-perf"
+		cfg.JWT.Audience = "projectbook-perf"
+		cfg.JWT.KeyID = "projectbook-perf-key"
 	}
 
 	if accessTTLRaw := strings.TrimSpace(os.Getenv("AUTH_TEST_ACCESS_TTL")); accessTTLRaw != "" {

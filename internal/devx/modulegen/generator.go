@@ -119,7 +119,7 @@ func UpdateRegistry(content, moduleImportPath, packageName string) (string, bool
 	}
 
 	lines = sortRegion(lines, registryImportsMarker, func(line string) bool {
-		return strings.Contains(line, "\"github.com/MrEthical07/superapi/internal/modules/")
+		return strings.Contains(line, "\"github.com/MrEthical07/projectbook-backend/internal/modules/")
 	})
 	lines = sortRegion(lines, registryListMarker, func(line string) bool {
 		trimmed := strings.TrimSpace(line)
@@ -206,8 +206,8 @@ func RenderFiles(cfg TemplateConfig) map[string]string {
 func renderModuleFile(cfg TemplateConfig) string {
 	spec := cfg.Spec
 	imports := []string{
-		`"github.com/MrEthical07/superapi/internal/core/app"`,
-		`"github.com/MrEthical07/superapi/internal/core/modulekit"`,
+		`"github.com/MrEthical07/projectbook-backend/internal/core/app"`,
+		`"github.com/MrEthical07/projectbook-backend/internal/core/modulekit"`,
 	}
 	if cfg.Options.UseDB {
 		imports = append(imports, `"github.com/jackc/pgx/v5/pgxpool"`)
@@ -251,19 +251,19 @@ func renderRoutesFile(cfg TemplateConfig) string {
 	spec := cfg.Spec
 	imports := []string{
 		`"net/http"`,
-		`"github.com/MrEthical07/superapi/internal/core/httpx"`,
+		`"github.com/MrEthical07/projectbook-backend/internal/core/httpx"`,
 	}
 	if cfg.Options.UseAuth || cfg.Options.UseRateLimit || cfg.Options.UseCache {
-		imports = append(imports, `"github.com/MrEthical07/superapi/internal/core/policy"`)
+		imports = append(imports, `"github.com/MrEthical07/projectbook-backend/internal/core/policy"`)
 	}
 	if cfg.Options.UseCache || cfg.Options.UseRateLimit {
 		imports = append(imports, `"time"`)
 	}
 	if cfg.Options.UseCache {
-		imports = append(imports, `"github.com/MrEthical07/superapi/internal/core/cache"`)
+		imports = append(imports, `"github.com/MrEthical07/projectbook-backend/internal/core/cache"`)
 	}
 	if cfg.Options.UseRateLimit {
-		imports = append(imports, `"github.com/MrEthical07/superapi/internal/core/ratelimit"`)
+		imports = append(imports, `"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"`)
 	}
 
 	policies := routePolicies(cfg)
@@ -333,7 +333,7 @@ func renderDTOFile(spec ModuleSpec) string {
 
 func renderHandlerFile(spec ModuleSpec) string {
 	return "package " + spec.Package + "\n\n" +
-		"import (\n\t\"github.com/MrEthical07/superapi/internal/core/httpx\"\n)\n\n" +
+		"import (\n\t\"github.com/MrEthical07/projectbook-backend/internal/core/httpx\"\n)\n\n" +
 		"type Handler struct {\n\tsvc Service\n}\n\n" +
 		"func NewHandler(svc Service) *Handler {\n\treturn &Handler{svc: svc}\n}\n\n" +
 		"func (h *Handler) Ping(ctx *httpx.Context, req httpx.NoBody) (pingResponse, error) {\n" +
@@ -350,7 +350,7 @@ func renderServiceFile(spec ModuleSpec) string {
 
 func renderHandlerTestFile(spec ModuleSpec) string {
 	return "package " + spec.Package + "\n\n" +
-		"import (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"testing\"\n\n\t\"github.com/MrEthical07/superapi/internal/core/httpx\"\n)\n\n" +
+		"import (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"testing\"\n\n\t\"github.com/MrEthical07/projectbook-backend/internal/core/httpx\"\n)\n\n" +
 		"func TestPingHandler(t *testing.T) {\n" +
 		"\th := NewHandler(NewService(NewRepo()))\n\trr := httptest.NewRecorder()\n\treq := httptest.NewRequest(http.MethodGet, \"/api/v1/" + spec.RoutePath + "/ping\", nil)\n\n" +
 		"\thandler := httpx.Adapter(h.Ping)\n\thandler.ServeHTTP(rr, req)\n\n" +

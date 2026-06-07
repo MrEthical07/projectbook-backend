@@ -1,6 +1,6 @@
 # Performance Assets
 
-This folder contains load-testing and benchmarking assets for SuperAPI.
+This folder contains load-testing and benchmarking assets for Projectbook.
 
 ## Structure
 

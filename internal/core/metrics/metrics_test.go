@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/readiness"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/readiness"
 )
 
 func TestInstrumentHTTPRecordsRouteMetrics(t *testing.T) {
@@ -33,7 +33,7 @@ func TestInstrumentHTTPRecordsRouteMetrics(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, rr.Code)
 	}
 
-	assertMetricValue(t, svc, "superapi_http_requests_total",
+	assertMetricValue(t, svc, "projectbook_http_requests_total",
 		map[string]string{"method": http.MethodGet, "route": "/api/v1/tenants/{id}", "status": "201"},
 		1,
 	)
@@ -60,7 +60,7 @@ func TestInstrumentHTTPSkipsMetricsEndpoint(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 	}
 
-	assertMetricValue(t, svc, "superapi_http_requests_total",
+	assertMetricValue(t, svc, "projectbook_http_requests_total",
 		map[string]string{"method": http.MethodGet, "route": "/metrics", "status": "200"},
 		0,
 	)
@@ -85,7 +85,7 @@ func TestInstrumentHTTPLabelsNotFound(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
 	}
 
-	assertMetricValue(t, svc, "superapi_http_requests_total",
+	assertMetricValue(t, svc, "projectbook_http_requests_total",
 		map[string]string{"method": http.MethodGet, "route": "not_found", "status": "404"},
 		1,
 	)
@@ -112,7 +112,7 @@ func TestInstrumentHTTPSkipsExcludedPath(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 	}
 
-	assertMetricValue(t, svc, "superapi_http_requests_total",
+	assertMetricValue(t, svc, "projectbook_http_requests_total",
 		map[string]string{"method": http.MethodGet, "route": "/healthz", "status": "200"},
 		0,
 	)
@@ -132,12 +132,12 @@ func TestObserveReadinessUpdatesGauges(t *testing.T) {
 		},
 	})
 
-	assertMetricValue(t, svc, "superapi_ready", nil, 0)
-	assertMetricValue(t, svc, "superapi_dependency_ready",
+	assertMetricValue(t, svc, "projectbook_ready", nil, 0)
+	assertMetricValue(t, svc, "projectbook_dependency_ready",
 		map[string]string{"dependency": "postgres", "status": readiness.DependencyError},
 		1,
 	)
-	assertMetricValue(t, svc, "superapi_dependency_ready",
+	assertMetricValue(t, svc, "projectbook_dependency_ready",
 		map[string]string{"dependency": "redis", "status": readiness.DependencyDisabled},
 		1,
 	)
@@ -152,11 +152,11 @@ func TestObserveRateLimitIncrementsCounter(t *testing.T) {
 	svc.ObserveRateLimit("/api/v1/system/whoami", "allowed")
 	svc.ObserveRateLimit("/api/v1/system/whoami", "blocked")
 
-	assertMetricValue(t, svc, "superapi_rate_limit_requests_total",
+	assertMetricValue(t, svc, "projectbook_rate_limit_requests_total",
 		map[string]string{"route": "/api/v1/system/whoami", "outcome": "allowed"},
 		1,
 	)
-	assertMetricValue(t, svc, "superapi_rate_limit_requests_total",
+	assertMetricValue(t, svc, "projectbook_rate_limit_requests_total",
 		map[string]string{"route": "/api/v1/system/whoami", "outcome": "blocked"},
 		1,
 	)
@@ -171,11 +171,11 @@ func TestObserveCacheIncrementsCounter(t *testing.T) {
 	svc.ObserveCache("/api/v1/tenants/{id}", "hit")
 	svc.ObserveCache("/api/v1/tenants/{id}", "miss")
 
-	assertMetricValue(t, svc, "superapi_cache_operations_total",
+	assertMetricValue(t, svc, "projectbook_cache_operations_total",
 		map[string]string{"route": "/api/v1/tenants/{id}", "outcome": "hit"},
 		1,
 	)
-	assertMetricValue(t, svc, "superapi_cache_operations_total",
+	assertMetricValue(t, svc, "projectbook_cache_operations_total",
 		map[string]string{"route": "/api/v1/tenants/{id}", "outcome": "miss"},
 		1,
 	)

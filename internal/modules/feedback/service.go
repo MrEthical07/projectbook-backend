@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	coreemail "github.com/MrEthical07/superapi/internal/core/email"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	coreemail "github.com/MrEthical07/projectbook-backend/internal/core/email"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 const (

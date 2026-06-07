@@ -1,19 +1,19 @@
 package modules
 
 import (
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/modules/activity"
-	"github.com/MrEthical07/superapi/internal/modules/artifacts"
-	"github.com/MrEthical07/superapi/internal/modules/auth"
-	"github.com/MrEthical07/superapi/internal/modules/calendar"
-	"github.com/MrEthical07/superapi/internal/modules/feedback"
-	"github.com/MrEthical07/superapi/internal/modules/health"
-	"github.com/MrEthical07/superapi/internal/modules/home"
-	"github.com/MrEthical07/superapi/internal/modules/pages"
-	"github.com/MrEthical07/superapi/internal/modules/project"
-	"github.com/MrEthical07/superapi/internal/modules/resources"
-	"github.com/MrEthical07/superapi/internal/modules/system"
-	"github.com/MrEthical07/superapi/internal/modules/team"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/activity"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/artifacts"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/calendar"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/feedback"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/health"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/home"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/pages"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/project"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/resources"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/system"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/team"
 	// MODULE_IMPORTS
 )
 

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 // Service defines project module business workflows.

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
 )
 
 func testLogger(t *testing.T) *logx.Logger {

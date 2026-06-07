@@ -3,8 +3,8 @@ package policy
 import (
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 // ProjectRead returns a validated policy chain for project-scoped read routes.
