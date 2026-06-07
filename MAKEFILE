@@ -61,12 +61,6 @@ migrate-version:
 	@if [ -z "$(DB_URL)" ]; then echo "DB_URL is required"; exit 1; fi
 	POSTGRES_ENABLED=true POSTGRES_URL="$(DB_URL)" $(GO) run ./cmd/migrate version
 
-module:
-	$(GO) run ./cmd/modulegen $(if $(name),--name "$(name)",) $(if $(force),--force "$(force)",) $(if $(db),--db=$(db),) $(if $(auth),--auth=$(auth),) $(if $(ratelimit),--ratelimit=$(ratelimit),) $(if $(cache),--cache=$(cache),) $(if $(migration),--migration=$(migration),)
-
-auth:
-	$(GO) run ./cmd/authgen
-
 auth-config:
 	@if [ -z "$(file)" ]; then echo "file is required: make auth-config file=authgen.yaml"; exit 1; fi
 	$(GO) run ./cmd/authgen --config "$(file)"
