@@ -3,8 +3,8 @@ package health
 import (
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/readiness"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/readiness"
 )
 
 // Register mounts health and readiness routes for process monitoring.

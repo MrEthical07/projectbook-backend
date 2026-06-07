@@ -3,7 +3,7 @@ package httpx
 import (
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/params"
+	"github.com/MrEthical07/projectbook-backend/internal/core/params"
 )
 
 // URLParam returns route parameter value by key.

@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	coredb "github.com/MrEthical07/superapi/internal/core/db"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	coredb "github.com/MrEthical07/projectbook-backend/internal/core/db"
 )
 
 // NewPostgresPool creates a pgx pool and performs fail-fast startup ping checks.

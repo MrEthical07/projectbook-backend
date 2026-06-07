@@ -13,12 +13,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/readiness"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/readiness"
 )
 
 const (
-	namespace = "superapi"
+	namespace = "projectbook"
 )
 
 // Service owns Prometheus collectors and HTTP instrumentation helpers.

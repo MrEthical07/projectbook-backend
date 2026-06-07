@@ -21,8 +21,8 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 	base := "/api/v1/projects/" + project.Slug
 
 	route := "/api/v1/projects/{projectId}/stories"
-	missBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 
 	storiesListPath := base + "/stories"
 	storiesFirst := h.requestJSON(t, http.MethodGet, storiesListPath, owner.AccessToken, nil)
@@ -34,8 +34,8 @@ func TestIntegrationArtifactsLifecycleAndTransitions(t *testing.T) {
 		t.Fatalf("stories second list status=%d body=%s", storiesSecond.Status, storiesSecond.Body)
 	}
 
-	missAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 	if missAfter < missBefore+1 {
 		t.Fatalf("expected stories cache miss increment: before=%.0f after=%.0f", missBefore, missAfter)
 	}

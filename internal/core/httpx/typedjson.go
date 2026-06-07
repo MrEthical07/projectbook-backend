@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 )
 
 // Validatable is implemented by DTOs that perform semantic validation.

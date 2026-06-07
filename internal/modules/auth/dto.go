@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 )
 
 type signupRequest struct {

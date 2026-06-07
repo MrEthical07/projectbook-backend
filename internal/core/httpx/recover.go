@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/logx"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // Recoverer returns middleware that catches panics, logs them with structured

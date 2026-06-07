@@ -1,6 +1,6 @@
 package policy
 
-import "github.com/MrEthical07/superapi/internal/core/ratelimit"
+import "github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 
 // RateLimitOptional applies RateLimit when limiter is available; otherwise returns Noop.
 func RateLimitOptional(limiter ratelimit.Limiter, rule ratelimit.Rule) Policy {

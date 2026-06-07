@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
 )
 
 func newTestManager(tb testing.TB) (*Manager, *miniredis.Miniredis) {

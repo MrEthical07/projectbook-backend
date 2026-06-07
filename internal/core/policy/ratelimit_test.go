@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 type mockLimiter struct {

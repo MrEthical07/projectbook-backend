@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 func TestResolveRedisConfigUsesRedisURLFallback(t *testing.T) {

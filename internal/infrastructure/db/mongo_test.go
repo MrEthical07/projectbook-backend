@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 func TestNewMongoClientRejectsDisabledConfig(t *testing.T) {

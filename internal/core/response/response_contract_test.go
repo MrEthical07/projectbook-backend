@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 )
 
 func decodeEnvelope(t *testing.T, body string) map[string]any {

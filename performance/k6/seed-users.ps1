@@ -12,7 +12,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$AuthMode = "strict",
     [Parameter(Mandatory = $false)]
-    [string]$PostgresUrl = "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable",
+    [string]$PostgresUrl = "postgres://projectbook:projectbook@127.0.0.1:5432/projectbook?sslmode=disable",
     [Parameter(Mandatory = $false)]
     [string]$RedisAddr = "127.0.0.1:6379"
 )

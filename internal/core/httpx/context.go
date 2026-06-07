@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/netx"
-	"github.com/MrEthical07/superapi/internal/core/params"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/netx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/params"
 )
 
 // Context wraps http.Request with typed convenience helpers for handlers.

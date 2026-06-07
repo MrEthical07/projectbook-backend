@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/db"
-	"github.com/MrEthical07/superapi/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/db"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
 )
 
 type fakeRunner struct {

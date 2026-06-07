@@ -10,12 +10,12 @@ import (
 	goauth "github.com/MrEthical07/goAuth"
 	goauthmiddleware "github.com/MrEthical07/goAuth/middleware"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/params"
-	"github.com/MrEthical07/superapi/internal/core/projectscope"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/params"
+	"github.com/MrEthical07/projectbook-backend/internal/core/projectscope"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // AuthRequired enforces authentication on a route.

@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	goauth "github.com/MrEthical07/goAuth"
-	coreemail "github.com/MrEthical07/superapi/internal/core/email"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	coreemail "github.com/MrEthical07/projectbook-backend/internal/core/email"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 	"github.com/golang-jwt/jwt/v5"
 )
 

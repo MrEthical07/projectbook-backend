@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
 )
 
 // Handler contains HTTP transport handlers for team routes.

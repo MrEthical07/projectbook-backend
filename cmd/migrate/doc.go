@@ -1,2 +1,2 @@
-// Command migrate applies and manages database migrations for SuperAPI.
+// Command migrate applies and manages database migrations for Projectbook.
 package main

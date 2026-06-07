@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/patchx"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/patchx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

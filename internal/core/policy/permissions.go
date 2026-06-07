@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/permissions"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/permissions"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 // ResolvePermissions resolves the effective project permission mask for downstream RBAC policies.

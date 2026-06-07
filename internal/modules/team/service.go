@@ -10,9 +10,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/permissions"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/permissions"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 const inviteTTL = 7 * 24 * time.Hour

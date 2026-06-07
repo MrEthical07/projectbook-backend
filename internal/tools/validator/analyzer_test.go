@@ -13,9 +13,9 @@ func TestAnalyzePathsDetectsInvalidRoutePolicyChain(t *testing.T) {
 	source := `package sample
 import (
 	"net/http"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-		"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+		"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 func register(r httpx.Router, h http.Handler) {
 	r.Handle(http.MethodGet, "/api/v1/projects/{id}", h,
@@ -55,11 +55,11 @@ import (
 	"net/http"
 	"time"
 	goauth "github.com/MrEthical07/goAuth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 func register(r httpx.Router, h http.Handler, engine *goauth.Engine, limiter ratelimit.Limiter, cacheManager *cache.Manager) {
@@ -95,9 +95,9 @@ import (
 	"net/http"
 	"time"
 	goauth "github.com/MrEthical07/goAuth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
 )
 
 func register(r httpx.Router, h http.Handler, engine *goauth.Engine, cacheManager *cache.Manager) {
@@ -128,9 +128,9 @@ import (
 	"net/http"
 	"time"
 	goauth "github.com/MrEthical07/goAuth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
 )
 
 func register(r httpx.Router, h http.Handler, engine *goauth.Engine, cacheManager *cache.Manager) {
@@ -170,7 +170,7 @@ func TestAnalyzePathsSkipsDynamicPatternWithoutPolicies(t *testing.T) {
 	source := `package sample
 import (
 	"net/http"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
 )
 func register(r httpx.Router, h http.Handler, pattern string) {
 	r.Handle(http.MethodGet, pattern, h)

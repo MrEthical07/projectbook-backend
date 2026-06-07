@@ -9,8 +9,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	corecache "github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/config"
+	corecache "github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 // NewRedisClient creates a Redis client and performs fail-fast startup ping checks.

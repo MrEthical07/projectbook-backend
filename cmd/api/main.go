@@ -10,10 +10,10 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/logx"
-	"github.com/MrEthical07/superapi/internal/modules"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/modules"
 )
 
 // START HERE:

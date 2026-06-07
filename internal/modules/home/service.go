@@ -9,9 +9,9 @@ import (
 	"time"
 	"unicode"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 const defaultProjectOrganization = "ProjectBook"

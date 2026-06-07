@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
 )
 
 func TestProjectIDFromContext(t *testing.T) {

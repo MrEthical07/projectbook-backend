@@ -14,7 +14,7 @@ import (
 	tracetest "go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
-	coretracing "github.com/MrEthical07/superapi/internal/core/tracing"
+	coretracing "github.com/MrEthical07/projectbook-backend/internal/core/tracing"
 )
 
 func TestTracingMiddlewareDisabledNoSpans(t *testing.T) {

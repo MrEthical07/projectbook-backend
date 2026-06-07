@@ -7,7 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
-	coreemail "github.com/MrEthical07/superapi/internal/core/email"
+	coreemail "github.com/MrEthical07/projectbook-backend/internal/core/email"
 	"github.com/resend/resend-go/v3"
 )
 

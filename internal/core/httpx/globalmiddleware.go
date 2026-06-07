@@ -3,9 +3,9 @@ package httpx
 import (
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/logx"
-	"github.com/MrEthical07/superapi/internal/core/tracing"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/tracing"
 )
 
 // AssembleGlobalMiddleware wraps a base handler with configured global middleware.

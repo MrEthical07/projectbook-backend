@@ -272,7 +272,7 @@ func TestLoadDefaultsEnableCoreDependencies(t *testing.T) {
 	if !cfg.Mongo.Enabled {
 		t.Fatalf("expected mongo enabled by default")
 	}
-	if got, want := cfg.Postgres.URL, "postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable"; got != want {
+	if got, want := cfg.Postgres.URL, "postgres://projectbook:projectbook@127.0.0.1:5432/projectbook?sslmode=disable"; got != want {
 		t.Fatalf("Postgres.URL=%q want=%q", got, want)
 	}
 	if got, want := cfg.Mongo.URL, "mongodb://127.0.0.1:27017"; got != want {

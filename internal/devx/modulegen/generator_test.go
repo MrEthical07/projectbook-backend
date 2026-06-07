@@ -69,8 +69,8 @@ func TestUpdateRegistryAddsImportAndEntry(t *testing.T) {
 	content := `package modules
 
 import (
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/modules/health"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/health"
 	// MODULE_IMPORTS
 )
 
@@ -81,14 +81,14 @@ func All() []app.Module {
 	}
 }
 `
-	updated, changed, err := UpdateRegistry(content, "github.com/MrEthical07/superapi/internal/modules/projects", "projects")
+	updated, changed, err := UpdateRegistry(content, "github.com/MrEthical07/projectbook-backend/internal/modules/projects", "projects")
 	if err != nil {
 		t.Fatalf("UpdateRegistry() error = %v", err)
 	}
 	if !changed {
 		t.Fatalf("expected changed=true")
 	}
-	if !strings.Contains(updated, `"github.com/MrEthical07/superapi/internal/modules/projects"`) {
+	if !strings.Contains(updated, `"github.com/MrEthical07/projectbook-backend/internal/modules/projects"`) {
 		t.Fatalf("missing projects import")
 	}
 	if !strings.Contains(updated, "\t\tprojects.New(),") {
@@ -100,8 +100,8 @@ func TestUpdateRegistryIdempotentNoDuplicates(t *testing.T) {
 	content := `package modules
 
 import (
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/modules/health"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/modules/health"
 	// MODULE_IMPORTS
 )
 
@@ -112,14 +112,14 @@ func All() []app.Module {
 	}
 }
 `
-	once, changed, err := UpdateRegistry(content, "github.com/MrEthical07/superapi/internal/modules/projects", "projects")
+	once, changed, err := UpdateRegistry(content, "github.com/MrEthical07/projectbook-backend/internal/modules/projects", "projects")
 	if err != nil {
 		t.Fatalf("UpdateRegistry(once) error = %v", err)
 	}
 	if !changed {
 		t.Fatalf("expected first call to change content")
 	}
-	twice, changed, err := UpdateRegistry(once, "github.com/MrEthical07/superapi/internal/modules/projects", "projects")
+	twice, changed, err := UpdateRegistry(once, "github.com/MrEthical07/projectbook-backend/internal/modules/projects", "projects")
 	if err != nil {
 		t.Fatalf("UpdateRegistry(twice) error = %v", err)
 	}

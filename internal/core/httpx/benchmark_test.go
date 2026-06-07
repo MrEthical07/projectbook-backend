@@ -12,9 +12,9 @@ import (
 
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/logx"
-	coretracing "github.com/MrEthical07/superapi/internal/core/tracing"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/logx"
+	coretracing "github.com/MrEthical07/projectbook-backend/internal/core/tracing"
 )
 
 type benchParseRequest struct {

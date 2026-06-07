@@ -9,11 +9,11 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/permissions"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/permissions"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 type allowLimiter struct{}

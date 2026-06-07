@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MrEthical07/superapi/internal/core/rbac"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 type relationalExecCall struct {

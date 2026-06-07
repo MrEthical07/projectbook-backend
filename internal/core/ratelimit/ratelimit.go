@@ -14,8 +14,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/netx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/netx"
 )
 
 // Scope identifies which principal dimension rate limiting should key by.

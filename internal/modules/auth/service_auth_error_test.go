@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	goauth "github.com/MrEthical07/goAuth"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 )
 
 func TestMapAuthTokenErrorUnverifiedIncludesReason(t *testing.T) {

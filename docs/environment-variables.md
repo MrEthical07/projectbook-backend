@@ -197,7 +197,7 @@ Lint dependency:
 | Variable | Default |
 |---|---|
 | `POSTGRES_ENABLED` | `true` |
-| `POSTGRES_URL` | `postgres://superapi:superapi@127.0.0.1:5432/superapi?sslmode=disable` |
+| `POSTGRES_URL` | `postgres://projectbook:projectbook@127.0.0.1:5432/projectbook?sslmode=disable` |
 | `DATABASE_URL` | alias fallback |
 | `POSTGRES_MAX_CONNS` | `10` |
 | `POSTGRES_MIN_CONNS` | `0` |

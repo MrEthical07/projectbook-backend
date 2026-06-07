@@ -11,9 +11,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
 )
 
 type latencyLimiter struct {

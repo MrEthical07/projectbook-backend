@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/MrEthical07/superapi/internal/devx/modulesync"
+	"github.com/MrEthical07/projectbook-backend/internal/devx/modulesync"
 )
 
 func main() {

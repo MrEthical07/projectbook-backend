@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/requestid"
-	"github.com/MrEthical07/superapi/internal/core/response"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/response"
 )
 
 const (

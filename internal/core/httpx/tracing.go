@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/MrEthical07/superapi/internal/core/tracing"
+	"github.com/MrEthical07/projectbook-backend/internal/core/tracing"
 )
 
 // Tracing wraps requests in OpenTelemetry server spans when tracing is enabled.

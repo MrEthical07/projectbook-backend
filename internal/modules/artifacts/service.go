@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/pagination"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/pagination"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 type Service interface {

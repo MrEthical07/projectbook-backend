@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	corestorage "github.com/MrEthical07/superapi/internal/core/storage"
+	corestorage "github.com/MrEthical07/projectbook-backend/internal/core/storage"
 )
 
 var errRelationalStoreNotConfigured = errors.New("relational store is not configured")

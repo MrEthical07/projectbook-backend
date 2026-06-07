@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/requestid"
+	"github.com/MrEthical07/projectbook-backend/internal/core/requestid"
 )
 
 const maxRequestIDLen = 64

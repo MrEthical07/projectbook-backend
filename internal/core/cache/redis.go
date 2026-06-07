@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 // NewRedisClient builds and validates a Redis client from runtime config.

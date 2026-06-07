@@ -30,8 +30,8 @@ func TestIntegrationResourcesPersistenceAndInvalidation(t *testing.T) {
 	}
 
 	route := "/api/v1/projects/{projectId}/resources"
-	missBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 
 	ownerFirstList := h.requestJSON(t, http.MethodGet, listPath, owner.AccessToken, nil)
 	if ownerFirstList.Status != http.StatusOK || !ownerFirstList.Envelope.Success {
@@ -43,8 +43,8 @@ func TestIntegrationResourcesPersistenceAndInvalidation(t *testing.T) {
 		t.Fatalf("owner second resources list status=%d body=%s", ownerSecondList.Status, ownerSecondList.Body)
 	}
 
-	missAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
+	missAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
 	if missAfter < missBefore+1 {
 		t.Fatalf("expected resources cache miss increment: before=%.0f after=%.0f", missBefore, missAfter)
 	}

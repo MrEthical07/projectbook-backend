@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 func (m *Module) Register(r httpx.Router) error {

@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/cache"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/policy"
-	"github.com/MrEthical07/superapi/internal/core/ratelimit"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/policy"
+	"github.com/MrEthical07/projectbook-backend/internal/core/ratelimit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 func (m *Module) Register(r httpx.Router) error {

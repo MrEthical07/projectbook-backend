@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
-	"github.com/MrEthical07/superapi/internal/core/storage"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

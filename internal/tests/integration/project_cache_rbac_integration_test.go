@@ -37,9 +37,9 @@ func TestIntegrationProjectSettingsRBACAndCache(t *testing.T) {
 	}
 
 	route := "/api/v1/projects/{projectId}/settings"
-	missBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
-	setBefore := h.metricCounterValue(t, "superapi_cache_operations_total", route, "set")
+	missBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
+	setBefore := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "set")
 
 	ownerFirst := h.requestJSON(t, http.MethodGet, settingsPath, owner.AccessToken, nil)
 	if ownerFirst.Status != http.StatusOK || !ownerFirst.Envelope.Success {
@@ -55,9 +55,9 @@ func TestIntegrationProjectSettingsRBACAndCache(t *testing.T) {
 		t.Fatalf("owner second settings read status=%d body=%s", ownerSecond.Status, ownerSecond.Body)
 	}
 
-	missAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "miss")
-	hitAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "hit")
-	setAfter := h.metricCounterValue(t, "superapi_cache_operations_total", route, "set")
+	missAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "miss")
+	hitAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "hit")
+	setAfter := h.metricCounterValue(t, "projectbook_cache_operations_total", route, "set")
 
 	if missAfter < missBefore+1 {
 		t.Fatalf("expected cache miss increment: before=%.0f after=%.0f", missBefore, missAfter)

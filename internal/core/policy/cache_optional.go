@@ -3,7 +3,7 @@ package policy
 import (
 	"time"
 
-	"github.com/MrEthical07/superapi/internal/core/cache"
+	"github.com/MrEthical07/projectbook-backend/internal/core/cache"
 )
 
 // CacheReadOptional applies CacheRead when manager is available; otherwise returns Noop.

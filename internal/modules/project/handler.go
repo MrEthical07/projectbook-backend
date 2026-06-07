@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/auth"
-	apperr "github.com/MrEthical07/superapi/internal/core/errors"
-	"github.com/MrEthical07/superapi/internal/core/httpx"
-	"github.com/MrEthical07/superapi/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/auth"
+	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/httpx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 )
 
 // Handler contains HTTP transport handlers for project routes.

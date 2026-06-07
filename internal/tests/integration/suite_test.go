@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	coredb "github.com/MrEthical07/superapi/internal/core/db"
+	coredb "github.com/MrEthical07/projectbook-backend/internal/core/db"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultPostgresAdminURL = "postgres://superapi:superapi@127.0.0.1:5432/postgres?sslmode=disable"
+	defaultPostgresAdminURL = "postgres://projectbook:projectbook@127.0.0.1:5432/postgres?sslmode=disable"
 	defaultRedisAddr        = "127.0.0.1:6379"
 	defaultMongoURL         = "mongodb://127.0.0.1:27017"
 	defaultSignupPassword   = "Passw0rd!2026"

@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible defect in SuperAPI.
+description: Report a reproducible defect in Projectbook.
 title: "bug: "
 labels:
   - bug

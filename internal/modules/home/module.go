@@ -1,8 +1,8 @@
 package home
 
 import (
-	"github.com/MrEthical07/superapi/internal/core/app"
-	"github.com/MrEthical07/superapi/internal/core/modulekit"
+	"github.com/MrEthical07/projectbook-backend/internal/core/app"
+	"github.com/MrEthical07/projectbook-backend/internal/core/modulekit"
 )
 
 // Module serves authenticated home routes.

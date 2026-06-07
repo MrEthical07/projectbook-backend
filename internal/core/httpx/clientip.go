@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
-	"github.com/MrEthical07/superapi/internal/core/netx"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/netx"
 )
 
 // ClientIP resolves the client IP address and stores it in the request context.

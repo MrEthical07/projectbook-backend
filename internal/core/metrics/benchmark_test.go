@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/MrEthical07/superapi/internal/core/config"
+	"github.com/MrEthical07/projectbook-backend/internal/core/config"
 )
 
 func BenchmarkInstrumentHTTP_RequestPath(b *testing.B) {
