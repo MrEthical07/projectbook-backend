@@ -1,3 +1,8 @@
--- NOTE: Forward-only migration strategy is enforced for production safety.
--- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
-SELECT 1;
+-- Reverses 000008. Drops the per-status sidebar indexes it created.
+DROP INDEX IF EXISTS stories_project_status_idx;
+DROP INDEX IF EXISTS journeys_project_status_idx;
+DROP INDEX IF EXISTS problems_project_status_idx;
+DROP INDEX IF EXISTS ideas_project_status_idx;
+DROP INDEX IF EXISTS tasks_project_status_idx;
+DROP INDEX IF EXISTS resources_project_status_idx;
+DROP INDEX IF EXISTS pages_project_status_idx;

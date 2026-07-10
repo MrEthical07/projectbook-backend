@@ -1,3 +1,13 @@
--- NOTE: Forward-only migration strategy is enforced for production safety.
--- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
+-- NOT REVERSIBLE — intentionally a no-op.
+--
+-- The up runs `ALTER TYPE journey_status ADD VALUE 'Locked'`. PostgreSQL has no
+-- `ALTER TYPE ... DROP VALUE`, so a value cannot be removed from an enum in place.
+-- Faithfully reversing this would require recreating the journey_status type and
+-- rewriting every journeys.status / archived_from_status value that uses it —
+-- disproportionate and risky for a single added label.
+--
+-- This is safe as a no-op: when the whole chain is rolled back, 000004's down
+-- drops the journey_status type outright, so 'Locked' disappears with it. Only a
+-- partial rollback that stops at version 12 leaves 'Locked' present, which is
+-- harmless (no row is required to use it).
 SELECT 1;
