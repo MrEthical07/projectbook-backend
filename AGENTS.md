@@ -75,11 +75,10 @@ Do not bypass policy.MustValidateRoute / validator-backed route checks.
 
 - Do not bypass policy layers for protected routes.
 - Do not put business logic in handlers.
-- Do not expose sqlc or driver query objects to service/repository interfaces.
+- Do not expose driver query objects to service/repository interfaces.
 - Do not keep dual data-access patterns alive.
 - Do not introduce module-level branching like if sql else mongo.
 - Do not modify core infrastructure without clear need and validation.
-- Do not edit generated files manually under internal/core/db/sqlcgen/.
 
 ## 9. Modification Rules
 
@@ -171,15 +170,13 @@ Required patterns:
 
 Relational path guidance:
 
-1. Add migration files under db/migrations.
-2. Mirror schema under db/schema.
-3. Add/update query definitions under db/queries.
-4. Regenerate code when required:
-- make sqlc-generate
+1. Add migration files under db/migrations (with matching up/down scripts).
+2. Write SQL inline in the module repository (repo.go) against storage.RelationalStore.
+3. Map rows to domain types inside the repository.
 
 Constraint reminder:
 
-- sqlc/driver objects are implementation details only
+- driver objects are implementation details only
 - never expose them in service/repository public interfaces
 
 ## 14. How To Add A New Backend Type (Core Change)
