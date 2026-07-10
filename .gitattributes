@@ -1,0 +1,5 @@
+# Shell scripts and SQL snapshots must stay LF so they run on Linux CI and so
+# the golden schema diff does not spuriously fail on Windows checkouts.
+*.sh text eol=lf
+db/schema.generated.sql text eol=lf
+db/migrations/*.sql text eol=lf
