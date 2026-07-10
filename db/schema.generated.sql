@@ -717,6 +717,7 @@ CREATE TABLE public.project_settings (
     notify_resource_updated boolean DEFAULT true NOT NULL,
     delivery_channel text DEFAULT 'In-app'::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    notify_task_assigned boolean DEFAULT true NOT NULL,
     CONSTRAINT project_settings_delivery_channel_check CHECK ((delivery_channel = ANY (ARRAY['In-app'::text, 'Email'::text])))
 );
 

@@ -11,6 +11,7 @@ import (
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -486,7 +487,44 @@ func (r *repo) CreateInvite(ctx context.Context, input createInviteInput) (creat
 		return createInviteResponse{}, wrapRepoError("create invite", err)
 	}
 
+	// Notify the invited user (invites always target a registered user). Not
+	// gated by a project artifact toggle. Best-effort: never fail the invite.
+	r.notifyInvitee(ctx, identity.UUID, input.InvitedByUserID, input.Email, response.Role)
+
 	return response, nil
+}
+
+// notifyInvitee sends a "Project Invitation" notification to the invited user.
+func (r *repo) notifyInvitee(ctx context.Context, projectUUID, inviterUserID, email, role string) {
+	var userID, projectName string
+	if err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		`SELECT
+			COALESCE((SELECT id::text FROM users WHERE lower(email) = lower($1) LIMIT 1), ''),
+			COALESCE((SELECT name FROM projects WHERE id = $2::uuid), '')`,
+		func(row storage.RowScanner) error { return row.Scan(&userID, &projectName) },
+		normalizeEmail(email),
+		projectUUID,
+	)); err != nil {
+		return
+	}
+	if strings.TrimSpace(userID) == "" {
+		return
+	}
+	message := "You were invited to join a project"
+	if projectName != "" {
+		message = fmt.Sprintf("You were invited to join “%s”", projectName)
+	}
+	if strings.TrimSpace(role) != "" {
+		message = fmt.Sprintf("%s as %s", message, role)
+	}
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: projectUUID,
+		ActorUserID: inviterUserID,
+		SourceType:  notify.SourceProjectInvitation,
+		Title:       "Project invitation",
+		Message:     message,
+		Recipients:  []string{strings.TrimSpace(userID)},
+	})
 }
 
 func (r *repo) CancelInvite(ctx context.Context, projectID, email string) (cancelInviteResponse, error) {

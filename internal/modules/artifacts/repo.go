@@ -2,6 +2,7 @@ package artifacts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/patchx"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
@@ -188,6 +190,8 @@ func (r *repo) CreateStory(ctx context.Context, projectID, actorUserID, title st
 		return nil, err
 	}
 
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "story", id, createdTitle, notify.GateArtifactCreated)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  createdTitle,
@@ -348,6 +352,8 @@ func (r *repo) UpdateStory(ctx context.Context, projectID, storyID, actorUserID 
 		return nil, err
 	}
 
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "story", id, outTitle)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  outTitle,
@@ -453,6 +459,8 @@ func (r *repo) CreateJourney(ctx context.Context, projectID, actorUserID, title 
 	if err := r.upsertDocument(ctx, identity.UUID, "journey", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "journey", id, createdTitle, notify.GateArtifactCreated)
 
 	return map[string]any{
 		"id":              id,
@@ -590,6 +598,8 @@ func (r *repo) UpdateJourney(ctx context.Context, projectID, journeyID, actorUse
 		return nil, err
 	}
 
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "journey", id, outTitle)
+
 	return map[string]any{
 		"id":              id,
 		"title":           outTitle,
@@ -696,6 +706,8 @@ func (r *repo) CreateProblem(ctx context.Context, projectID, actorUserID, statem
 	if err := r.upsertDocument(ctx, identity.UUID, "problem", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "problem", id, outStatement, notify.GateArtifactCreated)
 
 	return map[string]any{
 		"id":              id,
@@ -1065,6 +1077,8 @@ func (r *repo) UpdateProblem(ctx context.Context, projectID, problemID, actorUse
 		return nil, err
 	}
 
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "problem", id, outStatement)
+
 	ideasCount, err := r.countIdeasForProblem(ctx, identity.UUID, id)
 	if err != nil {
 		return nil, err
@@ -1177,6 +1191,9 @@ func (r *repo) CreateIdea(ctx context.Context, projectID, actorUserID, title str
 	if err := r.upsertDocument(ctx, identity.UUID, "idea", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "idea", id, outTitle, notify.GateArtifactCreated)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  outTitle,
@@ -1362,6 +1379,8 @@ func (r *repo) UpdateIdea(ctx context.Context, projectID, ideaID, actorUserID st
 		return nil, err
 	}
 
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "idea", id, title)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  title,
@@ -1480,6 +1499,9 @@ func (r *repo) CreateTask(ctx context.Context, projectID, actorUserID, title str
 	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "task", id, outTitle, notify.GateArtifactCreated)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  outTitle,
@@ -1691,6 +1713,9 @@ func (r *repo) UpdateTask(ctx context.Context, projectID, taskID, actorUserID st
 	if err := r.upsertDocument(ctx, identity.UUID, "task", id, revision, actorUserID, patch); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "task", id, title)
+
 	return map[string]any{
 		"id":                     id,
 		"title":                  title,
@@ -1809,6 +1834,9 @@ func (r *repo) CreateFeedback(ctx context.Context, projectID, actorUserID, title
 	if err := r.upsertDocument(ctx, identity.UUID, "feedback", id, revision, actorUserID, content); err != nil {
 		return nil, err
 	}
+
+	r.recordArtifactCreated(ctx, identity.UUID, actorUserID, ownerName, "feedback", id, outTitle, notify.GateFeedbackAdded)
+
 	return map[string]any{
 		"id":               id,
 		"title":            outTitle,
@@ -2035,6 +2063,8 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 		return nil, err
 	}
 
+	r.recordArtifactUpdated(ctx, identity.UUID, actorUserID, "feedback", id, title)
+
 	linkedTaskOrIdea := ""
 	if hasTaskLink {
 		linkedTaskOrIdea = "Task"
@@ -2055,6 +2085,79 @@ func (r *repo) UpdateFeedback(ctx context.Context, projectID, feedbackID, actorU
 }
 
 // shared helpers
+
+// artifactLabel returns the human display label for an artifact_type value.
+func artifactLabel(artifactType string) string {
+	switch artifactType {
+	case "story":
+		return "Story"
+	case "journey":
+		return "Journey"
+	case "problem":
+		return "Problem"
+	case "idea":
+		return "Idea"
+	case "task":
+		return "Task"
+	case "feedback":
+		return "Feedback"
+	default:
+		return artifactType
+	}
+}
+
+func actorLabel(name string) string {
+	if strings.TrimSpace(name) == "" {
+		return "Someone"
+	}
+	return name
+}
+
+// logActivity appends a project activity_log entry. Best-effort: activity
+// logging must never fail the primary mutation, so errors are swallowed.
+func (r *repo) logActivity(ctx context.Context, projectUUID, actorUserID, artifactType, artifactID, action string, payload map[string]any) {
+	if r == nil || r.store == nil {
+		return
+	}
+	bytes, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	_ = r.store.Execute(ctx, storage.RelationalExec(
+		`INSERT INTO activity_log (project_id, actor_user_id, artifact_type, artifact_id, action, payload)
+		 VALUES ($1::uuid, $2::uuid, $3::artifact_type, $4::uuid, $5, $6::jsonb)`,
+		projectUUID,
+		strings.TrimSpace(actorUserID),
+		artifactType,
+		artifactID,
+		action,
+		string(bytes),
+	))
+}
+
+// recordArtifactCreated logs the creation to the activity feed and fans a
+// notification out to the project's members. Both are best-effort so a logging
+// or notification failure never blocks the create.
+func (r *repo) recordArtifactCreated(ctx context.Context, projectUUID, actorUserID, actorName, artifactType, artifactID, title, gate string) {
+	label := artifactLabel(artifactType)
+	r.logActivity(ctx, projectUUID, actorUserID, artifactType, artifactID, "created "+label, map[string]any{"artifact": title})
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: projectUUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  gate,
+		Title:       "New " + label + " created",
+		Message:     fmt.Sprintf("%s created %s “%s”", actorLabel(actorName), label, title),
+		SourceID:    artifactID,
+	})
+}
+
+// recordArtifactUpdated logs an update to the activity feed. Updates are not
+// fanned out as notifications (there is no per-project toggle for them and they
+// would be noisy); the activity feed is the record of edits.
+func (r *repo) recordArtifactUpdated(ctx context.Context, projectUUID, actorUserID, artifactType, artifactID, title string) {
+	r.logActivity(ctx, projectUUID, actorUserID, artifactType, artifactID, "updated "+artifactLabel(artifactType), map[string]any{"artifact": title})
+}
 
 func (r *repo) resolveUserName(ctx context.Context, userID string) (string, error) {
 	var name string
@@ -2614,6 +2717,15 @@ func (r *repo) resolveActiveProjectMemberIDs(ctx context.Context, projectUUID st
 }
 
 func (r *repo) replaceTaskAssignees(ctx context.Context, projectUUID, taskID, actorUserID string, assigneeUserIDs []string) error {
+	existing, err := r.listTaskAssigneeIDs(ctx, projectUUID, taskID)
+	if err != nil {
+		return err
+	}
+	alreadyAssigned := make(map[string]struct{}, len(existing))
+	for _, id := range existing {
+		alreadyAssigned[id] = struct{}{}
+	}
+
 	if err := r.store.Execute(ctx, storage.RelationalExec(
 		`DELETE FROM task_assignees
 		 WHERE project_id = $1::uuid
@@ -2624,7 +2736,11 @@ func (r *repo) replaceTaskAssignees(ctx context.Context, projectUUID, taskID, ac
 		return wrapRepoError("clear task assignees", err)
 	}
 
+	var newlyAssigned []string
 	for _, userID := range normalizeUniqueStrings(assigneeUserIDs) {
+		if _, ok := alreadyAssigned[userID]; !ok {
+			newlyAssigned = append(newlyAssigned, userID)
+		}
 		if err := r.store.Execute(ctx, storage.RelationalExec(
 			`INSERT INTO task_assignees (task_id, project_id, user_id, assigned_by_user_id)
 			 VALUES ($1::uuid, $2::uuid, $3::uuid, NULLIF($4, '')::uuid)
@@ -2639,7 +2755,41 @@ func (r *repo) replaceTaskAssignees(ctx context.Context, projectUUID, taskID, ac
 		}
 	}
 
+	// Notify only the members who were not already assigned. Best-effort: a
+	// notification failure must not fail the assignment.
+	r.notifyTaskAssigned(ctx, projectUUID, actorUserID, taskID, newlyAssigned)
+
 	return nil
+}
+
+// notifyTaskAssigned fans a "task assigned to you" notification out to the given
+// assignees, gated by project_settings.notify_task_assigned. The actor is
+// excluded by the fanout, so self-assignment is silent.
+func (r *repo) notifyTaskAssigned(ctx context.Context, projectUUID, actorUserID, taskID string, assigneeUserIDs []string) {
+	if len(assigneeUserIDs) == 0 {
+		return
+	}
+	var title string
+	_ = r.store.Execute(ctx, storage.RelationalQueryOne(
+		`SELECT title FROM tasks WHERE id = $1::uuid AND project_id = $2::uuid LIMIT 1`,
+		func(row storage.RowScanner) error { return row.Scan(&title) },
+		taskID,
+		projectUUID,
+	))
+	if strings.TrimSpace(title) == "" {
+		title = "a task"
+	}
+	actorName, _ := r.resolveUserName(ctx, actorUserID)
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: projectUUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  notify.GateTaskAssigned,
+		Title:       "Task assigned to you",
+		Message:     fmt.Sprintf("%s assigned you to “%s”", actorLabel(actorName), title),
+		SourceID:    taskID,
+		Recipients:  assigneeUserIDs,
+	})
 }
 
 func (r *repo) listLockedProblemOptions(ctx context.Context, identity projectIdentity) ([]any, error) {

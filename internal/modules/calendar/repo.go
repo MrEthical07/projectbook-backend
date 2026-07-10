@@ -11,6 +11,7 @@ import (
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
 	"github.com/MrEthical07/projectbook-backend/internal/core/pagination"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
 )
@@ -307,6 +308,16 @@ func (r *repo) CreateCalendarEvent(ctx context.Context, projectID, actorUserID s
 	}); err != nil {
 		return CalendarListEvent{}, err
 	}
+	// Best-effort notification fan-out; a failure here must not fail the create.
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: identity.UUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  notify.GateArtifactCreated,
+		Title:       "New Calendar event",
+		Message:     fmt.Sprintf("%s created calendar event “%s”", ownerName, title),
+		SourceID:    id,
+	})
 
 	result := CalendarListEvent{
 		ID:              id,
