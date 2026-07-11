@@ -1,8 +1,9 @@
 # Changelog
 
 All notable changes to this template are documented in this file.
+Note: There have been some missing changelog entries in the past, so this file may not be complete for all historical releases. Please refer to the git history for a complete list of changes.
 
-## v0.8.0 (2026-07-10)
+## v1.2.0 (2026-07-10)
 
 ### Added
 - **Notifications inbox is now populated.** New `internal/core/notify` fan-out writes `notifications` rows from project events, gated by `project_settings.notify_*` and the recipient's `account_settings.in_app_notifications`; the actor is never notified of their own action. Wired into artifact created (`notify_artifact_created`), feedback added (`notify_feedback_added`), resource updated (`notify_resource_updated`), task assigned to a member (`notify_task_assigned`, directed at newly-added assignees only), and project invitations (`Project Invitation`, directed at the invited user).
