@@ -76,30 +76,77 @@ func (r *repo) ListCalendarData(ctx context.Context, projectID string, query lis
 
 	rows := make([]CalendarListEvent, 0, query.Limit+1)
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(
+		// Manual events (stored in calendar_events) are UNIONed with derived
+		// events projected at query time from task deadlines and captured
+		// feedback. Derived events are never stored, so they can never go stale
+		// relative to their source artifact; event_type='Derived' plus
+		// artifact_type/artifact link identify them for the client (read-only).
 		`SELECT
-			e.id::text,
-			e.title,
-			e.event_type::text,
-			COALESCE(to_char(e.starts_at, 'YYYY-MM-DD'), ''),
-			COALESCE(to_char(e.ends_at, 'YYYY-MM-DD'), ''),
-			e.all_day,
-			COALESCE(e.start_time, ''),
-			COALESCE(e.end_time, ''),
-			COALESCE(u.name, ''),
-			e.phase::text,
-			COALESCE(e.artifact_type::text, 'Manual'),
-			COALESCE(e.description, ''),
-			COALESCE(e.location, ''),
-			COALESCE(e.event_kind, ''),
-			COALESCE(e.linked_artifacts, '[]'::jsonb),
-			COALESCE(e.tags, '[]'::jsonb),
-			COALESCE(e.source_title, ''),
-			COALESCE(to_char(e.created_at, 'YYYY-MM-DD'), ''),
-			COALESCE(to_char(e.updated_at, 'YYYY-MM-DD'), '')
-		 FROM calendar_events e
-		 LEFT JOIN users u ON u.id = e.owner_user_id
-		 WHERE e.project_id = $1::uuid
-		 ORDER BY e.starts_at ASC, e.created_at ASC
+			id, title, event_type, start_date, end_date, all_day, start_time, end_time,
+			owner, phase, artifact_type, description, location, event_kind,
+			linked_artifacts, tags, source_title, created_at, updated_at
+		 FROM (
+			SELECT
+				e.id::text AS id,
+				e.title AS title,
+				e.event_type::text AS event_type,
+				COALESCE(to_char(e.starts_at, 'YYYY-MM-DD'), '') AS start_date,
+				COALESCE(to_char(e.ends_at, 'YYYY-MM-DD'), '') AS end_date,
+				e.all_day AS all_day,
+				COALESCE(e.start_time, '') AS start_time,
+				COALESCE(e.end_time, '') AS end_time,
+				COALESCE(u.name, '') AS owner,
+				e.phase::text AS phase,
+				COALESCE(e.artifact_type::text, 'Manual') AS artifact_type,
+				COALESCE(e.description, '') AS description,
+				COALESCE(e.location, '') AS location,
+				COALESCE(e.event_kind, '') AS event_kind,
+				COALESCE(e.linked_artifacts, '[]'::jsonb) AS linked_artifacts,
+				COALESCE(e.tags, '[]'::jsonb) AS tags,
+				COALESCE(e.source_title, '') AS source_title,
+				COALESCE(to_char(e.created_at, 'YYYY-MM-DD'), '') AS created_at,
+				COALESCE(to_char(e.updated_at, 'YYYY-MM-DD'), '') AS updated_at,
+				e.starts_at AS sort_ts,
+				e.created_at AS sort_ts2
+			FROM calendar_events e
+			LEFT JOIN users u ON u.id = e.owner_user_id
+			WHERE e.project_id = $1::uuid
+
+			UNION ALL
+
+			SELECT
+				t.id::text, t.title, 'Derived',
+				COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), ''),
+				COALESCE(to_char(t.due_at, 'YYYY-MM-DD'), ''),
+				TRUE, '', '',
+				COALESCE(u.name, ''), 'Prototype', 'Task',
+				'', '', 'Deadline',
+				'[]'::jsonb, '[]'::jsonb, t.title,
+				COALESCE(to_char(t.created_at, 'YYYY-MM-DD'), ''),
+				COALESCE(to_char(t.updated_at, 'YYYY-MM-DD'), ''),
+				t.due_at, t.created_at
+			FROM tasks t
+			LEFT JOIN users u ON u.id = t.owner_user_id
+			WHERE t.project_id = $1::uuid AND t.due_at IS NOT NULL
+
+			UNION ALL
+
+			SELECT
+				f.id::text, f.title, 'Derived',
+				COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''),
+				COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''),
+				TRUE, '', '',
+				COALESCE(u.name, ''), 'Test', 'Feedback',
+				'', '', 'Feedback',
+				'[]'::jsonb, '[]'::jsonb, f.title,
+				COALESCE(to_char(f.created_at, 'YYYY-MM-DD'), ''),
+				COALESCE(to_char(f.updated_at, 'YYYY-MM-DD'), ''),
+				f.created_at, f.created_at
+			FROM feedback f
+			LEFT JOIN users u ON u.id = f.owner_user_id
+			WHERE f.project_id = $1::uuid AND f.status = 'Active'::feedback_status
+		 ) combined
+		 ORDER BY sort_ts ASC, sort_ts2 ASC
 		 OFFSET $2 LIMIT $3`,
 		func(row storage.RowScanner) error {
 			rec, scanErr := scanCalendarRecord(row)

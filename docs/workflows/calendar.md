@@ -36,10 +36,27 @@ Write routes also include:
 - Service wraps writes in `store.WithTx(...)`.
 - Repository persists calendar event rows in relational store.
 
+## Derived Events
+
+`GET /calendar` returns two kinds of event:
+
+- **Manual** events, stored in `calendar_events` and fully editable via the
+  create/update/delete routes.
+- **Derived** events (`type = "Derived"`), projected at query time from other
+  artifacts and **not** stored:
+  - task deadlines — one per task with a non-null `due_at` (`artifactType = "Task"`).
+  - captured feedback — one per `Active` feedback row (`artifactType = "Feedback"`).
+
+  Derived events are read-only: they carry the source artifact's id, so
+  get/update/delete on that id return `404` from the calendar module (edit the
+  source task/feedback instead). Because they are computed from the source on
+  every read, they can never go stale relative to it.
+
 ## Side Effects
 
 - no route cache policies currently configured.
 - no document store path for calendar module.
+- notification fan-out (`notify_artifact_created`) on manual event creation.
 
 ## Route Workflow Matrix
 

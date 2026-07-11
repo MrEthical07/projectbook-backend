@@ -171,6 +171,13 @@ Required patterns:
 Relational path guidance:
 
 1. Add migration files under db/migrations (with matching up/down scripts).
+   - The down.sql must be a real structural inverse of the up (drop what it
+     created, children before parents). Only leave a documented no-op where the
+     revert is genuinely impossible (e.g. `ALTER TYPE ... ADD VALUE`, which
+     Postgres cannot undo). Never ship a `SELECT 1;` stub for a reversible change.
+   - After any schema change, run `./scripts/check-schema.sh --update` to
+     regenerate the golden snapshot `db/schema.generated.sql` and commit it; CI
+     diffs against it and enforces up/down parity.
 2. Write SQL inline in the module repository (repo.go) against storage.RelationalStore.
 3. Map rows to domain types inside the repository.
 
