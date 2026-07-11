@@ -117,7 +117,7 @@ WHERE pm.project_id = $1::uuid
 	query := fmt.Sprintf(`
 INSERT INTO notifications (user_id, project_id, source_type, source_id, title, message)
 SELECT $7::uuid, $1::uuid, $2::notification_source_type, NULLIF($3, '')::uuid, $4, $5
-WHERE ($6 = '' OR $7 <> $6)
+	WHERE ($6 = '' OR $7 <> NULLIF($6, '')::uuid)
   AND EXISTS (SELECT 1 FROM users u WHERE u.id = $7::uuid)
   AND COALESCE((SELECT a.in_app_notifications FROM account_settings a WHERE a.user_id = $7::uuid), TRUE)
   AND %s`, gate)
