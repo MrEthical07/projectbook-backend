@@ -12,4 +12,4 @@
 # and squeezes repeated blank lines.
 set -euo pipefail
 
-grep -v -E -e '^--' -e '^SET ' -e '^SELECT pg_catalog' -e '^\\' | cat -s
+(grep -v -E -e '^--' -e '^SET ' -e '^SELECT pg_catalog' -e '^\\' || true) | cat -s
