@@ -1,5 +1,4 @@
 GO ?= go
-SQLC ?= sqlc
 MIGRATE ?= migrate
 DB_URL ?=
 K6 ?= k6
@@ -18,7 +17,7 @@ PERF_REFRESH_BUFFER_SECONDS ?= 30
 PERF_SUSTAIN_RPS_RATIO ?= 0.95
 PERF_OUTPUT_DIR ?= performance/results
 
-.PHONY: fmt vet test test-integration tidy run db-sync sqlc-generate migrate-create migrate-up migrate-down migrate-version module auth auth-config perf-token load-k6-10k load-vegeta-10k bench-hotpath verify route-details
+.PHONY: fmt vet test test-integration tidy run migrate-create migrate-up migrate-down migrate-version module auth auth-config perf-token load-k6-10k load-vegeta-10k bench-hotpath verify route-details
 
 fmt:
 	$(GO) fmt ./...
@@ -37,13 +36,6 @@ tidy:
 
 run:
 	$(GO) run .
-
-db-sync:
-	$(GO) run ./cmd/modulesync
-
-sqlc-generate:
-	$(MAKE) db-sync
-	$(SQLC) generate
 
 migrate-create:
 	@if [ -z "$(NAME)" ]; then echo "NAME is required"; exit 1; fi

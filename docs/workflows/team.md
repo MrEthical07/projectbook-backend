@@ -39,12 +39,28 @@ Write routes:
 - Services enforce business rules and open `store.WithTx(...)` for writes.
 - Repo handles invite/member/role persistence.
 
+## Invite Lifecycle & Roster
+
+- **Expiry.** Before any invite read or create, pending invites past their
+  `expires_at` are swept to `invite_status='expired'` (`expireStalePendingInvites`).
+  This is the only writer of `expired`. Effects: the members payload surfaces
+  expired invites (the invite list returns `pending` + `expired`), and the
+  address becomes re-invitable because the partial unique index on
+  `(project_id, email) WHERE status='pending'` is freed.
+- **Unified roster.** `ListMembersAndInvites` merges active `project_members`
+  with pending invites that resolve to a registered user, returning the latter
+  inline in `members` with `status='Invited'`. `project_invites` remains the
+  single source of truth for pending membership — no `Invited` row is written to
+  `project_members`. Invites to not-yet-registered emails appear only in the
+  `invites` list (they have no user to render as a member).
+
 ## Side Effects
 
 - cache tags: `team.members`, `team.roles`
 - write routes invalidate team tags
 - permission updates trigger redis permission-scope invalidation for impacted users
 - batch invites support partial success semantics (`207`)
+- invite creation fans a `Project Invitation` notification to the invited user
 
 ## Route Detail Notes
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/pagination"
 	"github.com/MrEthical07/projectbook-backend/internal/core/patchx"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
@@ -202,6 +203,16 @@ func (r *repo) CreateResource(ctx context.Context, projectID, actorUserID, name,
 	}); err != nil {
 		return nil, err
 	}
+	// Best-effort notification fan-out; a failure here must not fail the create.
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: identity.UUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  notify.GateArtifactCreated,
+		Title:       "New Resource added",
+		Message:     fmt.Sprintf("%s added resource “%s”", ownerName, createdName),
+		SourceID:    id,
+	})
 
 	return map[string]any{
 		"id":          id,
@@ -389,6 +400,17 @@ func (r *repo) UpdateResource(ctx context.Context, projectID, resourceID, actorU
 	}); err != nil {
 		return nil, err
 	}
+	// Resource updates have their own project toggle (notify_resource_updated).
+	// Best-effort: a notification failure must not fail the update.
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: identity.UUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  notify.GateResourceUpdated,
+		Title:       "Resource updated",
+		Message:     fmt.Sprintf("Resource “%s” was updated", outName),
+		SourceID:    id,
+	})
 
 	linkedCount, _ := r.countResourceLinks(ctx, identity.UUID, id)
 	version, _ := r.latestResourceVersion(ctx, id)

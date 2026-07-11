@@ -1,6 +1,31 @@
 # Changelog
 
 All notable changes to this template are documented in this file.
+Note: There have been some missing changelog entries in the past, so this file may not be complete for all historical releases. Please refer to the git history for a complete list of changes.
+
+## v1.2.0 (2026-07-10)
+
+### Added
+- **Notifications inbox is now populated.** New `internal/core/notify` fan-out writes `notifications` rows from project events, gated by `project_settings.notify_*` and the recipient's `account_settings.in_app_notifications`; the actor is never notified of their own action. Wired into artifact created (`notify_artifact_created`), feedback added (`notify_feedback_added`), resource updated (`notify_resource_updated`), task assigned to a member (`notify_task_assigned`, directed at newly-added assignees only), and project invitations (`Project Invitation`, directed at the invited user).
+- **Project activity feed completed for core artifacts.** Stories, journeys, problems, ideas, tasks and feedback now record `created`/`updated` entries in `activity_log` (previously only pages/resources/calendar did).
+- **Derived calendar events.** `GET /calendar` now surfaces task deadlines (`tasks.due_at`) and captured active feedback as read-only `Derived` events alongside manual events, using the pre-existing `calendar_event_type='Derived'` / `calendar_artifact_type` vocabulary. They are projected at query time, so they never drift from their source artifact.
+- **Invite expiry.** Pending invites past `expires_at` are marked `invite_status='expired'` (first writer of that value) on every invite read/create; expired invites are surfaced in the team payload and the address becomes re-invitable.
+- **Unified team roster.** Pending invites that resolve to a registered user now appear inline in the members list as `Invited` (source of truth remains `project_invites`; merged at read time — no dual-write to `project_members`).
+- **Schema drift guard.** `scripts/check-schema.sh` applies all migrations to a throwaway Postgres and diffs against the golden `db/schema.generated.sql`, and enforces up/down migration parity.
+
+### Changed
+- Migration `down.sql` files are now honest structural inverses instead of no-op `SELECT 1;`. The only exception is `000012` (adds an enum value), which stays a documented no-op because PostgreSQL cannot drop an enum value; a full rollback removes it when `000004`'s down drops the type.
+
+### Removed
+- Dropped unused/orphaned tables `auth_sessions`, `email_verification_tokens`, `password_reset_tokens`, `auth_email_log`, `document_sync_outbox`, `tenants`, and the legacy `users.role` / `users.permissions` / `users.status` columns (migration `000017`); all had zero application references.
+- Removed the orphaned sqlc pipeline (`internal/core/db/sqlcgen`, `sqlc.yaml`, `db/schema/`, `db/queries/`, and the `modulesync` tool) that produced code nothing imported.
+
+### Database
+- `000017` drops the unused tables/columns above. `000018` adds `project_settings.notify_task_assigned` (default `TRUE`).
+- Added golden schema snapshot `db/schema.generated.sql` and `.gitattributes` enforcing LF for `*.sh`, migration SQL, and the snapshot.
+
+### Documentation
+- Updated calendar/team workflow docs for derived events, invite expiry, and the unified roster; documented the migration rollback policy in `AGENTS.md`.
 
 ## v0.7.12 (2026-04-20)
 

@@ -94,6 +94,23 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./... || true
 
+  schema-check:
+    name: Schema Drift Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Verify migrations reproduce the golden schema snapshot
+        run: bash scripts/check-schema.sh
+
   integration:
     name: Integration (Postgres + Redis + Mongo)
     if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
@@ -208,12 +225,13 @@ jobs:
     name: CI Gate
     runs-on: ubuntu-latest
     if: always()
-    needs: [quality, lint-security, integration, docker-build]
+    needs: [quality, lint-security, schema-check, integration, docker-build]
     steps:
       - name: Show upstream job results
         run: |
           echo "quality=${{ needs.quality.result }}"
           echo "lint-security=${{ needs['lint-security'].result }}"
+          echo "schema-check=${{ needs['schema-check'].result }}"
           echo "integration=${{ needs.integration.result }}"
           echo "docker-build=${{ needs['docker-build'].result }}"
 
@@ -221,6 +239,7 @@ jobs:
         run: |
           [[ "${{ needs.quality.result }}" == "success" ]] || exit 1
           [[ "${{ needs['lint-security'].result }}" == "success" ]] || exit 1
+          [[ "${{ needs['schema-check'].result }}" == "success" ]] || exit 1
           [[ "${{ needs['docker-build'].result }}" == "success" ]] || exit 1
           if [[ "${{ needs.integration.result }}" != "success" && "${{ needs.integration.result }}" != "skipped" ]]; then
             echo "integration must be success or skipped"

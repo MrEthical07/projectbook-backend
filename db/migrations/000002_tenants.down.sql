@@ -1,3 +1,2 @@
--- NOTE: Forward-only migration strategy is enforced for production safety.
--- SAFE: rollback scripts are intentionally no-op to prevent accidental data loss.
-SELECT 1;
+-- Reverses 000002. Drops the tenants table; its index is dropped with it.
+DROP TABLE IF EXISTS tenants;

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/patchx"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
@@ -136,6 +137,16 @@ func (r *repo) CreatePage(ctx context.Context, projectID, actorUserID, title str
 	}); err != nil {
 		return nil, err
 	}
+	// Best-effort notification fan-out; a failure here must not fail the create.
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: identity.UUID,
+		ActorUserID: actorUserID,
+		SourceType:  notify.SourceProjectActivity,
+		GateColumn:  notify.GateArtifactCreated,
+		Title:       "New Page created",
+		Message:     fmt.Sprintf("%s created page “%s”", ownerName, createdTitle),
+		SourceID:    id,
+	})
 	return map[string]any{
 		"id":                   id,
 		"title":                createdTitle,

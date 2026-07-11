@@ -30,7 +30,7 @@ type ModuleSpec struct {
 
 // TemplateOptions toggles optional scaffolding features.
 type TemplateOptions struct {
-	// UseDB includes SQL scaffold files.
+	// UseDB wires a pgxpool.Pool dependency into the module.
 	UseDB bool
 	// UseAuth includes AuthRequired policy wiring.
 	UseAuth bool
@@ -195,10 +195,6 @@ func RenderFiles(cfg TemplateConfig) map[string]string {
 		"repo.go":         renderRepoFile(spec.Package),
 		"handler_test.go": renderHandlerTestFile(spec),
 		"service_test.go": renderServiceTestFile(spec),
-	}
-	if cfg.Options.UseDB {
-		files[filepath.Join("db", "schema.sql")] = renderModuleSchema(spec)
-		files[filepath.Join("db", "queries.sql")] = renderModuleQueries(spec)
 	}
 	return files
 }
@@ -369,25 +365,6 @@ func renderServiceTestFile(spec ModuleSpec) string {
 		"\tif res.Module != \"" + spec.Package + "\" {\n\t\tt.Fatalf(\"module=%q want=%q\", res.Module, \"" + spec.Package + "\")\n\t}\n}\n"
 }
 
-func renderModuleSchema(spec ModuleSpec) string {
-	return "-- Module-local sqlc schema source for " + spec.Package + ".\n" +
-		"-- Keep module SQL here. `make sqlc-generate` syncs this file into db/schema/" + spec.Package + ".sql.\n" +
-		"-- Example:\n" +
-		"-- CREATE TABLE IF NOT EXISTS " + spec.RoutePath + " (\n" +
-		"--     id TEXT PRIMARY KEY,\n" +
-		"--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n" +
-		"-- );\n"
-}
-
-func renderModuleQueries(spec ModuleSpec) string {
-	return "-- Module-local sqlc queries for " + spec.Package + ".\n" +
-		"-- Keep module queries here. `make sqlc-generate` syncs this file into db/queries/" + spec.Package + ".sql.\n" +
-		"-- Example:\n" +
-		"-- name: List" + toPascalCase(spec.Package) + " :many\n" +
-		"-- SELECT id, created_at\n" +
-		"-- FROM " + spec.RoutePath + ";\n"
-}
-
 func renderRepoFile(pkg string) string {
 	return "package " + pkg + "\n\n" +
 		"type Repo struct{}\n\n" +
@@ -484,7 +461,6 @@ func generateMigrationScaffold(workspaceRoot string, spec ModuleSpec, force bool
 	}
 
 	upContent := "-- Migration scaffold for module " + spec.Package + ".\n" +
-		"-- Module-local sqlc files live under internal/modules/" + spec.Package + "/db/.\n" +
 		"-- Add your CREATE TABLE / ALTER TABLE statements here.\n"
 	downContent := "-- Rollback scaffold for module " + spec.Package + ".\n" +
 		"-- Add the matching DROP / rollback statements here.\n"
@@ -542,21 +518,6 @@ func nextMigrationNumber(migrationsDir string) (int, error) {
 		}
 	}
 	return maxNum + 1, nil
-}
-
-func toPascalCase(pkg string) string {
-	parts := strings.Split(pkg, "_")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		out = append(out, strings.ToUpper(part[:1])+part[1:])
-	}
-	if len(out) == 0 {
-		return "Module"
-	}
-	return strings.Join(out, "")
 }
 
 func parseModulePath(goMod string) (string, error) {

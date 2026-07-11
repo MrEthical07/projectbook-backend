@@ -10,6 +10,7 @@ import (
 	"time"
 
 	apperr "github.com/MrEthical07/projectbook-backend/internal/core/errors"
+	"github.com/MrEthical07/projectbook-backend/internal/core/notify"
 	"github.com/MrEthical07/projectbook-backend/internal/core/rbac"
 	"github.com/MrEthical07/projectbook-backend/internal/core/storage"
 	"github.com/jackc/pgx/v5"
@@ -104,6 +105,37 @@ SELECT
 	COALESCE(to_char(i.sent_at, 'YYYY-MM-DD'), ''),
 	i.status::text
 FROM project_invites i
+WHERE i.project_id = $1::uuid
+	AND i.status IN ('pending', 'expired')
+ORDER BY i.sent_at DESC
+`
+
+// queryExpireStalePendingInvites flips pending invites past their expiry to
+// 'expired'. This is the only writer of invite_status='expired'; it frees the
+// partial unique index on (project_id, email) WHERE status='pending' so the
+// same address can be re-invited, and lets the UI surface expired invites.
+const queryExpireStalePendingInvites = `
+UPDATE project_invites
+SET status = 'expired', updated_at = NOW()
+WHERE project_id = $1::uuid
+	AND status = 'pending'
+	AND expires_at < NOW()
+`
+
+// queryListInvitedMembers returns pending invites that resolve to a registered
+// user, shaped like project members with status 'Invited'. project_invites is
+// the single source of truth for pending membership; this merges those users
+// into the roster at read time rather than dual-writing project_members.
+const queryListInvitedMembers = `
+SELECT
+	i.id::text,
+	u.name,
+	u.email,
+	i.assigned_role::text,
+	'Invited'::text,
+	''::text
+FROM project_invites i
+JOIN users u ON lower(u.email) = lower(i.email)
 WHERE i.project_id = $1::uuid
 	AND i.status = 'pending'
 ORDER BY i.sent_at DESC
@@ -296,6 +328,18 @@ func (r *repo) ResolveProjectIdentity(ctx context.Context, projectID string) (te
 	return identity, nil
 }
 
+// expireStalePendingInvites marks pending invites whose expiry has passed as
+// 'expired'. Idempotent and safe to call before any invite read or write.
+func (r *repo) expireStalePendingInvites(ctx context.Context, projectUUID string) error {
+	if err := r.store.Execute(ctx, storage.RelationalExec(
+		queryExpireStalePendingInvites,
+		projectUUID,
+	)); err != nil {
+		return wrapRepoError("expire stale invites", err)
+	}
+	return nil
+}
+
 func (r *repo) ListMembersAndInvites(ctx context.Context, projectID string) (teamMembersResponse, error) {
 	if err := r.requireStore(); err != nil {
 		return teamMembersResponse{}, err
@@ -306,25 +350,33 @@ func (r *repo) ListMembersAndInvites(ctx context.Context, projectID string) (tea
 		return teamMembersResponse{}, err
 	}
 
+	// Expire stale pending invites before reading, so the roster and invite
+	// list reflect the true state. Best-effort: a failed sweep must not break
+	// the read.
+	_ = r.expireStalePendingInvites(ctx, identity.UUID)
+
 	response := teamMembersResponse{
 		Members: make([]teamMember, 0, 32),
 		Invites: make([]teamInvite, 0, 32),
 	}
 
-	err = r.store.Execute(ctx, storage.RelationalQueryMany(
-		queryListTeamMembers,
-		func(row storage.RowScanner) error {
-			var member teamMember
-			if err := row.Scan(&member.ID, &member.Name, &member.Email, &member.Role, &member.Status, &member.JoinedAt); err != nil {
-				return err
-			}
-			response.Members = append(response.Members, member)
-			return nil
-		},
-		identity.UUID,
-	))
-	if err != nil {
+	scanMember := func(row storage.RowScanner) error {
+		var member teamMember
+		if err := row.Scan(&member.ID, &member.Name, &member.Email, &member.Role, &member.Status, &member.JoinedAt); err != nil {
+			return err
+		}
+		response.Members = append(response.Members, member)
+		return nil
+	}
+
+	// Active members from project_members, then pending invites that resolve to
+	// a registered user, surfaced inline as 'Invited' members (single source of
+	// truth stays project_invites — see queryListInvitedMembers).
+	if err = r.store.Execute(ctx, storage.RelationalQueryMany(queryListTeamMembers, scanMember, identity.UUID)); err != nil {
 		return teamMembersResponse{}, wrapRepoError("list team members", err)
+	}
+	if err = r.store.Execute(ctx, storage.RelationalQueryMany(queryListInvitedMembers, scanMember, identity.UUID)); err != nil {
+		return teamMembersResponse{}, wrapRepoError("list invited members", err)
 	}
 
 	err = r.store.Execute(ctx, storage.RelationalQueryMany(
@@ -431,6 +483,12 @@ func (r *repo) CreateInvite(ctx context.Context, input createInviteInput) (creat
 		return createInviteResponse{}, err
 	}
 
+	// Expire stale invites first so a previously-expired address can be
+	// re-invited (frees the partial unique index) and status checks are accurate.
+	if err := r.expireStalePendingInvites(ctx, identity.UUID); err != nil {
+		return createInviteResponse{}, err
+	}
+
 	userExists, err := r.userEmailExists(ctx, input.Email)
 	if err != nil {
 		return createInviteResponse{}, err
@@ -486,7 +544,44 @@ func (r *repo) CreateInvite(ctx context.Context, input createInviteInput) (creat
 		return createInviteResponse{}, wrapRepoError("create invite", err)
 	}
 
+	// Notify the invited user (invites always target a registered user). Not
+	// gated by a project artifact toggle. Best-effort: never fail the invite.
+	r.notifyInvitee(ctx, identity.UUID, input.InvitedByUserID, input.Email, response.Role)
+
 	return response, nil
+}
+
+// notifyInvitee sends a "Project Invitation" notification to the invited user.
+func (r *repo) notifyInvitee(ctx context.Context, projectUUID, inviterUserID, email, role string) {
+	var userID, projectName string
+	if err := r.store.Execute(ctx, storage.RelationalQueryOne(
+		`SELECT
+			COALESCE((SELECT id::text FROM users WHERE lower(email) = lower($1) LIMIT 1), ''),
+			COALESCE((SELECT name FROM projects WHERE id = $2::uuid), '')`,
+		func(row storage.RowScanner) error { return row.Scan(&userID, &projectName) },
+		normalizeEmail(email),
+		projectUUID,
+	)); err != nil {
+		return
+	}
+	if strings.TrimSpace(userID) == "" {
+		return
+	}
+	message := "You were invited to join a project"
+	if projectName != "" {
+		message = fmt.Sprintf("You were invited to join “%s”", projectName)
+	}
+	if strings.TrimSpace(role) != "" {
+		message = fmt.Sprintf("%s as %s", message, role)
+	}
+	_ = notify.NewFanout(r.store).Publish(ctx, notify.Event{
+		ProjectUUID: projectUUID,
+		ActorUserID: inviterUserID,
+		SourceType:  notify.SourceProjectInvitation,
+		Title:       "Project invitation",
+		Message:     message,
+		Recipients:  []string{strings.TrimSpace(userID)},
+	})
 }
 
 func (r *repo) CancelInvite(ctx context.Context, projectID, email string) (cancelInviteResponse, error) {
