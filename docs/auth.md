@@ -26,6 +26,7 @@ Auth responsibility is intentionally split:
 
 Core code paths:
 - `internal/core/auth/goauth_provider.go`
+- `internal/core/auth/config.go`
 - `internal/core/auth/provider.go`
 - `internal/core/auth/provider_store.go`
 - `internal/core/auth/user_repository.go`
@@ -135,12 +136,13 @@ Default mode is `hybrid` when empty.
 
 ## 5. ProjectBook goAuth Configuration
 
-ProjectBook config is set in `projectBookGoAuthConfig(mode)`.
+ProjectBook config is set in `projectBookGoAuthConfig(mode)` (`internal/core/auth/config.go`).
 
 ### 5.1 Token and identity defaults
 
 - `JWT.AccessTTL = 5m`
-- `JWT.RefreshTTL = 7d`
+- `JWT.RefreshTTL = 30d` (upper bound for the refresh-token JWT; the real per-login
+  session lifetime is controlled by `Session.*` below)
 - `JWT.Issuer = projectbook`
 - `JWT.Audience = projectbook-api`
 - `JWT.KeyID = v1`
@@ -161,7 +163,9 @@ ProjectBook config is set in `projectBookGoAuthConfig(mode)`.
 ### 5.3 Session and feature flags
 
 - `Session.SlidingExpiration = true`
-- `Session.AbsoluteSessionLifetime = 7d`
+- `Session.AbsoluteSessionLifetime = 7d` (default, non-remember-me session lifetime)
+- `Session.MaxSessionDuration = 30d` (remember-me session ceiling; login sets this via
+  `LoginOptions{RememberMe: true}` passed to `Engine.LoginWithOptions`)
 - `DeviceBinding.Enabled = false`
 - `MultiTenant.Enabled = false`
 - `Permission.MaxBits = 64`
@@ -327,8 +331,10 @@ Check:
 
 - Mode parsing/defaults:
   - `internal/core/auth/provider.go`
-- Engine config values:
+- Engine construction:
   - `internal/core/auth/goauth_provider.go`
+- Engine config values (TTLs, session lifetimes, feature flags):
+  - `internal/core/auth/config.go`
 - User persistence contract:
   - `internal/core/auth/user_repository.go`
 - Provider bridge for goAuth:
