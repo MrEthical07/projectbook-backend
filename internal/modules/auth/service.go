@@ -98,7 +98,12 @@ func (s *service) Login(ctx context.Context, req loginRequest) (authTokenRespons
 		return authTokenResponse{}, err
 	}
 
-	accessToken, refreshToken, err := engine.Login(ctx, normalizeEmail(req.Email), req.Password)
+	result, err := engine.LoginWithOptions(
+		ctx,
+		normalizeEmail(req.Email),
+		req.Password,
+		goauth.LoginOptions{RememberMe: req.Remember},
+	)
 	if err != nil {
 		if errors.Is(err, goauth.ErrAccountUnverified) {
 			details := map[string]any{}
@@ -118,7 +123,8 @@ func (s *service) Login(ctx context.Context, req loginRequest) (authTokenRespons
 		return authTokenResponse{}, mapAuthTokenError(err, "invalid credentials")
 	}
 
-	return buildAuthTokenResponse(accessToken, refreshToken)
+	// MFA is disabled in ProjectBook config, so result carries tokens directly.
+	return buildAuthTokenResponse(result.AccessToken, result.RefreshToken)
 }
 
 func (s *service) Refresh(ctx context.Context, req refreshRequest) (authTokenResponse, error) {

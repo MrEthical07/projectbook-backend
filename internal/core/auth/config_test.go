@@ -70,8 +70,8 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	if cfg.JWT.AccessTTL != 5*time.Minute {
 		t.Fatalf("AccessTTL=%s want=%s", cfg.JWT.AccessTTL, 5*time.Minute)
 	}
-	if cfg.JWT.RefreshTTL != 7*24*time.Hour {
-		t.Fatalf("RefreshTTL=%s want=%s", cfg.JWT.RefreshTTL, 7*24*time.Hour)
+	if cfg.JWT.RefreshTTL != 30*24*time.Hour {
+		t.Fatalf("RefreshTTL=%s want=%s", cfg.JWT.RefreshTTL, 30*24*time.Hour)
 	}
 	if cfg.JWT.Issuer != "projectbook" {
 		t.Fatalf("Issuer=%q want=%q", cfg.JWT.Issuer, "projectbook")
@@ -116,6 +116,9 @@ func TestProjectBookGoAuthConfigControlledOverrides(t *testing.T) {
 	}
 	if cfg.Session.AbsoluteSessionLifetime != 7*24*time.Hour {
 		t.Fatalf("AbsoluteSessionLifetime=%s want=%s", cfg.Session.AbsoluteSessionLifetime, 7*24*time.Hour)
+	}
+	if cfg.Session.MaxSessionDuration != 30*24*time.Hour {
+		t.Fatalf("MaxSessionDuration=%s want=%s", cfg.Session.MaxSessionDuration, 30*24*time.Hour)
 	}
 	if cfg.DeviceBinding.Enabled {
 		t.Fatalf("DeviceBinding.Enabled=true want=false")

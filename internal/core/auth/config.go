@@ -13,7 +13,10 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 
 	// JWT identity for ProjectBook API.
 	cfg.JWT.AccessTTL = 5 * time.Minute
-	cfg.JWT.RefreshTTL = 7 * 24 * time.Hour
+	// Upper bound for the refresh-token JWT. The real per-login session lifetime
+	// is controlled by Session.* below (7d default, 30d remember-me); this must be
+	// >= the longest session so a 30-day remember token can still refresh.
+	cfg.JWT.RefreshTTL = 30 * 24 * time.Hour
 	cfg.JWT.Issuer = "projectbook"
 	cfg.JWT.Audience = "projectbook-api"
 	cfg.JWT.KeyID = "v1"
@@ -36,6 +39,9 @@ func projectBookGoAuthConfig(mode Mode) goauth.Config {
 	// Session behavior remains default but explicit for deterministic setup.
 	cfg.Session.SlidingExpiration = true
 	cfg.Session.AbsoluteSessionLifetime = 7 * 24 * time.Hour
+	// Remember-me (LoginOptions.RememberMe=true) sessions live up to this ceiling.
+	// Non-remember sessions stay at min(RefreshTTL, AbsoluteSessionLifetime) = 7d.
+	cfg.Session.MaxSessionDuration = 30 * 24 * time.Hour
 
 	// Disable unsupported features for controlled pre-production setup.
 	cfg.DeviceBinding.Enabled = false
