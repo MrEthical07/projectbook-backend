@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+# Builds the standalone migration runner (cmd/migrate) together with the SQL
+# migration files, so `docker compose` can apply migrations before the API starts.
+# Migrations are NOT embedded in the binary, so the db/migrations directory is
+# copied into the final image alongside the binary.
+
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /src
+
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
+
+FROM alpine:3.20
+
+WORKDIR /app
+
+COPY --from=builder /out/migrate /app/migrate
+COPY --from=builder /src/db/migrations /app/db/migrations
+
+# Default command is `up`; override in compose if needed (e.g. `version`, `down`).
+ENTRYPOINT ["/app/migrate"]
+CMD ["up"]
