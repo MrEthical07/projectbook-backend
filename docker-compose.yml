@@ -113,9 +113,41 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # One-shot helper: marks every existing account as email-verified.
+  #
+  #   docker compose run --rm verify
+  #
+  # Self-host runs with EMAIL_ENABLED=false, so the verification OTP is never
+  # sent, and the web layer redirects unverified sessions to /auth/verify. Sign
+  # up first, then run this once to get in. Not started by `up` — it is a manual
+  # convenience for local/demo use only.
+  verify:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    environment:
+      PGPASSWORD: projectbook
+    entrypoint:
+      - psql
+      - -h
+      - postgres
+      - -U
+      - projectbook
+      - -d
+      - projectbook
+      - -v
+      - ON_ERROR_STOP=1
+      - -c
+      - UPDATE users SET is_email_verified = true WHERE is_email_verified = false;
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   web:
     build:
-      # Frontend repo, expected as a sibling folder named `projectbook`.
+      # Frontend repo, expected as a sibling folder named `projectbook` (the
+      # folder `git clone` creates). Override WEB_CONTEXT if your checkout is
+      # named or located differently, e.g. WEB_CONTEXT=../Web.
       context: ${WEB_CONTEXT:-../projectbook}
       args:
         PUBLIC_PROJECTBOOK_SITE_URL: http://localhost:3000
