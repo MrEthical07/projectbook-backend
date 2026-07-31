@@ -2,9 +2,6 @@
 
 Run the entire stack — web app, Go API, Postgres, MongoDB, Redis — with one command.
 
-> **Status:** this compose stack has been reviewed against the code and schema but
-> has **not yet been booted end to end**. If you hit a snag, please open an issue.
-
 ## Prerequisites
 
 - Docker + Docker Compose v2
@@ -57,6 +54,15 @@ Defaults are baked into `docker-compose.yml` for a frictionless local run. For a
 
   ```bash
   WEB_CONTEXT=/path/to/projectbook docker compose up --build
+  ```
+
+- **Serving on a different URL** — set `PUBLIC_SITE_URL` to the exact origin you
+  open in the browser. It feeds SvelteKit's `ORIGIN`, which `adapter-node` uses to
+  validate form POSTs; if it does not match, every login fails with
+  *"Cross-site POST form submissions are forbidden"*.
+
+  ```bash
+  PUBLIC_SITE_URL=https://projectbook.example.com docker compose up --build
   ```
 
 ## Email is disabled by default — and first login needs one extra step
@@ -114,7 +120,8 @@ Set `EMAIL_ENABLED=true` plus `RESEND_API_KEY` and the sender addresses from
 - First build compiles the Go binary and runs a full `pnpm` web build, so the
   initial `up` takes a few minutes. Subsequent runs are cached.
 - This compose targets local/self-host use. For a public deployment, put it behind
-  a reverse proxy with TLS, set strong secrets, and review CORS `allowedOrigins`.
+  a reverse proxy with TLS, set strong secrets, set `PUBLIC_SITE_URL` to your public
+  URL, and review CORS `allowedOrigins`.
 
 <!-- TODO (follow-up): seed a demo project + pre-verified demo user on first run so
      new self-hosters land on populated data instead of an empty workspace. Needs a

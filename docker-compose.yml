@@ -158,7 +158,13 @@ services:
       # Server-to-server (BFF → API) inside the compose network.
       PROJECTBOOK_API_BASE_URL: http://api:8080/api/v1
       API_URL: http://api:8080
-      PUBLIC_PROJECTBOOK_SITE_URL: http://localhost:3000
+      PUBLIC_PROJECTBOOK_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+      # adapter-node derives its public origin from ORIGIN. Without it, SvelteKit
+      # cannot match the Origin header on form POSTs and rejects every login with
+      # "Cross-site POST form submissions are forbidden". Must equal the URL you
+      # open in the browser, so override both when not on localhost:3000, e.g.
+      #   PUBLIC_SITE_URL=https://pb.example.com docker compose up
+      ORIGIN: ${PUBLIC_SITE_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
     depends_on:
