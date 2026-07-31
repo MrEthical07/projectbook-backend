@@ -56,21 +56,61 @@ Defaults are baked into `docker-compose.yml` for a frictionless local run. For a
   WEB_CONTEXT=/path/to/projectbook docker compose up --build
   ```
 
-## Email is disabled by default
+- **Serving on a different URL** — set `PUBLIC_SITE_URL` to the exact origin you
+  open in the browser. It feeds SvelteKit's `ORIGIN`, which `adapter-node` uses to
+  validate form POSTs; if it does not match, every login fails with
+  *"Cross-site POST form submissions are forbidden"*.
+
+  ```bash
+  PUBLIC_SITE_URL=https://projectbook.example.com docker compose up --build
+  ```
+
+## Email is disabled by default — and first login needs one extra step
 
 Self-host runs with `EMAIL_ENABLED=false`, so no Resend key is required and no
-verification/reset emails are sent. If your build gates app access behind email
-verification, either enable email (set `EMAIL_ENABLED=true` + `RESEND_API_KEY` and
-the sender addresses from `.env.example`), or mark your account verified directly
-in Postgres:
+verification/reset emails are sent.
+
+This matters, because **new accounts start unverified and the web layer redirects
+unverified users to `/auth/verify`**. With email disabled, the verification OTP is
+never sent, so a fresh signup cannot reach the app on its own.
+
+Concretely:
+
+- Signup writes `users.is_email_verified = false`.
+- The API *permits* login while unverified (`EmailVerification.RequireForLogin = false`).
+- The SvelteKit layer (`hooks.server.ts`) then redirects any unverified session to
+  `/auth/verify`, which is a dead end without email.
+
+### Option A — the bundled `verify` helper (easiest)
+
+The compose file ships a one-shot `verify` service that marks every existing
+account as verified. Sign up once at http://localhost:3000, then run:
+
+```bash
+docker compose run --rm verify
+```
+
+Refresh the page and you're in. Re-run it after each new signup.
+
+It sits behind the `tools` profile, so it never runs as part of `docker compose
+up` — only when you invoke it explicitly.
+
+### Option B — verify one account by hand
 
 ```bash
 docker compose exec postgres psql -U projectbook -d projectbook \
-  -c "UPDATE users SET status='active' WHERE email='you@example.com';"
+  -c "UPDATE users SET is_email_verified = true WHERE email = 'you@example.com';"
 ```
 
-> Confirm the exact column your build uses for verification state against
-> `db/migrations/000003_auth_users.up.sql` before relying on this.
+The column is `is_email_verified`, added by
+`db/migrations/000016_auth_users_schema_reconcile.up.sql`. (The older
+`000003_auth_users.up.sql` has only a `status` column, which is **not** the
+verification flag — updating `status` will not let you in.)
+
+### Option C — real email
+
+Set `EMAIL_ENABLED=true` plus `RESEND_API_KEY` and the sender addresses from
+`.env.example`, and verification works normally.
 
 ## Notes & limitations
 
@@ -80,7 +120,8 @@ docker compose exec postgres psql -U projectbook -d projectbook \
 - First build compiles the Go binary and runs a full `pnpm` web build, so the
   initial `up` takes a few minutes. Subsequent runs are cached.
 - This compose targets local/self-host use. For a public deployment, put it behind
-  a reverse proxy with TLS, set strong secrets, and review CORS `allowedOrigins`.
+  a reverse proxy with TLS, set strong secrets, set `PUBLIC_SITE_URL` to your public
+  URL, and review CORS `allowedOrigins`.
 
 <!-- TODO (follow-up): seed a demo project + pre-verified demo user on first run so
      new self-hosters land on populated data instead of an empty workspace. Needs a

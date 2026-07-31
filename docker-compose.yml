@@ -113,9 +113,41 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # One-shot helper: marks every existing account as email-verified.
+  #
+  #   docker compose run --rm verify
+  #
+  # Self-host runs with EMAIL_ENABLED=false, so the verification OTP is never
+  # sent, and the web layer redirects unverified sessions to /auth/verify. Sign
+  # up first, then run this once to get in. Not started by `up` — it is a manual
+  # convenience for local/demo use only.
+  verify:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    environment:
+      PGPASSWORD: projectbook
+    entrypoint:
+      - psql
+      - -h
+      - postgres
+      - -U
+      - projectbook
+      - -d
+      - projectbook
+      - -v
+      - ON_ERROR_STOP=1
+      - -c
+      - UPDATE users SET is_email_verified = true WHERE is_email_verified = false;
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   web:
     build:
-      # Frontend repo, expected as a sibling folder named `projectbook`.
+      # Frontend repo, expected as a sibling folder named `projectbook` (the
+      # folder `git clone` creates). Override WEB_CONTEXT if your checkout is
+      # named or located differently, e.g. WEB_CONTEXT=../Web.
       context: ${WEB_CONTEXT:-../projectbook}
       args:
         PUBLIC_PROJECTBOOK_SITE_URL: http://localhost:3000
@@ -126,7 +158,13 @@ services:
       # Server-to-server (BFF → API) inside the compose network.
       PROJECTBOOK_API_BASE_URL: http://api:8080/api/v1
       API_URL: http://api:8080
-      PUBLIC_PROJECTBOOK_SITE_URL: http://localhost:3000
+      PUBLIC_PROJECTBOOK_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+      # adapter-node derives its public origin from ORIGIN. Without it, SvelteKit
+      # cannot match the Origin header on form POSTs and rejects every login with
+      # "Cross-site POST form submissions are forbidden". Must equal the URL you
+      # open in the browser, so override both when not on localhost:3000, e.g.
+      #   PUBLIC_SITE_URL=https://pb.example.com docker compose up
+      ORIGIN: ${PUBLIC_SITE_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
     depends_on:
